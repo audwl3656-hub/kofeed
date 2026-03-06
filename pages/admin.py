@@ -7,7 +7,7 @@ from utils.sheets import get_all_data, BASE_FIELDS, submit_data
 from utils.config import (
     get_config, save_config, get_samples, get_component_groups,
     get_nir_groups, get_all_value_columns, get_group_order,
-    get_info_fields,
+    get_info_fields, get_method_options, get_questions,
     is_value_col, get_component_from_col, get_sample_from_col,
     DEFAULT_CONFIG, CONFIG_COLS,
 )
@@ -420,17 +420,76 @@ with tab4:
 
     st.divider()
 
+    # ── 방법 옵션 ─────────────────────────────────────────────
+    st.markdown("### 방법 옵션")
+    st.caption("분석 방법 드롭다운에 표시될 선택지를 관리합니다.")
+    method_df = cfg_edit[cfg_edit["type"] == "method_option"][CONFIG_COLS].reset_index(drop=True)
+    edited_methods = st.data_editor(
+        method_df[["name", "order", "enabled"]],
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "name":    st.column_config.TextColumn("방법명 *"),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+        },
+        key="edit_methods",
+        hide_index=True,
+    )
+    edited_methods["type"]    = "method_option"
+    edited_methods["group"]   = ""
+    edited_methods["samples"] = ""
+    edited_methods = edited_methods[CONFIG_COLS]
+
+    st.divider()
+
+    # ── 추가 질문 ─────────────────────────────────────────────
+    st.markdown("### 추가 질문")
+    st.caption(
+        "제출 폼 하단에 추가할 질문을 관리합니다.\n\n"
+        "**질문 ID**: 데이터 저장 시 컬럼명으로 사용 (영문/숫자/밑줄 권장).\n\n"
+        "**유형(samples 칸)**:\n"
+        "- `text` 또는 `text:힌트` — 주관식\n"
+        "- `choice:옵션1|옵션2|옵션3` — 단일 선택\n"
+        "- `multicheck:옵션1|옵션2|옵션3` — 복수 선택"
+    )
+    question_df = cfg_edit[cfg_edit["type"] == "question"][CONFIG_COLS].reset_index(drop=True)
+    edited_questions = st.data_editor(
+        question_df,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "type":    st.column_config.TextColumn("type", disabled=True, default="question"),
+            "group":   st.column_config.TextColumn("질문 ID", help="컬럼명으로 사용됨"),
+            "name":    st.column_config.TextColumn("질문 내용 *"),
+            "samples": st.column_config.TextColumn(
+                "유형",
+                help="text / text:힌트 / choice:옵션1|옵션2 / multicheck:옵션1|옵션2",
+            ),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+        },
+        key="edit_questions",
+        hide_index=True,
+    )
+    edited_questions["type"] = "question"
+
+    st.divider()
+
     # ── 저장 ──────────────────────────────────────────────────
     col_save, col_reset = st.columns([1, 1])
     with col_save:
         if st.button("설정 저장", type="primary", use_container_width=True):
-            edited_info    = edited_info[edited_info["name"].astype(str).str.strip() != ""]
-            edited_samples = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
-            edited_groups  = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
-            edited_comps   = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
+            edited_info      = edited_info[edited_info["name"].astype(str).str.strip() != ""]
+            edited_samples   = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
+            edited_groups    = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
+            edited_comps     = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
+            edited_methods   = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
+            edited_questions = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
 
             new_cfg = pd.concat(
-                [edited_info, edited_samples, edited_groups, edited_comps],
+                [edited_info, edited_samples, edited_groups,
+                 edited_comps, edited_methods, edited_questions],
                 ignore_index=True,
             )[CONFIG_COLS]
 

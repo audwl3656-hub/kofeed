@@ -18,6 +18,11 @@ CONFIG_COLS = ["type", "group", "name", "samples", "order", "enabled"]
 
 # ── 기본 설정값 ───────────────────────────────────────────────
 _DEFAULT_ROWS = [
+    # 방법 옵션 (드롭다운 선택지)
+    ("method_option", "", "AOAC 방법",     "", 1, True),
+    ("method_option", "", "식약처 고시법", "", 2, True),
+    ("method_option", "", "KS 방법",       "", 3, True),
+    ("method_option", "", "자체 분석법",   "", 4, True),
     # 기관 정보 필드 — group=placeholder, samples=flags(required/email)
     ("info_field", "○○ 연구소",        "기관명",   "required",       1, True),
     ("info_field", "홍길동",            "담당자명", "required",       2, True),
@@ -110,6 +115,68 @@ def save_config(df: pd.DataFrame):
 
 
 # ── 설정 파싱 헬퍼 ────────────────────────────────────────────
+def get_method_options(cfg: pd.DataFrame = None) -> list[str]:
+    """방법 드롭다운 선택지 목록"""
+    if cfg is None:
+        cfg = get_config()
+    rows = (
+        cfg[(cfg["type"] == "method_option") & (cfg["enabled"])]
+        .sort_values("order")
+    )
+    return rows["name"].tolist()
+
+
+def get_questions(cfg: pd.DataFrame = None) -> list[dict]:
+    """
+    추가 질문 목록.
+    samples 형식:
+      "text"                    → 주관식
+      "text:힌트"               → 주관식 (힌트 표시)
+      "choice:옵션1|옵션2"      → 단일 선택
+      "multicheck:옵션1|옵션2"  → 복수 선택
+    반환: [{"id", "text", "type", "options", "hint"}, ...]
+    """
+    if cfg is None:
+        cfg = get_config()
+    rows = (
+        cfg[(cfg["type"] == "question") & (cfg["enabled"])]
+        .sort_values("order")
+    )
+    result = []
+    for _, row in rows.iterrows():
+        q_id   = str(row.get("group", "")).strip()
+        q_text = str(row.get("name", "")).strip()
+        raw    = str(row.get("samples", "")).strip()
+
+        if raw.startswith("choice:"):
+            q_type = "choice"
+            opts   = [o.strip() for o in raw[7:].split("|") if o.strip()]
+            hint   = ""
+        elif raw.startswith("multicheck:"):
+            q_type = "multicheck"
+            opts   = [o.strip() for o in raw[11:].split("|") if o.strip()]
+            hint   = ""
+        elif raw.startswith("text:"):
+            q_type = "text"
+            opts   = []
+            hint   = raw[5:]
+        else:
+            q_type = "text"
+            opts   = []
+            hint   = ""
+
+        if not q_text:
+            continue
+        result.append({
+            "id":      q_id or f"q{len(result)+1}",
+            "text":    q_text,
+            "type":    q_type,
+            "options": opts,
+            "hint":    hint,
+        })
+    return result
+
+
 def get_info_fields(cfg: pd.DataFrame = None) -> list[dict]:
     """
     기관 정보 필드 목록.
