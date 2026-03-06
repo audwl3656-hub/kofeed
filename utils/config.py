@@ -115,15 +115,25 @@ def save_config(df: pd.DataFrame):
 
 
 # ── 설정 파싱 헬퍼 ────────────────────────────────────────────
-def get_method_options(cfg: pd.DataFrame = None) -> list[str]:
-    """방법 드롭다운 선택지 목록"""
+def get_method_options(cfg: pd.DataFrame = None, comp: str = None) -> list[str]:
+    """
+    방법 드롭다운 선택지 목록.
+    comp 지정 시: group이 해당 성분명인 행 우선 반환.
+                  해당 성분 전용 행이 없으면 group이 빈 공통 행 반환.
+    comp 미지정 시: group이 빈 공통 행만 반환.
+    """
     if cfg is None:
         cfg = get_config()
     rows = (
         cfg[(cfg["type"] == "method_option") & (cfg["enabled"])]
         .sort_values("order")
     )
-    return rows["name"].tolist()
+    if comp:
+        comp_rows = rows[rows["group"].astype(str).str.strip() == comp]
+        if not comp_rows.empty:
+            return comp_rows["name"].tolist()
+    global_rows = rows[rows["group"].astype(str).str.strip() == ""]
+    return global_rows["name"].tolist()
 
 
 def get_questions(cfg: pd.DataFrame = None) -> list[dict]:

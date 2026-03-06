@@ -7,7 +7,7 @@ from utils.config import (
 )
 
 st.set_page_config(
-    page_title="사료 숙련도 시험 데이터 제출",
+    page_title="회원사 비교분석 시험 데이터 제출",
     page_icon=None,
     layout="wide",
 )
@@ -21,7 +21,7 @@ input[type=number] { -moz-appearance: textfield !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("사료 숙련도 시험")
+st.title("회원사 비교분석 시험")
 st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
 st.divider()
 
@@ -31,7 +31,6 @@ SAMPLES        = get_samples(cfg)
 GROUPS         = get_component_groups(cfg)
 NIR_GRP        = get_nir_groups(cfg)
 INFO_FIELDS    = get_info_fields(cfg)
-METHOD_OPTIONS = get_method_options(cfg)
 QUESTIONS      = get_questions(cfg)
 
 # ── 기관 정보 ─────────────────────────────────────────────────
@@ -70,8 +69,6 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
             if s not in all_sample_set:
                 all_sample_set.append(s)
 
-    method_list = [""] + METHOD_OPTIONS
-
     col_ratios = [2, 2, 2, 2] + [2] * len(all_sample_set)
     hcols = st.columns(col_ratios)
     hcols[0].markdown("**성분**")
@@ -89,6 +86,7 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
         cols    = st.columns(col_ratios)
         cols[0].markdown(f"**{comp}**")
 
+        method_list = [""] + get_method_options(cfg, comp=comp)
         with cols[1]:
             sel = st.selectbox(
                 "방법", method_list,

@@ -422,13 +422,22 @@ with tab4:
 
     # ── 방법 옵션 ─────────────────────────────────────────────
     st.markdown("### 방법 옵션")
-    st.caption("분석 방법 드롭다운에 표시될 선택지를 관리합니다.")
+    st.caption(
+        "분석 방법 드롭다운에 표시될 선택지를 관리합니다.\n\n"
+        "**적용 성분**: 비워두면 모든 성분에 공통 적용. "
+        "성분명을 입력하면 해당 성분에만 표시됩니다 (예: `수분`, `조단백질`).\n\n"
+        "특정 성분에 전용 옵션이 1개 이상 있으면 공통 옵션은 해당 성분에 표시되지 않습니다."
+    )
     method_df = cfg_edit[cfg_edit["type"] == "method_option"][CONFIG_COLS].reset_index(drop=True)
     edited_methods = st.data_editor(
-        method_df[["name", "order", "enabled"]],
+        method_df[["group", "name", "order", "enabled"]],
         num_rows="dynamic",
         use_container_width=True,
         column_config={
+            "group":   st.column_config.TextColumn(
+                "적용 성분",
+                help="비워두면 전체 공통 / 성분명 입력 시 해당 성분에만 표시",
+            ),
             "name":    st.column_config.TextColumn("방법명 *"),
             "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
             "enabled": st.column_config.CheckboxColumn("활성화"),
@@ -437,7 +446,6 @@ with tab4:
         hide_index=True,
     )
     edited_methods["type"]    = "method_option"
-    edited_methods["group"]   = ""
     edited_methods["samples"] = ""
     edited_methods = edited_methods[CONFIG_COLS]
 
