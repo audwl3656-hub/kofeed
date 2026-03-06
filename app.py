@@ -5,11 +5,11 @@ from utils.config import get_config, get_samples, get_component_groups, get_nir_
 
 st.set_page_config(
     page_title="사료 숙련도 시험 데이터 제출",
-    page_icon="🧪",
+    page_icon=None,
     layout="wide",
 )
 
-st.title("🧪 사료 숙련도 시험")
+st.title("사료 숙련도 시험")
 st.caption("제출하신 데이터는 Robust Z-score 분석 후 보고서로 발송됩니다.")
 st.divider()
 
@@ -20,7 +20,7 @@ GROUPS  = get_component_groups(cfg)    # {그룹명: [{name, samples}, ...]}
 NIR_GRP = get_nir_groups(cfg)          # 아미노산 제외
 
 # ── 기관 정보 ─────────────────────────────────────────────────
-st.subheader("🏢 기관 정보")
+st.subheader("기관 정보")
 c1, c2, c3, c4 = st.columns(4)
 with c1:
     institution = st.text_input("기관명 *", placeholder="○○ 연구소")
@@ -149,18 +149,15 @@ def nir_table(items: list[dict]) -> dict:
 # ── 성분 그룹별 폼 렌더링 ─────────────────────────────────────
 all_data: dict = {}
 
-ICONS = {"일반성분": "📊", "ADF/NDF": "📊", "아미노산": "🔬"}
-
 for group_name, items in GROUPS.items():
-    icon = ICONS.get(group_name, "📋")
-    st.subheader(f"{icon} {group_name} (g/kg 건물 기준)")
+    st.subheader(f"{group_name} (g/kg 건물 기준)")
     group_data = component_table(items, prefix=f"{group_name}_")
     all_data.update(group_data)
     st.divider()
 
 # ── NIR 측정값 ───────────────────────────────────────────────
 if NIR_GRP:
-    st.subheader("📡 NIR 측정값")
+    st.subheader("NIR 측정값")
     st.caption("NIR 기기로 측정한 값을 입력하세요.")
     for group_name, items in NIR_GRP.items():
         st.markdown(f"**{group_name}**")
@@ -169,7 +166,7 @@ if NIR_GRP:
     st.divider()
 
 # ── 제출 ─────────────────────────────────────────────────────
-if st.button("📤 데이터 제출", type="primary", use_container_width=True):
+if st.button("데이터 제출", type="primary", use_container_width=True):
     errors = []
     if not institution.strip():
         errors.append("기관명을 입력해주세요.")
@@ -200,7 +197,7 @@ if st.button("📤 데이터 제출", type="primary", use_container_width=True):
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
-                st.success(f"✅ {institution}의 데이터가 성공적으로 제출되었습니다!")
+                st.success(f"{institution}의 데이터가 성공적으로 제출되었습니다!")
                 st.info("분석 완료 후 보고서를 이메일로 발송해 드립니다.")
                 st.balloons()
             except Exception as e:

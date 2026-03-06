@@ -17,14 +17,14 @@ from utils.zscore import (
 from utils.report import generate_pdf
 from utils.email_sender import send_all_reports
 
-st.set_page_config(page_title="관리자 페이지", page_icon="🔐", layout="wide")
+st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
 
 # ── 인증 ──────────────────────────────────────────────────────
 if "admin_auth" not in st.session_state:
     st.session_state.admin_auth = False
 
 if not st.session_state.admin_auth:
-    st.title("🔐 관리자 로그인")
+    st.title("관리자 로그인")
     pw = st.text_input("비밀번호", type="password")
     if st.button("로그인"):
         if pw == st.secrets["admin"]["password"]:
@@ -34,9 +34,9 @@ if not st.session_state.admin_auth:
             st.error("비밀번호가 틀렸습니다.")
     st.stop()
 
-st.title("🔬 숙련도 시험 관리자")
+st.title("숙련도 시험 관리자")
 st.caption(f"로그인됨 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-if st.button("🚪 로그아웃"):
+if st.button("로그아웃"):
     st.session_state.admin_auth = False
     st.rerun()
 st.divider()
@@ -67,7 +67,7 @@ for col in value_cols:
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 제출 현황", "📈 Z-score 분석", "📧 보고서 발송", "⚙️ 설정"
+    "제출 현황", "Z-score 분석", "보고서 발송", "설정"
 ])
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -83,7 +83,7 @@ with tab1:
         c3.metric("마지막 제출", last or "-")
         st.dataframe(df, use_container_width=True)
 
-    if st.button("🔄 데이터 새로고침"):
+    if st.button("데이터 새로고침"):
         st.cache_data.clear()
         st.rerun()
 
@@ -135,7 +135,7 @@ with tab2:
                 st.dataframe(pd.DataFrame(stats_rows), use_container_width=True)
 
             # 전체 Z-score
-            st.markdown(f"#### 📊 {sel_comp} — 기관별 전체 Z-score")
+            st.markdown(f"#### {sel_comp} — 기관별 전체 Z-score")
             z_df = compute_zscores(df, comp_cols)
 
             disp = pd.DataFrame({"기관명": df["기관명"].values})
@@ -161,7 +161,7 @@ with tab2:
             if not use_nir:
                 mc = f"{sel_comp}_방법"
                 if mc in df.columns:
-                    st.markdown(f"#### 🔬 {sel_comp} — 방법별 Z-score")
+                    st.markdown(f"#### {sel_comp} — 방법별 Z-score")
                     method_counts = df[mc].value_counts().reset_index()
                     method_counts.columns = ["방법", "기관 수"]
                     st.dataframe(method_counts, use_container_width=True)
@@ -213,7 +213,7 @@ with tab3:
         for idx, row in df.iterrows():
             inst     = row.get("기관명", "")
             email_to = row.get("이메일", "")
-            with st.expander(f"📄 {inst} ({email_to})"):
+            with st.expander(f"{inst} ({email_to})"):
                 summary = []
                 for col in main_cols:
                     z  = float(z_all.loc[idx, col])
@@ -236,15 +236,15 @@ with tab3:
                     group_stats, main_cols, generated_at,
                 )
                 st.download_button(
-                    "⬇️ PDF 다운로드", pdf_bytes,
+                    "PDF 다운로드", pdf_bytes,
                     f"report_{inst}.pdf", "application/pdf",
                     key=f"dl_{idx}",
                 )
 
         st.divider()
-        st.markdown("#### 📧 전체 일괄 발송")
+        st.markdown("#### 전체 일괄 발송")
         st.warning("발송 후 취소 불가. 데이터 확정 후 실행하세요.")
-        if st.button("🚀 전체 보고서 발송", type="primary"):
+        if st.button("전체 보고서 발송", type="primary"):
             report_list = []
             for idx, row in df.iterrows():
                 email_to = row.get("이메일", "")
@@ -263,22 +263,22 @@ with tab3:
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)
-            st.success(f"✅ 완료: {len(result['success'])}개")
+            st.success(f"완료: {len(result['success'])}개")
             if result["fail"]:
-                st.error(f"❌ 실패: {len(result['fail'])}개")
+                st.error(f"실패: {len(result['fail'])}개")
                 for f in result["fail"]:
                     st.text(f"  {f['email']}: {f['error']}")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab4:
-    st.subheader("⚙️ 설정 관리")
+    st.subheader("설정 관리")
     st.caption("여기서 변경한 내용은 저장 즉시 제출 폼에 반영됩니다.")
 
     cfg_edit = cfg.copy()
 
     # ── 사료 종류 ─────────────────────────────────────────────
-    st.markdown("### 🐄 사료 종류")
+    st.markdown("### 사료 종류")
     st.caption("사료명 추가/삭제/수정. order 숫자로 순서 조정.")
     sample_df = cfg_edit[cfg_edit["type"] == "sample"][CONFIG_COLS].reset_index(drop=True)
     edited_samples = st.data_editor(
@@ -301,7 +301,7 @@ with tab4:
     st.divider()
 
     # ── 성분 종목 ─────────────────────────────────────────────
-    st.markdown("### 🔬 성분 종목")
+    st.markdown("### 성분 종목")
     st.caption(
         "group: 일반성분 / ADF/NDF / 아미노산 / 기타 원하는 그룹명 입력 가능.\n\n"
         "samples: `all` = 모든 사료 / 특정 사료만 적용 시 `축우사료` 또는 `축우사료,양계사료` 처럼 쉼표로 구분."
@@ -332,7 +332,7 @@ with tab4:
     # ── 저장 ──────────────────────────────────────────────────
     col_save, col_reset = st.columns([1, 1])
     with col_save:
-        if st.button("💾 설정 저장", type="primary", use_container_width=True):
+        if st.button("설정 저장", type="primary", use_container_width=True):
             # 빈 name 행 제거
             edited_samples = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
             edited_comps   = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
@@ -345,13 +345,13 @@ with tab4:
             with st.spinner("저장 중..."):
                 try:
                     save_config(new_cfg)
-                    st.success("✅ 설정이 저장되었습니다. 제출 폼이 즉시 업데이트됩니다.")
+                    st.success("설정이 저장되었습니다. 제출 폼이 즉시 업데이트됩니다.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"저장 실패: {e}")
 
     with col_reset:
-        if st.button("🔄 기본값으로 초기화", use_container_width=True):
+        if st.button("기본값으로 초기화", use_container_width=True):
             if st.session_state.get("confirm_reset"):
                 with st.spinner("초기화 중..."):
                     save_config(DEFAULT_CONFIG.copy())

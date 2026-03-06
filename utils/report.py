@@ -163,9 +163,9 @@ def generate_pdf(
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
     elements.append(Spacer(1, 3*mm))
     elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
-    elements.append(Paragraph("✅ 적합: |Z| ≤ 2.0", note_style))
-    elements.append(Paragraph("⚠️ 경고: 2.0 < |Z| ≤ 3.0", note_style))
-    elements.append(Paragraph("❌ 부적합: |Z| > 3.0", note_style))
+    elements.append(Paragraph("적합: |Z| <= 2.0", note_style))
+    elements.append(Paragraph("경고: 2.0 < |Z| <= 3.0", note_style))
+    elements.append(Paragraph("부적합: |Z| > 3.0", note_style))
     elements.append(Spacer(1, 2*mm))
     elements.append(Paragraph(
         "* Z전체: 전체 기관 대비 / Z방법별: 동일 방법 기관 3개 미만이면 N/A", note_style,

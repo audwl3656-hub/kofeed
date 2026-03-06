@@ -55,11 +55,11 @@ def zscore_flag(z: float) -> str:
         return "N/A"
     az = abs(z)
     if az <= 2.0:
-        return "✅ 적합"
+        return "적합"
     elif az <= 3.0:
-        return "⚠️ 경고"
+        return "경고"
     else:
-        return "❌ 부적합"
+        return "부적합"
 
 
 def zscore_color(z: float) -> str:
