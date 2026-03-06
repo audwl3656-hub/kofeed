@@ -20,12 +20,12 @@ def send_report(to_email: str, institution: str, pdf_bytes: bytes) -> bool:
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = to_email
-    msg["Subject"] = f"[숙련도시험] {institution} 아미노산 분석 결과 보고서"
+    msg["Subject"] = f"[숙련도시험] {institution} 회원사 비교분석 결과 보고서"
 
     body = f"""\
 {institution} 귀중
 
-아미노산 숙련도 시험 결과 보고서를 첨부 파일로 송부드립니다.
+회원사 비교분석 시험 결과 보고서를 첨부 파일로 송부드립니다.
 보고서에는 귀 기관의 제출값과 Robust Z-score 판정 결과가 포함되어 있습니다.
 
 문의 사항이 있으시면 회신해 주시기 바랍니다.
@@ -42,6 +42,41 @@ def send_report(to_email: str, institution: str, pdf_bytes: bytes) -> bool:
         f'attachment; filename="report_{institution}.pdf"',
     )
     msg.attach(part)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(sender, password)
+        server.sendmail(sender, to_email, msg.as_string())
+
+    return True
+
+
+def send_confirmation(to_email: str, institution: str, row: dict) -> bool:
+    """
+    데이터 제출 즉시 발송하는 접수 확인 이메일 (Z-score 없이).
+    """
+    cfg = st.secrets["email"]
+    sender = cfg["sender"]
+    password = cfg["password"]
+
+    lines = [f"{k}: {v}" for k, v in row.items() if v not in ("", None)]
+    body = f"""\
+{institution} 귀중
+
+데이터가 정상적으로 접수되었습니다.
+분석 완료 후 Robust Z-score 결과 보고서를 별도 발송해 드립니다.
+
+── 제출 내역 ──────────────────────────
+{chr(10).join(lines)}
+────────────────────────────────────────
+
+문의 사항이 있으시면 회신해 주시기 바랍니다.
+감사합니다.
+"""
+    msg = MIMEMultipart()
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg["Subject"] = f"[숙련도시험] {institution} 데이터 접수 확인"
+    msg.attach(MIMEText(body, "plain", "utf-8"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)

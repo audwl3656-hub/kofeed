@@ -1,16 +1,11 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 from datetime import datetime
-from utils.sheets import submit_data, get_all_data
+from utils.sheets import submit_data
 from utils.config import (
     get_config, get_samples, get_component_groups, get_nir_groups,
     get_info_fields, get_method_options, get_questions,
-    get_all_value_columns, get_component_from_col,
 )
-from utils.zscore import compute_zscores, compute_zscores_by_method
-from utils.report import generate_pdf
-from utils.email_sender import send_report
+from utils.email_sender import send_confirmation
 
 st.set_page_config(
     page_title="회원사 비교분석 시험 데이터 제출",
@@ -269,57 +264,11 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
                 st.error(f"제출 중 오류가 발생했습니다: {e}")
                 st.stop()
 
-        # ── 즉시 보고서 발송 ──────────────────────────────────
+        # ── 접수 확인 이메일 즉시 발송 ───────────────────────
         if email_to:
-            with st.spinner("보고서 생성 및 발송 중..."):
+            with st.spinner("접수 확인 이메일 발송 중..."):
                 try:
-                    all_df = get_all_data()
-                    val_cols  = get_all_value_columns(cfg)
-                    main_cols = [c for c in val_cols if c in all_df.columns and not c.startswith("NIR_")]
-
-                    for col in main_cols:
-                        all_df[col] = pd.to_numeric(all_df[col], errors="coerce")
-
-                    # 현재 제출 행 찾기
-                    if "제출일시" in all_df.columns:
-                        matches = all_df[all_df["제출일시"] == row["제출일시"]]
-                        idx = matches.index[-1] if not matches.empty else all_df.index[-1]
-                    else:
-                        idx = all_df.index[-1]
-
-                    z_all    = compute_zscores(all_df, main_cols)
-                    z_method = {
-                        col: compute_zscores_by_method(
-                            all_df, col, f"{get_component_from_col(col, SAMPLES)}_방법"
-                        )
-                        for col in main_cols
-                    }
-                    group_stats = {}
-                    for col in main_cols:
-                        vals = all_df[col].dropna()
-                        if vals.empty:
-                            continue
-                        med = float(np.median(vals))
-                        mad = float(np.median(np.abs(vals - med)))
-                        group_stats[col] = {"median": med, "mad": mad, "n": len(vals)}
-
-                    row_data   = {col: row.get(col, "") for col in main_cols}
-                    zscore_row = {
-                        col: z_all.loc[idx, col] if col in z_all.columns else np.nan
-                        for col in main_cols
-                    }
-                    z_m_row = {
-                        col: z_method[col].loc[idx] if idx in z_method[col].index else np.nan
-                        for col in main_cols
-                    }
-
-                    pdf_bytes = generate_pdf(
-                        email_to, inst_name, row_data, zscore_row, z_m_row,
-                        group_stats, main_cols,
-                        generated_at=row["제출일시"],
-                        samples=SAMPLES,
-                    )
-                    send_report(email_to, inst_name, pdf_bytes)
-                    st.info(f"분석 보고서가 {email_to}으로 발송되었습니다.")
+                    send_confirmation(email_to, inst_name, row)
+                    st.info(f"접수 확인 이메일이 {email_to}으로 발송되었습니다.")
                 except Exception as e:
-                    st.warning(f"보고서 발송 중 오류가 발생했습니다: {e}")
+                    st.warning(f"이메일 발송 중 오류가 발생했습니다: {e}")
