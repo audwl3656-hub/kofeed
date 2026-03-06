@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from utils.sheets import submit_data
-from utils.config import get_config, get_samples, get_component_groups, get_nir_groups
+from utils.config import get_config, get_samples, get_component_groups, get_nir_groups, get_info_fields
 
 st.set_page_config(
     page_title="사료 숙련도 시험 데이터 제출",
@@ -14,22 +14,22 @@ st.caption("제출하신 데이터는 Robust Z-score 분석 후 보고서로 발
 st.divider()
 
 # ── 설정 로드 ─────────────────────────────────────────────────
-cfg     = get_config()
-SAMPLES = get_samples(cfg)
-GROUPS  = get_component_groups(cfg)    # {그룹명: [{name, samples}, ...]}
-NIR_GRP = get_nir_groups(cfg)          # 아미노산 제외
+cfg         = get_config()
+SAMPLES     = get_samples(cfg)
+GROUPS      = get_component_groups(cfg)
+NIR_GRP     = get_nir_groups(cfg)
+INFO_FIELDS = get_info_fields(cfg)
 
 # ── 기관 정보 ─────────────────────────────────────────────────
 st.subheader("기관 정보")
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    institution = st.text_input("기관명 *", placeholder="○○ 연구소")
-with c2:
-    person = st.text_input("담당자명 *", placeholder="홍길동")
-with c3:
-    email = st.text_input("이메일 *", placeholder="lab@example.com")
-with c4:
-    phone = st.text_input("전화번호", placeholder="010-0000-0000")
+info_cols = st.columns(max(len(INFO_FIELDS), 1))
+info_values: dict[str, str] = {}
+for i, field in enumerate(INFO_FIELDS):
+    with info_cols[i]:
+        label = field["name"] + (" *" if field["required"] else "")
+        info_values[field["name"]] = st.text_input(
+            label, placeholder=field["placeholder"], key=f"info_{field['name']}"
+        )
 
 st.divider()
 
@@ -150,7 +150,7 @@ def nir_table(items: list[dict]) -> dict:
 all_data: dict = {}
 
 for group_name, items in GROUPS.items():
-    st.subheader(f"{group_name} (g/kg 건물 기준)")
+    st.subheader(group_name)
     group_data = component_table(items, prefix=f"{group_name}_")
     all_data.update(group_data)
     st.divider()
@@ -168,24 +168,25 @@ if NIR_GRP:
 # ── 제출 ─────────────────────────────────────────────────────
 if st.button("데이터 제출", type="primary", use_container_width=True):
     errors = []
-    if not institution.strip():
-        errors.append("기관명을 입력해주세요.")
-    if not person.strip():
-        errors.append("담당자명을 입력해주세요.")
-    if not email.strip() or "@" not in email:
-        errors.append("올바른 이메일 주소를 입력해주세요.")
+    for field in INFO_FIELDS:
+        val = info_values.get(field["name"], "").strip()
+        if field["required"] and not val:
+            errors.append(f"{field['name']}을(를) 입력해주세요.")
+        elif field["email"] and val and "@" not in val:
+            errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
 
     if errors:
         for e in errors:
             st.error(e)
     else:
-        row = {
-            "제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "기관명":   institution.strip(),
-            "담당자명": person.strip(),
-            "이메일":   email.strip(),
-            "전화":     phone.strip(),
-        }
+        # 기관명, 이메일 추출 (보고서 발송용)
+        inst_name  = info_values.get("기관명", "").strip()
+        inst_email = info_values.get("이메일", "").strip()
+
+        row = {"제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        for field in INFO_FIELDS:
+            row[field["name"]] = info_values.get(field["name"], "").strip()
+
         for k, v in all_data.items():
             if v is None or v == "":
                 row[k] = ""
@@ -197,7 +198,7 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
-                st.success(f"{institution}의 데이터가 성공적으로 제출되었습니다!")
+                st.success(f"{inst_name or '기관'}의 데이터가 성공적으로 제출되었습니다!")
                 st.info("분석 완료 후 보고서를 이메일로 발송해 드립니다.")
                 st.balloons()
             except Exception as e:

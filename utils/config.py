@@ -18,6 +18,11 @@ CONFIG_COLS = ["type", "group", "name", "samples", "order", "enabled"]
 
 # ── 기본 설정값 ───────────────────────────────────────────────
 _DEFAULT_ROWS = [
+    # 기관 정보 필드 — group=placeholder, samples=flags(required/email)
+    ("info_field", "○○ 연구소",        "기관명",   "required",       1, True),
+    ("info_field", "홍길동",            "담당자명", "required",       2, True),
+    ("info_field", "lab@example.com",  "이메일",   "required,email", 3, True),
+    ("info_field", "010-0000-0000",    "전화",     "",               4, True),
     # 사료 종류
     ("sample", "", "축우사료",  "", 1, True),
     ("sample", "", "양계사료",  "", 2, True),
@@ -105,6 +110,29 @@ def save_config(df: pd.DataFrame):
 
 
 # ── 설정 파싱 헬퍼 ────────────────────────────────────────────
+def get_info_fields(cfg: pd.DataFrame = None) -> list[dict]:
+    """
+    기관 정보 필드 목록.
+    반환: [{"name": str, "placeholder": str, "required": bool, "email": bool}, ...]
+    """
+    if cfg is None:
+        cfg = get_config()
+    rows = (
+        cfg[(cfg["type"] == "info_field") & (cfg["enabled"])]
+        .sort_values("order")
+    )
+    result = []
+    for _, row in rows.iterrows():
+        flags = str(row.get("samples", "")).lower()
+        result.append({
+            "name":        row["name"],
+            "placeholder": str(row.get("group", "")),
+            "required":    "required" in flags,
+            "email":       "email" in flags,
+        })
+    return result
+
+
 def get_samples(cfg: pd.DataFrame = None) -> list[str]:
     """활성화된 사료 종류 목록"""
     if cfg is None:

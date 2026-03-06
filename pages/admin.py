@@ -7,6 +7,7 @@ from utils.sheets import get_all_data, BASE_FIELDS, submit_data
 from utils.config import (
     get_config, save_config, get_samples, get_component_groups,
     get_nir_groups, get_all_value_columns, get_group_order,
+    get_info_fields,
     is_value_col, get_component_from_col, get_sample_from_col,
     DEFAULT_CONFIG, CONFIG_COLS,
 )
@@ -42,8 +43,11 @@ if st.button("로그아웃"):
 st.divider()
 
 # ── 설정 로드 ─────────────────────────────────────────────────
-cfg     = get_config()
-SAMPLES = get_samples(cfg)
+cfg          = get_config()
+SAMPLES      = get_samples(cfg)
+INFO_FIELDS  = get_info_fields(cfg)
+# 기관 정보 필드명 + 제출일시 = 메타 컬럼 (값 컬럼 아님)
+META_COLS    = ["제출일시"] + [f["name"] for f in INFO_FIELDS]
 
 # ── 데이터 로드 ───────────────────────────────────────────────
 @st.cache_data(ttl=60)
@@ -58,7 +62,7 @@ with st.spinner("데이터 불러오는 중..."):
         st.stop()
 
 # 값 컬럼 분류
-value_cols = [c for c in df.columns if c not in BASE_FIELDS and is_value_col(c, SAMPLES)]
+value_cols = [c for c in df.columns if c not in META_COLS and is_value_col(c, SAMPLES)]
 nir_cols   = [c for c in value_cols if c.startswith("NIR_")]
 main_cols  = [c for c in value_cols if not c.startswith("NIR_")]
 
@@ -209,10 +213,14 @@ with tab3:
 
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+        # 기관명/이메일 필드명 동적 추출
+        inst_field  = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
+        email_field = next((f["name"] for f in INFO_FIELDS if f["email"]), "이메일")
+
         st.markdown("#### 개별 보고서")
         for idx, row in df.iterrows():
-            inst     = row.get("기관명", "")
-            email_to = row.get("이메일", "")
+            inst     = row.get(inst_field, "")
+            email_to = row.get(email_field, "")
             with st.expander(f"{inst} ({email_to})"):
                 summary = []
                 for col in main_cols:
@@ -247,8 +255,8 @@ with tab3:
         if st.button("전체 보고서 발송", type="primary"):
             report_list = []
             for idx, row in df.iterrows():
-                email_to = row.get("이메일", "")
-                inst     = row.get("기관명", "")
+                email_to = row.get(email_field, "")
+                inst     = row.get(inst_field, "")
                 if not email_to:
                     continue
                 row_data   = {col: row.get(col, "") for col in main_cols}
@@ -276,6 +284,33 @@ with tab4:
     st.caption("여기서 변경한 내용은 저장 즉시 제출 폼에 반영됩니다.")
 
     cfg_edit = cfg.copy()
+
+    # ── 기관 정보 필드 ────────────────────────────────────────
+    st.markdown("### 기관 정보 필드")
+    st.caption(
+        "제출 폼 상단의 기관 정보 입력 필드를 관리합니다.\n\n"
+        "**placeholder**: 입력창에 표시되는 예시 텍스트 (group 칸에 입력).\n\n"
+        "**flags**: `required` = 필수 입력 / `email` = 이메일 형식 검증 / 복수 시 `required,email`."
+    )
+    info_df = cfg_edit[cfg_edit["type"] == "info_field"][CONFIG_COLS].reset_index(drop=True)
+    edited_info = st.data_editor(
+        info_df,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "type":    st.column_config.TextColumn("type", disabled=True, default="info_field"),
+            "group":   st.column_config.TextColumn("placeholder"),
+            "name":    st.column_config.TextColumn("필드명 *"),
+            "samples": st.column_config.TextColumn("flags", help="required / email / required,email"),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+        },
+        key="edit_info",
+        hide_index=True,
+    )
+    edited_info["type"] = "info_field"
+
+    st.divider()
 
     # ── 사료 종류 ─────────────────────────────────────────────
     st.markdown("### 사료 종류")
@@ -389,12 +424,13 @@ with tab4:
     col_save, col_reset = st.columns([1, 1])
     with col_save:
         if st.button("설정 저장", type="primary", use_container_width=True):
+            edited_info    = edited_info[edited_info["name"].astype(str).str.strip() != ""]
             edited_samples = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
             edited_groups  = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
             edited_comps   = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
 
             new_cfg = pd.concat(
-                [edited_samples, edited_groups, edited_comps],
+                [edited_info, edited_samples, edited_groups, edited_comps],
                 ignore_index=True,
             )[CONFIG_COLS]
 
