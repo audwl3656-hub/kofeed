@@ -1,118 +1,193 @@
 import streamlit as st
 from datetime import datetime
-from utils.sheets import submit_data, get_custom_fields
-
-st.set_page_config(
-    page_title="아미노산 숙련도 시험 데이터 제출",
-    page_icon="🧪",
-    layout="centered",
+from utils.sheets import (
+    submit_data,
+    SAMPLES, PROXIMATE, CATTLE_ONLY, AMINO_ACIDS, NIR_COMPONENTS,
 )
 
-# 기본 아미노산 항목
-BASE_AMINO_ACIDS = [
-    "ASP", "THR", "SER", "GLU", "GLY",
-    "ALA", "VAL", "ISOL", "LEU", "TYR",
-    "PHE", "LYS", "HIS", "ARG", "PRO",
-    "MET", "CYS",
-]
+st.set_page_config(
+    page_title="사료 숙련도 시험 데이터 제출",
+    page_icon="🧪",
+    layout="wide",
+)
 
-st.title("🧪 아미노산 숙련도 시험")
+st.title("🧪 사료 숙련도 시험")
 st.caption("제출하신 데이터는 Robust Z-score 분석 후 보고서로 발송됩니다.")
 st.divider()
 
-# ── 기관 정보 ────────────────────────────────────────────────
+# ── 기관 정보 ─────────────────────────────────────────────────
 st.subheader("🏢 기관 정보")
-col1, col2 = st.columns(2)
-with col1:
-    email = st.text_input("이메일 *", placeholder="lab@example.com")
-with col2:
+c1, c2, c3, c4 = st.columns(4)
+with c1:
     institution = st.text_input("기관명 *", placeholder="○○ 연구소")
+with c2:
+    person = st.text_input("담당자명 *", placeholder="홍길동")
+with c3:
+    email = st.text_input("이메일 *", placeholder="lab@example.com")
+with c4:
+    phone = st.text_input("전화번호", placeholder="010-0000-0000")
 
 st.divider()
 
-# ── 아미노산 데이터 입력 ─────────────────────────────────────
-st.subheader("🔬 아미노산 분석값 입력")
-st.caption("단위: g/kg (건물 기준) — 미분석 항목은 0으로 입력하거나 비워두세요.")
 
-aa_data = {}
-cols = st.columns(3)
-for i, aa in enumerate(BASE_AMINO_ACIDS):
-    with cols[i % 3]:
-        val = st.number_input(
-            aa, min_value=0.0, value=None,
-            step=0.0001, format="%.4f",
-            placeholder="미입력",
-            key=f"aa_{aa}",
-        )
-        aa_data[aa] = val
+# ── 성분 입력 테이블 헬퍼 ─────────────────────────────────────
+def component_table(components: list, samples: list, prefix: str = "") -> dict:
+    """
+    성분 × (방법/기기/용매 + 사료별 값) 입력 테이블.
+    반환: {field_name: value}
+    """
+    data = {}
+    col_ratios = [2, 2, 2, 2] + [2] * len(samples)
 
+    # 헤더 행
+    hcols = st.columns(col_ratios)
+    hcols[0].markdown("**성분**")
+    hcols[1].markdown("**방법**")
+    hcols[2].markdown("**기기명**")
+    hcols[3].markdown("**용매**")
+    for i, s in enumerate(samples):
+        hcols[4 + i].markdown(f"**{s}**")
+
+    st.markdown(
+        "<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
+        unsafe_allow_html=True,
+    )
+
+    for comp in components:
+        cols = st.columns(col_ratios)
+        cols[0].markdown(f"**{comp}**")
+
+        with cols[1]:
+            data[f"{comp}_방법"] = st.text_input(
+                "방법", key=f"{prefix}{comp}_method",
+                label_visibility="collapsed", placeholder="예: AOAC 950.01",
+            )
+        with cols[2]:
+            data[f"{comp}_기기"] = st.text_input(
+                "기기", key=f"{prefix}{comp}_equip",
+                label_visibility="collapsed", placeholder="기기명",
+            )
+        with cols[3]:
+            data[f"{comp}_용매"] = st.text_input(
+                "용매", key=f"{prefix}{comp}_solvent",
+                label_visibility="collapsed", placeholder="용매",
+            )
+        for i, sample in enumerate(samples):
+            with cols[4 + i]:
+                val = st.number_input(
+                    sample, min_value=0.0, value=None,
+                    step=0.0001, format="%.4f", placeholder="미입력",
+                    key=f"{prefix}{comp}_{sample}",
+                    label_visibility="collapsed",
+                )
+                data[f"{comp}_{sample}"] = val
+
+    return data
+
+
+def nir_table(components: list, samples: list) -> dict:
+    """NIR 측정값 입력 테이블 (기기명 + 사료별 값)"""
+    data = {}
+    col_ratios = [2, 3] + [2] * len(samples)
+
+    hcols = st.columns(col_ratios)
+    hcols[0].markdown("**성분**")
+    hcols[1].markdown("**기기명**")
+    for i, s in enumerate(samples):
+        hcols[2 + i].markdown(f"**{s}**")
+
+    st.markdown(
+        "<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
+        unsafe_allow_html=True,
+    )
+
+    for comp in components:
+        cols = st.columns(col_ratios)
+        cols[0].markdown(f"**{comp}**")
+
+        with cols[1]:
+            data[f"NIR_{comp}_기기"] = st.text_input(
+                "기기", key=f"NIR_{comp}_equip",
+                label_visibility="collapsed", placeholder="기기명",
+            )
+        for i, sample in enumerate(samples):
+            with cols[2 + i]:
+                val = st.number_input(
+                    sample, min_value=0.0, value=None,
+                    step=0.0001, format="%.4f", placeholder="미입력",
+                    key=f"NIR_{comp}_{sample}",
+                    label_visibility="collapsed",
+                )
+                data[f"NIR_{comp}_{sample}"] = val
+
+    return data
+
+
+# ── 일반성분 ─────────────────────────────────────────────────
+st.subheader("📊 일반성분 (g/kg 건물 기준)")
+prox_data = component_table(PROXIMATE, SAMPLES)
 st.divider()
 
-# ── 추가 항목 ─────────────────────────────────────────────────
-st.subheader("➕ 추가 항목 (선택)")
-st.caption("기관에서 추가로 분석한 항목을 입력할 수 있습니다. 여기서 추가한 항목은 이후 제출 양식에도 표시됩니다.")
+# ── ADF / NDF ─────────────────────────────────────────────────
+st.subheader("📊 ADF / NDF — 축우사료 전용 (g/kg 건물 기준)")
+cattle_data = component_table(CATTLE_ONLY, ["축우사료"], prefix="CF_")
+st.divider()
 
-# 기존 커스텀 필드 불러오기
-try:
-    existing_custom = get_custom_fields()
-except Exception:
-    existing_custom = []
+# ── 아미노산 ─────────────────────────────────────────────────
+st.subheader("🔬 아미노산 (g/kg 건물 기준)")
+aa_data = component_table(AMINO_ACIDS, SAMPLES, prefix="AA_")
+st.divider()
 
-custom_data = {}
+# ── NIR 측정값 ───────────────────────────────────────────────
+st.subheader("📡 NIR 측정값")
+st.caption("NIR 기기로 측정한 일반성분 및 ADF/NDF 값을 입력하세요.")
 
-if existing_custom:
-    c_cols = st.columns(3)
-    for i, field in enumerate(existing_custom):
-        with c_cols[i % 3]:
-            val = st.number_input(
-                field, min_value=0.0, value=None,
-                step=0.0001, format="%.4f",
-                placeholder="미입력",
-                key=f"custom_{field}",
-            )
-            custom_data[field] = val
+# NIR — ADF/NDF는 축우사료만
+nir_data = {}
+nir_proximate_data = nir_table(PROXIMATE, SAMPLES)
+nir_data.update(nir_proximate_data)
 
-with st.expander("🆕 새 항목 추가하기"):
-    st.info("새로 추가한 항목은 향후 모든 제출 양식에도 표시됩니다.")
-    new_fields = []
-    for i in range(3):
-        nc1, nc2 = st.columns([2, 1])
-        with nc1:
-            fname = st.text_input(f"항목명 {i+1}", key=f"nf_{i}", placeholder="예: HYP")
-        with nc2:
-            fval = st.number_input(
-                "값", min_value=0.0, value=None,
-                step=0.0001, format="%.4f",
-                key=f"nv_{i}", placeholder="미입력",
-            )
-        if fname.strip():
-            new_fields.append((fname.strip().upper(), fval))
+st.markdown("**ADF / NDF (축우사료 전용)**")
+nir_cattle_data = nir_table(CATTLE_ONLY, ["축우사료"])
+nir_data.update(nir_cattle_data)
 
 st.divider()
 
 # ── 제출 ─────────────────────────────────────────────────────
 if st.button("📤 데이터 제출", type="primary", use_container_width=True):
+    errors = []
+    if not institution.strip():
+        errors.append("기관명을 입력해주세요.")
+    if not person.strip():
+        errors.append("담당자명을 입력해주세요.")
     if not email.strip() or "@" not in email:
-        st.error("올바른 이메일 주소를 입력해주세요.")
-    elif not institution.strip():
-        st.error("기관명을 입력해주세요.")
+        errors.append("올바른 이메일 주소를 입력해주세요.")
+
+    if errors:
+        for e in errors:
+            st.error(e)
     else:
         row = {
             "제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "이메일":   email.strip(),
             "기관명":   institution.strip(),
+            "담당자명": person.strip(),
+            "이메일":   email.strip(),
+            "전화":     phone.strip(),
         }
-        # 아미노산 값 (None이면 빈 문자열로)
-        for aa, val in aa_data.items():
-            row[aa] = "" if val is None else round(val, 4)
 
-        # 기존 커스텀 필드
-        for field, val in custom_data.items():
-            row[field] = "" if val is None else round(val, 4)
+        def add_data(d: dict):
+            for k, v in d.items():
+                if v is None or v == "":
+                    row[k] = ""
+                elif isinstance(v, float):
+                    row[k] = round(v, 4)
+                else:
+                    row[k] = v
 
-        # 새 커스텀 필드
-        for fname, fval in new_fields:
-            row[fname] = "" if fval is None else round(fval, 4)
+        add_data(prox_data)
+        add_data(cattle_data)
+        add_data(aa_data)
+        add_data(nir_data)
 
         with st.spinner("제출 중..."):
             try:

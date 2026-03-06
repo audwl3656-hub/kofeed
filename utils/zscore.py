@@ -6,7 +6,6 @@ def robust_zscore(values: np.ndarray) -> np.ndarray:
     """
     Robust Z-score (AAFCO 방식)
     Z = (x - median) / (1.4826 * MAD)
-    MAD = median(|x - median(x)|)
     """
     values = np.array(values, dtype=float)
     median = np.median(values)
@@ -16,26 +15,42 @@ def robust_zscore(values: np.ndarray) -> np.ndarray:
     return (values - median) / (1.4826 * mad)
 
 
-def compute_zscores(df: pd.DataFrame, analyte_cols: list) -> pd.DataFrame:
-    """
-    각 분석 항목별 Robust Z-score 계산.
-    반환: 동일 인덱스, 동일 컬럼 (Z-score 값으로 채워짐)
-    """
-    result = df[analyte_cols].copy().astype(float)
-    for col in analyte_cols:
+def compute_zscores(df: pd.DataFrame, value_cols: list) -> pd.DataFrame:
+    """각 값 컬럼별 전체 Robust Z-score 계산."""
+    result = pd.DataFrame(index=df.index, dtype=float)
+    for col in value_cols:
         vals = pd.to_numeric(df[col], errors="coerce")
-        valid_mask = vals.notna()
-        if valid_mask.sum() < 3:
-            result[col] = np.nan
+        valid = vals.notna()
+        z = pd.Series(np.nan, index=df.index)
+        if valid.sum() >= 3:
+            z.loc[valid[valid].index] = robust_zscore(vals[valid].values)
+        result[col] = z
+    return result
+
+
+def compute_zscores_by_method(
+    df: pd.DataFrame, value_col: str, method_col: str
+) -> pd.Series:
+    """
+    방법별 Robust Z-score 계산.
+    동일 방법을 사용한 기관이 3개 미만이면 NaN 반환.
+    """
+    result = pd.Series(np.nan, index=df.index, dtype=float)
+    if method_col not in df.columns:
+        return result
+    for method, grp in df.groupby(df[method_col].fillna("").astype(str)):
+        if not method.strip():
             continue
-        zscores = robust_zscore(vals[valid_mask].values)
-        result.loc[valid_mask, col] = zscores
-        result.loc[~valid_mask, col] = np.nan
+        vals = pd.to_numeric(grp[value_col], errors="coerce")
+        valid = vals.notna()
+        if valid.sum() < 3:
+            continue
+        z = robust_zscore(vals[valid].values)
+        result.loc[vals[valid].index] = z
     return result
 
 
 def zscore_flag(z: float) -> str:
-    """Z-score 등급 판정"""
     if np.isnan(z):
         return "N/A"
     az = abs(z)
