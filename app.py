@@ -1,9 +1,7 @@
 import streamlit as st
 from datetime import datetime
-from utils.sheets import (
-    submit_data,
-    SAMPLES, PROXIMATE, CATTLE_ONLY, AMINO_ACIDS, NIR_COMPONENTS,
-)
+from utils.sheets import submit_data
+from utils.config import get_config, get_samples, get_component_groups, get_nir_groups
 
 st.set_page_config(
     page_title="사료 숙련도 시험 데이터 제출",
@@ -14,6 +12,12 @@ st.set_page_config(
 st.title("🧪 사료 숙련도 시험")
 st.caption("제출하신 데이터는 Robust Z-score 분석 후 보고서로 발송됩니다.")
 st.divider()
+
+# ── 설정 로드 ─────────────────────────────────────────────────
+cfg     = get_config()
+SAMPLES = get_samples(cfg)
+GROUPS  = get_component_groups(cfg)    # {그룹명: [{name, samples}, ...]}
+NIR_GRP = get_nir_groups(cfg)          # 아미노산 제외
 
 # ── 기관 정보 ─────────────────────────────────────────────────
 st.subheader("🏢 기관 정보")
@@ -31,30 +35,37 @@ st.divider()
 
 
 # ── 성분 입력 테이블 헬퍼 ─────────────────────────────────────
-def component_table(components: list, samples: list, prefix: str = "") -> dict:
+def component_table(items: list[dict], prefix: str = "") -> dict:
     """
-    성분 × (방법/기기/용매 + 사료별 값) 입력 테이블.
-    반환: {field_name: value}
+    items: [{"name": str, "samples": [str]}, ...]
+    모든 사료가 같으면 하나의 통합 테이블, 아니면 각 항목별 칼럼 다름.
     """
     data = {}
-    col_ratios = [2, 2, 2, 2] + [2] * len(samples)
 
-    # 헤더 행
+    # 이 그룹에서 실제 사용되는 사료 종류 (순서 유지)
+    all_sample_set = []
+    for item in items:
+        for s in item["samples"]:
+            if s not in all_sample_set:
+                all_sample_set.append(s)
+
+    col_ratios = [2, 2, 2, 2] + [2] * len(all_sample_set)
+
+    # 헤더
     hcols = st.columns(col_ratios)
     hcols[0].markdown("**성분**")
     hcols[1].markdown("**방법**")
     hcols[2].markdown("**기기명**")
     hcols[3].markdown("**용매**")
-    for i, s in enumerate(samples):
+    for i, s in enumerate(all_sample_set):
         hcols[4 + i].markdown(f"**{s}**")
+    st.markdown("<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
+                unsafe_allow_html=True)
 
-    st.markdown(
-        "<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
-        unsafe_allow_html=True,
-    )
-
-    for comp in components:
-        cols = st.columns(col_ratios)
+    for item in items:
+        comp    = item["name"]
+        samples = item["samples"]
+        cols    = st.columns(col_ratios)
         cols[0].markdown(f"**{comp}**")
 
         with cols[1]:
@@ -72,37 +83,46 @@ def component_table(components: list, samples: list, prefix: str = "") -> dict:
                 "용매", key=f"{prefix}{comp}_solvent",
                 label_visibility="collapsed", placeholder="용매",
             )
-        for i, sample in enumerate(samples):
+        for i, s in enumerate(all_sample_set):
             with cols[4 + i]:
-                val = st.number_input(
-                    sample, min_value=0.0, value=None,
-                    step=0.0001, format="%.4f", placeholder="미입력",
-                    key=f"{prefix}{comp}_{sample}",
-                    label_visibility="collapsed",
-                )
-                data[f"{comp}_{sample}"] = val
-
+                if s in samples:
+                    val = st.number_input(
+                        s, min_value=0.0, value=None,
+                        step=0.0001, format="%.4f", placeholder="미입력",
+                        key=f"{prefix}{comp}_{s}",
+                        label_visibility="collapsed",
+                    )
+                    data[f"{comp}_{s}"] = val
+                else:
+                    st.markdown("<div style='color:#ccc;text-align:center'>—</div>",
+                                unsafe_allow_html=True)
     return data
 
 
-def nir_table(components: list, samples: list) -> dict:
-    """NIR 측정값 입력 테이블 (기기명 + 사료별 값)"""
+def nir_table(items: list[dict]) -> dict:
+    """NIR 기기명 + 사료별 값"""
     data = {}
-    col_ratios = [2, 3] + [2] * len(samples)
+
+    all_sample_set = []
+    for item in items:
+        for s in item["samples"]:
+            if s not in all_sample_set:
+                all_sample_set.append(s)
+
+    col_ratios = [2, 3] + [2] * len(all_sample_set)
 
     hcols = st.columns(col_ratios)
     hcols[0].markdown("**성분**")
     hcols[1].markdown("**기기명**")
-    for i, s in enumerate(samples):
+    for i, s in enumerate(all_sample_set):
         hcols[2 + i].markdown(f"**{s}**")
+    st.markdown("<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
+                unsafe_allow_html=True)
 
-    st.markdown(
-        "<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
-        unsafe_allow_html=True,
-    )
-
-    for comp in components:
-        cols = st.columns(col_ratios)
+    for item in items:
+        comp    = item["name"]
+        samples = item["samples"]
+        cols    = st.columns(col_ratios)
         cols[0].markdown(f"**{comp}**")
 
         with cols[1]:
@@ -110,48 +130,43 @@ def nir_table(components: list, samples: list) -> dict:
                 "기기", key=f"NIR_{comp}_equip",
                 label_visibility="collapsed", placeholder="기기명",
             )
-        for i, sample in enumerate(samples):
+        for i, s in enumerate(all_sample_set):
             with cols[2 + i]:
-                val = st.number_input(
-                    sample, min_value=0.0, value=None,
-                    step=0.0001, format="%.4f", placeholder="미입력",
-                    key=f"NIR_{comp}_{sample}",
-                    label_visibility="collapsed",
-                )
-                data[f"NIR_{comp}_{sample}"] = val
-
+                if s in samples:
+                    val = st.number_input(
+                        s, min_value=0.0, value=None,
+                        step=0.0001, format="%.4f", placeholder="미입력",
+                        key=f"NIR_{comp}_{s}",
+                        label_visibility="collapsed",
+                    )
+                    data[f"NIR_{comp}_{s}"] = val
+                else:
+                    st.markdown("<div style='color:#ccc;text-align:center'>—</div>",
+                                unsafe_allow_html=True)
     return data
 
 
-# ── 일반성분 ─────────────────────────────────────────────────
-st.subheader("📊 일반성분 (g/kg 건물 기준)")
-prox_data = component_table(PROXIMATE, SAMPLES)
-st.divider()
+# ── 성분 그룹별 폼 렌더링 ─────────────────────────────────────
+all_data: dict = {}
 
-# ── ADF / NDF ─────────────────────────────────────────────────
-st.subheader("📊 ADF / NDF — 축우사료 전용 (g/kg 건물 기준)")
-cattle_data = component_table(CATTLE_ONLY, ["축우사료"], prefix="CF_")
-st.divider()
+ICONS = {"일반성분": "📊", "ADF/NDF": "📊", "아미노산": "🔬"}
 
-# ── 아미노산 ─────────────────────────────────────────────────
-st.subheader("🔬 아미노산 (g/kg 건물 기준)")
-aa_data = component_table(AMINO_ACIDS, SAMPLES, prefix="AA_")
-st.divider()
+for group_name, items in GROUPS.items():
+    icon = ICONS.get(group_name, "📋")
+    st.subheader(f"{icon} {group_name} (g/kg 건물 기준)")
+    group_data = component_table(items, prefix=f"{group_name}_")
+    all_data.update(group_data)
+    st.divider()
 
 # ── NIR 측정값 ───────────────────────────────────────────────
-st.subheader("📡 NIR 측정값")
-st.caption("NIR 기기로 측정한 일반성분 및 ADF/NDF 값을 입력하세요.")
-
-# NIR — ADF/NDF는 축우사료만
-nir_data = {}
-nir_proximate_data = nir_table(PROXIMATE, SAMPLES)
-nir_data.update(nir_proximate_data)
-
-st.markdown("**ADF / NDF (축우사료 전용)**")
-nir_cattle_data = nir_table(CATTLE_ONLY, ["축우사료"])
-nir_data.update(nir_cattle_data)
-
-st.divider()
+if NIR_GRP:
+    st.subheader("📡 NIR 측정값")
+    st.caption("NIR 기기로 측정한 값을 입력하세요.")
+    for group_name, items in NIR_GRP.items():
+        st.markdown(f"**{group_name}**")
+        nir_data = nir_table(items)
+        all_data.update(nir_data)
+    st.divider()
 
 # ── 제출 ─────────────────────────────────────────────────────
 if st.button("📤 데이터 제출", type="primary", use_container_width=True):
@@ -174,20 +189,13 @@ if st.button("📤 데이터 제출", type="primary", use_container_width=True):
             "이메일":   email.strip(),
             "전화":     phone.strip(),
         }
-
-        def add_data(d: dict):
-            for k, v in d.items():
-                if v is None or v == "":
-                    row[k] = ""
-                elif isinstance(v, float):
-                    row[k] = round(v, 4)
-                else:
-                    row[k] = v
-
-        add_data(prox_data)
-        add_data(cattle_data)
-        add_data(aa_data)
-        add_data(nir_data)
+        for k, v in all_data.items():
+            if v is None or v == "":
+                row[k] = ""
+            elif isinstance(v, float):
+                row[k] = round(v, 4)
+            else:
+                row[k] = v
 
         with st.spinner("제출 중..."):
             try:
