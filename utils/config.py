@@ -22,6 +22,10 @@ _DEFAULT_ROWS = [
     ("sample", "", "축우사료",  "", 1, True),
     ("sample", "", "양계사료",  "", 2, True),
     ("sample", "", "고양이사료","", 3, True),
+    # 섹션(그룹) — samples 필드: "nir" = NIR 테이블에도 포함
+    ("group", "", "일반성분", "nir", 1, True),
+    ("group", "", "ADF/NDF",  "nir", 2, True),
+    ("group", "", "아미노산", "",    3, True),
     # 일반성분
     ("component", "일반성분", "수분",    "all", 1, True),
     ("component", "일반성분", "조단백질","all", 2, True),
@@ -112,23 +116,46 @@ def get_samples(cfg: pd.DataFrame = None) -> list[str]:
     )
 
 
+def get_group_order(cfg: pd.DataFrame = None) -> list[dict]:
+    """
+    섹션 순서 목록: [{"name": str, "nir": bool, "enabled": bool}, ...]
+    type="group" 행 기준 정렬.
+    """
+    if cfg is None:
+        cfg = get_config()
+    grp_rows = cfg[cfg["type"] == "group"].sort_values("order")
+    result = []
+    for _, row in grp_rows.iterrows():
+        result.append({
+            "name":    row["name"],
+            "nir":     "nir" in str(row.get("samples", "")).lower(),
+            "enabled": bool(row["enabled"]),
+        })
+    return result
+
+
 def get_component_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
     """
     {그룹명: [{"name": str, "samples": [str]}, ...]}
-    samples: 해당 성분을 입력할 사료 종류 목록
+    group 행의 순서를 따름. enabled=False 그룹은 제외.
     """
     if cfg is None:
         cfg = get_config()
     all_samples = get_samples(cfg)
+    group_order = get_group_order(cfg)
+    enabled_groups = [g["name"] for g in group_order if g["enabled"]]
+
     comps = (
         cfg[(cfg["type"] == "component") & (cfg["enabled"])]
         .sort_values("order")
     )
-    groups: dict[str, list[dict]] = {}
+    # 그룹 순서대로 딕셔너리 초기화
+    groups: dict[str, list[dict]] = {g: [] for g in enabled_groups}
+
     for _, row in comps.iterrows():
         g = row["group"]
         if g not in groups:
-            groups[g] = []
+            continue  # 비활성 그룹 소속 성분 제외
         raw = str(row.get("samples", "")).strip()
         if raw in ("all", "", "전체"):
             applicable = all_samples
@@ -139,9 +166,13 @@ def get_component_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
 
 
 def get_nir_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
-    """NIR 측정 대상 그룹 (아미노산 제외)"""
+    """NIR 측정 대상 그룹 (group 행의 nir 플래그 기준)"""
+    if cfg is None:
+        cfg = get_config()
+    group_order = get_group_order(cfg)
+    nir_group_names = {g["name"] for g in group_order if g["nir"] and g["enabled"]}
     groups = get_component_groups(cfg)
-    return {g: items for g, items in groups.items() if g != "아미노산"}
+    return {g: items for g, items in groups.items() if g in nir_group_names}
 
 
 def get_all_value_columns(cfg: pd.DataFrame = None) -> list[str]:

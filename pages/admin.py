@@ -6,7 +6,7 @@ from datetime import datetime
 from utils.sheets import get_all_data, BASE_FIELDS, submit_data
 from utils.config import (
     get_config, save_config, get_samples, get_component_groups,
-    get_nir_groups, get_all_value_columns,
+    get_nir_groups, get_all_value_columns, get_group_order,
     is_value_col, get_component_from_col, get_sample_from_col,
     DEFAULT_CONFIG, CONFIG_COLS,
 )
@@ -279,7 +279,7 @@ with tab4:
 
     # ── 사료 종류 ─────────────────────────────────────────────
     st.markdown("### 사료 종류")
-    st.caption("사료명 추가/삭제/수정. order 숫자로 순서 조정.")
+    st.caption("사료명 추가/삭제/수정. 순서 숫자로 조정.")
     sample_df = cfg_edit[cfg_edit["type"] == "sample"][CONFIG_COLS].reset_index(drop=True)
     edited_samples = st.data_editor(
         sample_df,
@@ -287,9 +287,9 @@ with tab4:
         use_container_width=True,
         column_config={
             "type":    st.column_config.TextColumn("type", disabled=True, default="sample"),
-            "group":   st.column_config.TextColumn("group", default=""),
+            "group":   None,
             "name":    st.column_config.TextColumn("사료명 *"),
-            "samples": st.column_config.TextColumn("samples", default=""),
+            "samples": None,
             "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
             "enabled": st.column_config.CheckboxColumn("활성화"),
         },
@@ -297,23 +297,74 @@ with tab4:
         hide_index=True,
     )
     edited_samples["type"] = "sample"
+    edited_samples["group"] = ""
+    edited_samples["samples"] = ""
+
+    st.divider()
+
+    # ── 섹션(그룹) 관리 ───────────────────────────────────────
+    st.markdown("### 섹션 관리")
+    st.caption(
+        "섹션 이름 변경, 순서 조정, 추가/삭제, 활성화 여부 설정.\n\n"
+        "**NIR 포함**: 체크 시 해당 섹션이 NIR 측정값 테이블에도 나타납니다.\n\n"
+        "섹션명을 변경하면 아래 성분 종목의 '그룹' 칸도 동일하게 수정해 주세요."
+    )
+    group_df = cfg_edit[cfg_edit["type"] == "group"][CONFIG_COLS].reset_index(drop=True)
+    group_df["NIR포함"] = group_df["samples"].str.lower().str.contains("nir").fillna(False)
+
+    edited_groups_ui = st.data_editor(
+        group_df[["name", "order", "enabled", "NIR포함"]],
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "name":    st.column_config.TextColumn("섹션명 *"),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+            "NIR포함": st.column_config.CheckboxColumn("NIR 포함"),
+        },
+        key="edit_groups",
+        hide_index=True,
+    )
+    # 원본 그룹명 → 새 그룹명 매핑 (rename 추적용)
+    old_group_names = group_df["name"].tolist()
+    new_group_names = edited_groups_ui["name"].tolist()
+    rename_map = {}
+    for old, new in zip(old_group_names, new_group_names):
+        if old != new and pd.notna(new) and str(new).strip():
+            rename_map[old] = str(new).strip()
+
+    # edited_groups를 CONFIG_COLS 형식으로 변환
+    edited_groups = edited_groups_ui.copy()
+    edited_groups["type"] = "group"
+    edited_groups["group"] = ""
+    edited_groups["samples"] = edited_groups["NIR포함"].apply(lambda x: "nir" if x else "")
+    edited_groups = edited_groups[CONFIG_COLS]
 
     st.divider()
 
     # ── 성분 종목 ─────────────────────────────────────────────
     st.markdown("### 성분 종목")
     st.caption(
-        "group: 일반성분 / ADF/NDF / 아미노산 / 기타 원하는 그룹명 입력 가능.\n\n"
-        "samples: `all` = 모든 사료 / 특정 사료만 적용 시 `축우사료` 또는 `축우사료,양계사료` 처럼 쉼표로 구분."
+        "그룹: 위 섹션 관리에서 정의한 섹션명과 일치해야 합니다.\n\n"
+        "적용 사료: `all` = 전체 / `축우사료` 또는 `축우사료,양계사료` 처럼 쉼표로 구분."
     )
     comp_df = cfg_edit[cfg_edit["type"] == "component"][CONFIG_COLS].reset_index(drop=True)
+
+    # 현재 유효한 섹션명 목록 (선택용)
+    valid_groups = [
+        str(n) for n in edited_groups_ui["name"].dropna()
+        if str(n).strip()
+    ]
+
     edited_comps = st.data_editor(
         comp_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
             "type":    st.column_config.TextColumn("type", disabled=True, default="component"),
-            "group":   st.column_config.TextColumn("그룹"),
+            "group":   st.column_config.SelectboxColumn(
+                "그룹", options=valid_groups,
+            ),
             "name":    st.column_config.TextColumn("성분명 *"),
             "samples": st.column_config.TextColumn(
                 "적용 사료",
@@ -327,18 +378,23 @@ with tab4:
     )
     edited_comps["type"] = "component"
 
+    # 섹션명 변경 시 성분의 group 필드 자동 반영
+    if rename_map:
+        edited_comps["group"] = edited_comps["group"].replace(rename_map)
+        st.info(f"섹션 이름 변경 자동 반영: {rename_map}")
+
     st.divider()
 
     # ── 저장 ──────────────────────────────────────────────────
     col_save, col_reset = st.columns([1, 1])
     with col_save:
         if st.button("설정 저장", type="primary", use_container_width=True):
-            # 빈 name 행 제거
             edited_samples = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
+            edited_groups  = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
             edited_comps   = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
 
             new_cfg = pd.concat(
-                [edited_samples, edited_comps],
+                [edited_samples, edited_groups, edited_comps],
                 ignore_index=True,
             )[CONFIG_COLS]
 
