@@ -11,13 +11,19 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFont
 from utils.zscore import zscore_flag, zscore_color
 from utils.config import get_component_from_col, get_sample_from_col
 
-# 한글 지원 폰트 등록
-pdfmetrics.registerFont(UnicodeCIDFont("HYGoThic-Medium"))
-KO = "HYGoThic-Medium"   # 한글 폰트명
+# 한글 TTF 폰트 등록 (Streamlit Cloud: packages.txt에 fonts-nanum 필요)
+try:
+    pdfmetrics.registerFont(TTFont(
+        "NanumGothic",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+    ))
+    KO = "NanumGothic"
+except Exception:
+    KO = "Helvetica"  # 한글 깨질 수 있음 (로컬 환경 폴백)
 
 
 def _color_from_hex(hex_str: str):
