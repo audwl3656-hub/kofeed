@@ -142,7 +142,8 @@ with tab2:
             st.markdown(f"#### {sel_comp} — 기관별 전체 Z-score")
             z_df = compute_zscores(df, comp_cols)
 
-            disp = pd.DataFrame({"기관명": df["기관명"].values})
+            inst_col = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), META_COLS[1] if len(META_COLS) > 1 else "기관명")
+            disp = pd.DataFrame({"기관명": df[inst_col].values if inst_col in df.columns else ""})
             z_display_cols = []
             for col in comp_cols:
                 s = get_sample_from_col(col, SAMPLES) or col
@@ -171,7 +172,7 @@ with tab2:
                     st.dataframe(method_counts, use_container_width=True)
 
                     disp_m = pd.DataFrame({
-                        "기관명": df["기관명"].values,
+                        "기관명": df[inst_col].values if inst_col in df.columns else "",
                         "방법":   df[mc].values,
                     })
                     zm_cols = []
