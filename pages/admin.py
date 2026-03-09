@@ -404,7 +404,7 @@ with tab4:
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "type":        st.column_config.TextColumn("type", disabled=True, default="component"),
+            "type":        None,
             "group":       st.column_config.SelectboxColumn("그룹", options=valid_groups),
             "name":        st.column_config.TextColumn("성분명 *"),
             "samples":     st.column_config.TextColumn(
