@@ -159,6 +159,15 @@ def generate_submission_pdf(
     elements.append(Paragraph(f"<b>제출일시:</b> {row.get('제출일시', generated_at)}", info_sty))
     elements.append(Spacer(1, 5*mm))
 
+    def _fmt(v) -> str:
+        """수치는 소수점 2자리, 빈 값은 빈 문자열로 반환."""
+        if v is None or v == "":
+            return ""
+        try:
+            return f"{float(v):.2f}"
+        except (ValueError, TypeError):
+            return str(v)
+
     for group_name, items in GROUPS.items():
         grp_samples: list[str] = []
         for item in items:
@@ -173,7 +182,7 @@ def generate_submission_pdf(
             method  = str(row.get(f"{comp}_방법", "") or "")
             equip   = str(row.get(f"{comp}_기기",  "") or "")
             solvent = str(row.get(f"{comp}_용매",  "") or "")
-            vals    = [str(row.get(f"{comp}_{s}", "") or "") for s in grp_samples]
+            vals    = [_fmt(row.get(f"{comp}_{s}")) for s in grp_samples]
             tbl_rows.append([comp, method, equip, solvent] + vals)
 
         elements.append(Paragraph(group_name, sec_sty))
@@ -231,7 +240,7 @@ def generate_submission_pdf(
             for item in items:
                 comp  = item["name"]
                 equip = str(row.get(f"NIR_{comp}_기기", "") or "")
-                vals  = [str(row.get(f"NIR_{comp}_{s}", "") or "") for s in grp_samples]
+                vals  = [_fmt(row.get(f"NIR_{comp}_{s}")) for s in grp_samples]
                 nir_rows.append([comp, equip] + vals)
             if len(nir_rows) > 1:
                 elements.append(_render_nir_table(nir_rows))
@@ -252,7 +261,7 @@ def generate_submission_pdf(
                         pass  # comp-only key, skip
                     elif rest.endswith(f"_{s}"):
                         comp = rest[: -len(s) - 1]
-                        nir_comps.setdefault(comp, {})[s] = str(val or "")
+                        nir_comps.setdefault(comp, {})[s] = _fmt(val)
                         break
 
         if nir_comps:
