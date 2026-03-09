@@ -129,10 +129,6 @@ def generate_submission_pdf(
         "title", parent=styles["Title"], fontSize=16, spaceAfter=4,
         alignment=TA_CENTER, fontName=KO,
     )
-    sub_sty = ParagraphStyle(
-        "sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER,
-        textColor=colors.grey, fontName=KO,
-    )
     info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=10,
                               spaceAfter=2, fontName=KO)
     sec_sty  = ParagraphStyle(
@@ -144,7 +140,6 @@ def generate_submission_pdf(
     elements = []
 
     elements.append(Paragraph("데이터 제출 확인서", title_sty))
-    elements.append(Paragraph("Feed Analysis Data Submission Confirmation", sub_sty))
     elements.append(Spacer(1, 5*mm))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
     elements.append(Spacer(1, 4*mm))
