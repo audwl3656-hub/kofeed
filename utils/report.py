@@ -119,9 +119,10 @@ def generate_submission_pdf(
     generated_at: str = None,
 ) -> bytes:
     """제출 데이터를 표 형식으로 보여주는 확인용 PDF (Z-score 없음)."""
-    from utils.config import get_component_groups, get_info_fields
+    from utils.config import get_component_groups, get_nir_groups, get_info_fields
 
     GROUPS      = get_component_groups(cfg)
+    NIR_GROUPS  = get_nir_groups(cfg)
     INFO_FIELDS = get_info_fields(cfg)
 
     buf = io.BytesIO()
@@ -194,6 +195,43 @@ def generate_submission_pdf(
         ]))
         elements.append(t)
         elements.append(Spacer(1, 4*mm))
+
+    # NIR 섹션
+    if NIR_GROUPS:
+        elements.append(Paragraph("NIR 측정값", sec_sty))
+        for group_name, items in NIR_GROUPS.items():
+            grp_samples: list[str] = []
+            for item in items:
+                for s in item["samples"]:
+                    if s not in grp_samples:
+                        grp_samples.append(s)
+
+            nir_header = ["성분", "기기명"] + grp_samples
+            nir_rows = [nir_header]
+            for item in items:
+                comp  = item["name"]
+                equip = str(row.get(f"NIR_{comp}_기기", "") or "")
+                vals  = [str(row.get(f"NIR_{comp}_{s}", "") or "") for s in grp_samples]
+                nir_rows.append([comp, equip] + vals)
+
+            fixed_nir = [35*mm, 35*mm]
+            remaining  = 180*mm - sum(fixed_nir)
+            sample_nir = [remaining / len(grp_samples)] * len(grp_samples) if grp_samples else []
+            t = Table(nir_rows, colWidths=fixed_nir + sample_nir, repeatRows=1)
+            t.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
+                ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+                ("FONTNAME",      (0, 0), (-1, -1), KO),
+                ("FONTSIZE",      (0, 0), (-1, -1), 8),
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+                ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+                ("TOPPADDING",    (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]))
+            elements.append(t)
+            elements.append(Spacer(1, 4*mm))
 
     doc.build(elements)
     return buf.getvalue()
