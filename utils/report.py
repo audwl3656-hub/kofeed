@@ -10,8 +10,14 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from utils.zscore import zscore_flag, zscore_color
 from utils.config import get_component_from_col, get_sample_from_col
+
+# 한글 지원 폰트 등록
+pdfmetrics.registerFont(UnicodeCIDFont("HYGoThic-Medium"))
+KO = "HYGoThic-Medium"   # 한글 폰트명
 
 
 def _color_from_hex(hex_str: str):
@@ -33,6 +39,7 @@ def _build_section(
     elements = []
     section_style = ParagraphStyle(
         "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
+        fontName=KO,
     )
     elements.append(Paragraph(title, section_style))
 
@@ -78,7 +85,7 @@ def _build_section(
     ts = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
-        ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME",   (0, 0), (-1, -1), KO),
         ("FONTSIZE",   (0, 0), (-1, -1), 8),
         ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
@@ -119,15 +126,18 @@ def generate_submission_pdf(
     )
     styles    = getSampleStyleSheet()
     title_sty = ParagraphStyle(
-        "title", parent=styles["Title"], fontSize=16, spaceAfter=4, alignment=TA_CENTER,
+        "title", parent=styles["Title"], fontSize=16, spaceAfter=4,
+        alignment=TA_CENTER, fontName=KO,
     )
     sub_sty = ParagraphStyle(
         "sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER,
-        textColor=colors.grey,
+        textColor=colors.grey, fontName=KO,
     )
-    info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=10, spaceAfter=2)
+    info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=10,
+                              spaceAfter=2, fontName=KO)
     sec_sty  = ParagraphStyle(
-        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
+        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3,
+        spaceBefore=6, fontName=KO,
     )
 
     generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -172,7 +182,7 @@ def generate_submission_pdf(
         t.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
             ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
-            ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME",      (0, 0), (-1, -1), KO),
             ("FONTSIZE",      (0, 0), (-1, -1), 8),
             ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
@@ -211,14 +221,17 @@ def generate_pdf(
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        "title", parent=styles["Title"], fontSize=16, spaceAfter=4, alignment=TA_CENTER,
+        "title2", parent=styles["Title"], fontSize=16, spaceAfter=4,
+        alignment=TA_CENTER, fontName=KO,
     )
     sub_style = ParagraphStyle(
-        "sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER, textColor=colors.grey,
+        "sub2", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER,
+        textColor=colors.grey, fontName=KO,
     )
-    info_style  = ParagraphStyle("info",  parent=styles["Normal"], fontSize=10, spaceAfter=2)
-    note_style  = ParagraphStyle("note",  parent=styles["Normal"], fontSize=8,
-                                 textColor=colors.grey, leftIndent=4)
+    info_style  = ParagraphStyle("info2",  parent=styles["Normal"], fontSize=10,
+                                 spaceAfter=2, fontName=KO)
+    note_style  = ParagraphStyle("note2",  parent=styles["Normal"], fontSize=8,
+                                 textColor=colors.grey, leftIndent=4, fontName=KO)
 
     generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     elements = []
