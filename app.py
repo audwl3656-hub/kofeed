@@ -97,15 +97,37 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
             data[f"{comp}_방법"] = sel
 
         with cols[2]:
-            data[f"{comp}_기기"] = st.text_input(
-                "기기", key=f"{prefix}{comp}_equip",
-                label_visibility="collapsed", placeholder="기기명",
+            use_equip = st.checkbox(
+                "기기명 사용", value=True,
+                key=f"{prefix}{comp}_equip_use",
             )
+            if use_equip:
+                data[f"{comp}_기기"] = st.text_input(
+                    "기기", key=f"{prefix}{comp}_equip",
+                    label_visibility="collapsed", placeholder="기기명",
+                )
+            else:
+                st.markdown(
+                    "<div style='color:#ccc;text-align:center'>—</div>",
+                    unsafe_allow_html=True,
+                )
+                data[f"{comp}_기기"] = ""
         with cols[3]:
-            data[f"{comp}_용매"] = st.text_input(
-                "용매", key=f"{prefix}{comp}_solvent",
-                label_visibility="collapsed", placeholder="용매",
+            use_solvent = st.checkbox(
+                "용매 사용", value=True,
+                key=f"{prefix}{comp}_solvent_use",
             )
+            if use_solvent:
+                data[f"{comp}_용매"] = st.text_input(
+                    "용매", key=f"{prefix}{comp}_solvent",
+                    label_visibility="collapsed", placeholder="용매",
+                )
+            else:
+                st.markdown(
+                    "<div style='color:#ccc;text-align:center'>—</div>",
+                    unsafe_allow_html=True,
+                )
+                data[f"{comp}_용매"] = ""
         for i, s in enumerate(all_sample_set):
             with cols[4 + i]:
                 if s in samples:
