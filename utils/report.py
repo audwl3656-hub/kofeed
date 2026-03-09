@@ -119,11 +119,12 @@ def generate_submission_pdf(
     generated_at: str = None,
 ) -> bytes:
     """제출 데이터를 표 형식으로 보여주는 확인용 PDF (Z-score 없음)."""
-    from utils.config import get_component_groups, get_nir_groups, get_info_fields
+    from utils.config import get_component_groups, get_nir_groups, get_info_fields, get_samples
 
     GROUPS      = get_component_groups(cfg)
     NIR_GROUPS  = get_nir_groups(cfg)
     INFO_FIELDS = get_info_fields(cfg)
+    ALL_SAMPLES = get_samples(cfg)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -197,41 +198,75 @@ def generate_submission_pdf(
         elements.append(Spacer(1, 4*mm))
 
     # NIR 섹션
+    def _render_nir_table(nir_rows: list):
+        nir_header = nir_rows[0]
+        n_samp = len(nir_header) - 2
+        fixed_w = [35*mm, 35*mm]
+        remaining = 180*mm - sum(fixed_w)
+        sample_w = [remaining / n_samp] * n_samp if n_samp > 0 else []
+        t = Table(nir_rows, colWidths=fixed_w + sample_w, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
+            ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",      (0, 0), (-1, -1), KO),
+            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+            ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+            ("TOPPADDING",    (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        return t
+
     if NIR_GROUPS:
         elements.append(Paragraph("NIR 측정값", sec_sty))
-        for group_name, items in NIR_GROUPS.items():
+        for _gname, items in NIR_GROUPS.items():
             grp_samples: list[str] = []
             for item in items:
                 for s in item["samples"]:
                     if s not in grp_samples:
                         grp_samples.append(s)
-
-            nir_header = ["성분", "기기명"] + grp_samples
-            nir_rows = [nir_header]
+            nir_rows = [["성분", "기기명"] + grp_samples]
             for item in items:
                 comp  = item["name"]
                 equip = str(row.get(f"NIR_{comp}_기기", "") or "")
                 vals  = [str(row.get(f"NIR_{comp}_{s}", "") or "") for s in grp_samples]
                 nir_rows.append([comp, equip] + vals)
+            if len(nir_rows) > 1:
+                elements.append(_render_nir_table(nir_rows))
+                elements.append(Spacer(1, 4*mm))
+    else:
+        # config에 NIR 그룹이 없을 때: row 키에서 직접 추출
+        nir_comps: dict[str, dict] = {}
+        for key, val in row.items():
+            if not key.startswith("NIR_"):
+                continue
+            rest = key[4:]
+            if rest.endswith("_기기"):
+                comp = rest[:-4]
+                nir_comps.setdefault(comp, {})["_기기"] = str(val or "")
+            else:
+                for s in ALL_SAMPLES:
+                    if rest == f"{s}":
+                        pass  # comp-only key, skip
+                    elif rest.endswith(f"_{s}"):
+                        comp = rest[: -len(s) - 1]
+                        nir_comps.setdefault(comp, {})[s] = str(val or "")
+                        break
 
-            fixed_nir = [35*mm, 35*mm]
-            remaining  = 180*mm - sum(fixed_nir)
-            sample_nir = [remaining / len(grp_samples)] * len(grp_samples) if grp_samples else []
-            t = Table(nir_rows, colWidths=fixed_nir + sample_nir, repeatRows=1)
-            t.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-                ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
-                ("FONTNAME",      (0, 0), (-1, -1), KO),
-                ("FONTSIZE",      (0, 0), (-1, -1), 8),
-                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-                ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-                ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
-                ("TOPPADDING",    (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]))
-            elements.append(t)
-            elements.append(Spacer(1, 4*mm))
+        if nir_comps:
+            grp_samples = [s for s in ALL_SAMPLES
+                           if any(s in d for d in nir_comps.values())]
+            nir_rows = [["성분", "기기명"] + grp_samples]
+            for comp, d in nir_comps.items():
+                equip = d.get("_기기", "")
+                vals  = [d.get(s, "") for s in grp_samples]
+                nir_rows.append([comp, equip] + vals)
+            if len(nir_rows) > 1:
+                elements.append(Paragraph("NIR 측정값", sec_sty))
+                elements.append(_render_nir_table(nir_rows))
+                elements.append(Spacer(1, 4*mm))
 
     doc.build(elements)
     return buf.getvalue()
