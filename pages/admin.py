@@ -384,7 +384,14 @@ with tab4:
         "그룹: 위 섹션 관리에서 정의한 섹션명과 일치해야 합니다.\n\n"
         "적용 사료: `all` = 전체 / `축우사료` 또는 `축우사료,양계사료` 처럼 쉼표로 구분."
     )
-    comp_df = cfg_edit[cfg_edit["type"] == "component"][CONFIG_COLS].reset_index(drop=True)
+    comp_df = cfg_edit[cfg_edit["type"] == "component"].reset_index(drop=True)
+    # 기존 시트에 컬럼 없을 때 기본값 추가
+    for _col in ("use_equip", "use_solvent"):
+        if _col not in comp_df.columns:
+            comp_df[_col] = True
+        else:
+            raw = comp_df[_col].astype(str).str.strip().str.lower()
+            comp_df[_col] = ~raw.isin(["false", "0", "no"])
 
     # 현재 유효한 섹션명 목록 (선택용)
     valid_groups = [
@@ -393,21 +400,21 @@ with tab4:
     ]
 
     edited_comps = st.data_editor(
-        comp_df,
+        comp_df[["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent"]],
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "type":    st.column_config.TextColumn("type", disabled=True, default="component"),
-            "group":   st.column_config.SelectboxColumn(
-                "그룹", options=valid_groups,
-            ),
-            "name":    st.column_config.TextColumn("성분명 *"),
-            "samples": st.column_config.TextColumn(
+            "type":        st.column_config.TextColumn("type", disabled=True, default="component"),
+            "group":       st.column_config.SelectboxColumn("그룹", options=valid_groups),
+            "name":        st.column_config.TextColumn("성분명 *"),
+            "samples":     st.column_config.TextColumn(
                 "적용 사료",
                 help="all = 전체 / 축우사료,양계사료 처럼 쉼표로 구분",
             ),
-            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
-            "enabled": st.column_config.CheckboxColumn("활성화"),
+            "order":       st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled":     st.column_config.CheckboxColumn("활성화"),
+            "use_equip":   st.column_config.CheckboxColumn("기기명 사용"),
+            "use_solvent": st.column_config.CheckboxColumn("용매 사용"),
         },
         key="edit_comps",
         hide_index=True,
@@ -496,6 +503,11 @@ with tab4:
             edited_methods   = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
             edited_questions = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
 
+            # use_equip / use_solvent 컬럼이 없는 타입은 빈 문자열로 채움
+            for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_questions]:
+                for _col in ("use_equip", "use_solvent"):
+                    if _col not in _df.columns:
+                        _df[_col] = ""
             new_cfg = pd.concat(
                 [edited_info, edited_samples, edited_groups,
                  edited_comps, edited_methods, edited_questions],

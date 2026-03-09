@@ -97,11 +97,7 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
             data[f"{comp}_방법"] = sel
 
         with cols[2]:
-            use_equip = st.checkbox(
-                "기기명 사용", value=True,
-                key=f"{prefix}{comp}_equip_use",
-            )
-            if use_equip:
+            if item.get("use_equip", True):
                 data[f"{comp}_기기"] = st.text_input(
                     "기기", key=f"{prefix}{comp}_equip",
                     label_visibility="collapsed", placeholder="기기명",
@@ -113,11 +109,7 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
                 )
                 data[f"{comp}_기기"] = ""
         with cols[3]:
-            use_solvent = st.checkbox(
-                "용매 사용", value=True,
-                key=f"{prefix}{comp}_solvent_use",
-            )
-            if use_solvent:
+            if item.get("use_solvent", True):
                 data[f"{comp}_용매"] = st.text_input(
                     "용매", key=f"{prefix}{comp}_solvent",
                     label_visibility="collapsed", placeholder="용매",
