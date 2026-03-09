@@ -7,12 +7,6 @@ import streamlit as st
 
 
 def send_report(to_email: str, institution: str, pdf_bytes: bytes) -> bool:
-    """
-    Gmail SMTP로 PDF 보고서 발송.
-    secrets.toml에 [email] 섹션 필요:
-        sender = "your@gmail.com"
-        password = "앱 비밀번호"
-    """
     cfg = st.secrets["email"]
     sender = cfg["sender"]
     password = cfg["password"]
@@ -50,33 +44,39 @@ def send_report(to_email: str, institution: str, pdf_bytes: bytes) -> bool:
     return True
 
 
-def send_confirmation(to_email: str, institution: str, row: dict) -> bool:
-    """
-    데이터 제출 즉시 발송하는 접수 확인 이메일 (Z-score 없이).
-    """
-    cfg = st.secrets["email"]
-    sender = cfg["sender"]
-    password = cfg["password"]
+def send_confirmation(to_email: str, institution: str, row: dict, cfg) -> bool:
+    """데이터 제출 즉시 발송하는 접수 확인 이메일 (제출 내역 PDF 첨부, Z-score 없음)."""
+    from utils.report import generate_submission_pdf
 
-    lines = [f"{k}: {v}" for k, v in row.items() if v not in ("", None)]
+    email_cfg = st.secrets["email"]
+    sender    = email_cfg["sender"]
+    password  = email_cfg["password"]
+
     body = f"""\
 {institution} 귀중
 
 데이터가 정상적으로 접수되었습니다.
+첨부 파일에서 제출 내역을 확인하실 수 있습니다.
 분석 완료 후 Robust Z-score 결과 보고서를 별도 발송해 드립니다.
-
-── 제출 내역 ──────────────────────────
-{chr(10).join(lines)}
-────────────────────────────────────────
 
 문의 사항이 있으시면 회신해 주시기 바랍니다.
 감사합니다.
 """
     msg = MIMEMultipart()
-    msg["From"] = sender
-    msg["To"] = to_email
+    msg["From"]    = sender
+    msg["To"]      = to_email
     msg["Subject"] = f"[숙련도시험] {institution} 데이터 접수 확인"
     msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    pdf_bytes = generate_submission_pdf(row, cfg, generated_at=row.get("제출일시"))
+    part = MIMEBase("application", "octet-stream")
+    part.set_payload(pdf_bytes)
+    encoders.encode_base64(part)
+    part.add_header(
+        "Content-Disposition",
+        f'attachment; filename="submission_{institution}.pdf"',
+    )
+    msg.attach(part)
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)

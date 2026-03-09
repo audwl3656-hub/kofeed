@@ -268,7 +268,7 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         if email_to:
             with st.spinner("접수 확인 이메일 발송 중..."):
                 try:
-                    send_confirmation(email_to, inst_name, row)
+                    send_confirmation(email_to, inst_name, row, cfg)
                     st.info(f"접수 확인 이메일이 {email_to}으로 발송되었습니다.")
                 except Exception as e:
                     st.warning(f"이메일 발송 중 오류가 발생했습니다: {e}")

@@ -100,6 +100,94 @@ def _build_section(
     return elements
 
 
+def generate_submission_pdf(
+    row: dict,
+    cfg,
+    generated_at: str = None,
+) -> bytes:
+    """제출 데이터를 표 형식으로 보여주는 확인용 PDF (Z-score 없음)."""
+    from utils.config import get_component_groups, get_info_fields
+
+    GROUPS      = get_component_groups(cfg)
+    INFO_FIELDS = get_info_fields(cfg)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=15*mm, rightMargin=15*mm,
+        topMargin=18*mm, bottomMargin=18*mm,
+    )
+    styles    = getSampleStyleSheet()
+    title_sty = ParagraphStyle(
+        "title", parent=styles["Title"], fontSize=16, spaceAfter=4, alignment=TA_CENTER,
+    )
+    sub_sty = ParagraphStyle(
+        "sub", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER,
+        textColor=colors.grey,
+    )
+    info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=10, spaceAfter=2)
+    sec_sty  = ParagraphStyle(
+        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
+    )
+
+    generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+    elements = []
+
+    elements.append(Paragraph("데이터 제출 확인서", title_sty))
+    elements.append(Paragraph("Feed Analysis Data Submission Confirmation", sub_sty))
+    elements.append(Spacer(1, 5*mm))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
+    elements.append(Spacer(1, 4*mm))
+
+    for field in INFO_FIELDS:
+        val = row.get(field["name"], "")
+        if val:
+            elements.append(Paragraph(f"<b>{field['name']}:</b> {val}", info_sty))
+    elements.append(Paragraph(f"<b>제출일시:</b> {row.get('제출일시', generated_at)}", info_sty))
+    elements.append(Spacer(1, 5*mm))
+
+    for group_name, items in GROUPS.items():
+        grp_samples: list[str] = []
+        for item in items:
+            for s in item["samples"]:
+                if s not in grp_samples:
+                    grp_samples.append(s)
+
+        header = ["성분", "방법", "기기명", "용매"] + grp_samples
+        tbl_rows = [header]
+        for item in items:
+            comp    = item["name"]
+            method  = str(row.get(f"{comp}_방법", "") or "")
+            equip   = str(row.get(f"{comp}_기기",  "") or "")
+            solvent = str(row.get(f"{comp}_용매",  "") or "")
+            vals    = [str(row.get(f"{comp}_{s}", "") or "") for s in grp_samples]
+            tbl_rows.append([comp, method, equip, solvent] + vals)
+
+        elements.append(Paragraph(group_name, sec_sty))
+
+        fixed_w    = [28*mm, 28*mm, 25*mm, 20*mm]
+        remaining  = 180*mm - sum(fixed_w)
+        sample_w   = [remaining / len(grp_samples)] * len(grp_samples) if grp_samples else []
+        t = Table(tbl_rows, colWidths=fixed_w + sample_w, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
+            ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+            ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+            ("TOPPADDING",    (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 4*mm))
+
+    doc.build(elements)
+    return buf.getvalue()
+
+
 def generate_pdf(
     email: str,
     institution: str,
