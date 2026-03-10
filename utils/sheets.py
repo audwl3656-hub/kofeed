@@ -11,13 +11,21 @@ SCOPE = [
 BASE_FIELDS = ["제출일시", "기관명", "담당자명", "이메일", "전화"]
 
 
+_DATA_SHEET = "제출데이터"
+
+
 def _get_sheet():
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=SCOPE
     )
     client = gspread.authorize(creds)
-    sheet = client.open(st.secrets["sheet"]["name"]).sheet1
-    return sheet
+    sp = client.open(st.secrets["sheet"]["name"])
+    try:
+        return sp.worksheet(_DATA_SHEET)
+    except gspread.WorksheetNotFound:
+        old = sp.sheet1
+        old.update_title(_DATA_SHEET)
+        return old
 
 
 def submit_data(row: dict):
