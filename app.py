@@ -191,6 +191,10 @@ def nir_table(items: list[dict]) -> dict:
 
 
 # ── 성분 그룹별 폼 ────────────────────────────────────────────
+if not SAMPLES:
+    st.error("⚠️ 관리자 페이지 → 설정 → 사료 종류에 사료가 등록되어 있지 않습니다. 데이터 제출이 불가합니다.")
+    st.stop()
+
 all_data: dict = {}
 
 for group_name, items in GROUPS.items():
