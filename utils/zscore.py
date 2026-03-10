@@ -33,7 +33,7 @@ def compute_zscores_by_method(
 ) -> pd.Series:
     """
     방법별 Robust Z-score 계산.
-    동일 방법을 사용한 기관이 3개 미만이면 NaN 반환.
+    동일 방법을 사용한 기관이 5개 미만이면 NaN 반환.
     """
     result = pd.Series(np.nan, index=df.index, dtype=float)
     if method_col not in df.columns:
@@ -43,7 +43,7 @@ def compute_zscores_by_method(
             continue
         vals = pd.to_numeric(grp[value_col], errors="coerce")
         valid = vals.notna()
-        if valid.sum() < 3:
+        if valid.sum() < 5:
             continue
         z = robust_zscore(vals[valid].values)
         result.loc[vals[valid].index] = z
