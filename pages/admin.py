@@ -490,8 +490,10 @@ with tab4:
         key="edit_methods",
         hide_index=True,
     )
-    edited_methods["type"]    = "method_option"
-    edited_methods["samples"] = ""
+    edited_methods["type"]       = "method_option"
+    edited_methods["samples"]    = ""
+    edited_methods["use_equip"]  = ""
+    edited_methods["use_solvent"] = ""
     edited_methods = edited_methods[CONFIG_COLS]
 
     st.divider()
