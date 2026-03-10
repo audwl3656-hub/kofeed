@@ -1,4 +1,5 @@
 import smtplib
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
@@ -7,13 +8,14 @@ import streamlit as st
 
 
 def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
-    """PDF를 이메일에 첨부. 한글 파일명을 RFC 2231 3-tuple로 처리."""
+    """PDF를 이메일에 첨부. RFC 2047 base64 인코딩으로 한글 파일명 처리."""
     part = MIMEBase("application", "octet-stream")
     part.set_payload(pdf_bytes)
     encoders.encode_base64(part)
-    # 3-tuple (charset, language, value) → filename*=utf-8''... (따옴표 없이 올바르게 생성)
-    part.add_header("Content-Disposition", "attachment",
-                    filename=("utf-8", "", filename))
+    # RFC 2047 방식: =?utf-8?b?...?= — 네이버/다음 등 한국 메일 클라이언트 호환
+    b64 = base64.b64encode(filename.encode("utf-8")).decode("ascii")
+    encoded_name = f"=?utf-8?b?{b64}?="
+    part.add_header("Content-Disposition", "attachment", filename=encoded_name)
     msg.attach(part)
 
 

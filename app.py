@@ -195,6 +195,10 @@ if not SAMPLES:
     st.error("⚠️ 관리자 페이지 → 설정 → 사료 종류에 사료가 등록되어 있지 않습니다. 데이터 제출이 불가합니다.")
     st.stop()
 
+if not any(items for items in GROUPS.values()):
+    st.error("⚠️ 관리자 페이지 → 설정 → 성분 종목에 활성화된 항목이 없습니다. 데이터 제출이 불가합니다.")
+    st.stop()
+
 all_data: dict = {}
 
 for group_name, items in GROUPS.items():
@@ -273,10 +277,19 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         for k, v in all_data.items():
             row[k] = "" if v is None else v
 
+        # 입력된 수치값 개수 확인
+        numeric_count = sum(
+            1 for k, v in row.items()
+            if any(k.endswith(f"_{s}") for s in SAMPLES) and v not in ("", None)
+        )
+
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
-                st.success(f"{inst_name or '기관'}의 데이터가 성공적으로 제출되었습니다!")
+                st.success(
+                    f"{inst_name or '기관'}의 데이터가 성공적으로 제출되었습니다! "
+                    f"(입력값 {numeric_count}개)"
+                )
                 st.balloons()
             except Exception as e:
                 st.error(f"제출 중 오류가 발생했습니다: {e}")
