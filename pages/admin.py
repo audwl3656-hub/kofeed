@@ -15,7 +15,7 @@ from utils.zscore import (
     compute_zscores, compute_zscores_by_method,
     zscore_flag, zscore_color,
 )
-from utils.report import generate_pdf
+from utils.report import generate_pdf_overall, generate_pdf_by_method
 from utils.email_sender import send_all_reports
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
@@ -208,9 +208,13 @@ with tab3:
             vals = df[col].dropna()
             if vals.empty:
                 continue
-            med = float(np.median(vals))
-            mad = float(np.median(np.abs(vals - med)))
-            group_stats[col] = {"median": med, "mad": mad, "n": len(vals)}
+            med  = float(np.median(vals))
+            mad  = float(np.median(np.abs(vals - med)))
+            mean = float(vals.mean())
+            std  = float(vals.std())
+            cv   = (std / mean * 100) if mean != 0 else np.nan
+            group_stats[col] = {"median": med, "mad": mad, "n": len(vals),
+                                "mean": mean, "std": std, "cv": cv}
 
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -240,15 +244,34 @@ with tab3:
                 row_data   = {col: row.get(col, "") for col in main_cols}
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
-                pdf_bytes  = generate_pdf(
-                    email_to, inst, row_data, zscore_row, z_m_row,
-                    group_stats, main_cols, generated_at,
+                inst_method = {}
+                for col in main_cols:
+                    comp = get_component_from_col(col, SAMPLES)
+                    if comp:
+                        mc = f"{comp}_방법"
+                        if mc in df.columns:
+                            inst_method[comp] = str(row.get(mc, "") or "")
+                pdf_overall = generate_pdf_overall(
+                    email_to, inst, row_data, zscore_row,
+                    group_stats, main_cols, generated_at, SAMPLES,
                 )
-                st.download_button(
-                    "PDF 다운로드", pdf_bytes,
-                    f"report_{inst}.pdf", "application/pdf",
-                    key=f"dl_{idx}",
+                pdf_method = generate_pdf_by_method(
+                    email_to, inst, row_data, z_m_row,
+                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.download_button(
+                        "전체 Z-score PDF", pdf_overall,
+                        f"회원사비교분석_{inst}_전체 Robust Z-score.pdf", "application/pdf",
+                        key=f"dl_overall_{idx}",
+                    )
+                with c2:
+                    st.download_button(
+                        "방법별 Z-score PDF", pdf_method,
+                        f"회원사비교분석_{inst}_방법별 Robust Z-score.pdf", "application/pdf",
+                        key=f"dl_method_{idx}",
+                    )
 
         st.divider()
         st.markdown("#### 전체 일괄 발송")
@@ -263,12 +286,24 @@ with tab3:
                 row_data   = {col: row.get(col, "") for col in main_cols}
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
-                pdf_bytes  = generate_pdf(
-                    email_to, inst, row_data, zscore_row, z_m_row,
-                    group_stats, main_cols, generated_at,
+                inst_method = {}
+                for col in main_cols:
+                    comp = get_component_from_col(col, SAMPLES)
+                    if comp:
+                        mc = f"{comp}_방법"
+                        if mc in df.columns:
+                            inst_method[comp] = str(row.get(mc, "") or "")
+                pdf_overall = generate_pdf_overall(
+                    email_to, inst, row_data, zscore_row,
+                    group_stats, main_cols, generated_at, SAMPLES,
+                )
+                pdf_method = generate_pdf_by_method(
+                    email_to, inst, row_data, z_m_row,
+                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 report_list.append({
-                    "email": email_to, "institution": inst, "pdf_bytes": pdf_bytes,
+                    "email": email_to, "institution": inst,
+                    "pdf_overall": pdf_overall, "pdf_method": pdf_method,
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)
@@ -374,6 +409,8 @@ with tab4:
     edited_groups["type"] = "group"
     edited_groups["group"] = ""
     edited_groups["samples"] = edited_groups["NIR포함"].apply(lambda x: "nir" if x else "")
+    edited_groups["use_equip"] = ""
+    edited_groups["use_solvent"] = ""
     edited_groups = edited_groups[CONFIG_COLS]
 
     st.divider()

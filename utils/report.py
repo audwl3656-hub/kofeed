@@ -32,62 +32,7 @@ def _color_from_hex(hex_str: str):
     return colors.Color(r / 255, g / 255, b / 255)
 
 
-def _build_section(
-    title: str,
-    cols: list,
-    row_data: dict,
-    zscore_row: dict,
-    z_method_row: dict,
-    group_stats: dict,
-    styles,
-    samples: list,
-) -> list:
-    elements = []
-    section_style = ParagraphStyle(
-        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
-        fontName=KO,
-    )
-    elements.append(Paragraph(title, section_style))
-
-    header = ["성분", "사료", "제출값", "중앙값", "MAD", "n", "Z전체", "Z방법별", "판정"]
-    rows = [header]
-
-    for col in cols:
-        comp   = get_component_from_col(col, samples) or col
-        sample = get_sample_from_col(col, samples) or "-"
-        val    = row_data.get(col, "")
-        z      = zscore_row.get(col, np.nan)
-        zm     = z_method_row.get(col, np.nan)
-        stats  = group_stats.get(col, {})
-
-        def fmt(v, d=4):
-            try:
-                return f"{float(v):.{d}f}"
-            except Exception:
-                return "-"
-
-        try:
-            z_f  = float(z)
-            z_str = f"{z_f:.2f}" if not np.isnan(z_f) else "-"
-        except Exception:
-            z_f, z_str = np.nan, "-"
-
-        try:
-            zm_f  = float(zm)
-            zm_str = f"{zm_f:.2f}" if not np.isnan(zm_f) else "N/A"
-        except Exception:
-            zm_str = "N/A"
-
-        rows.append([
-            comp, sample,
-            fmt(val), fmt(stats.get("median", "")), fmt(stats.get("mad", "")),
-            str(stats.get("n", "")),
-            z_str, zm_str,
-            zscore_flag(z_f) if z_str != "-" else "N/A",
-        ])
-
-    cw = [20*mm, 20*mm, 20*mm, 20*mm, 16*mm, 10*mm, 18*mm, 18*mm, 18*mm]
-    t = Table(rows, colWidths=cw, repeatRows=1)
+def _make_table_style(z_col_idx: int, cols: list, zscore_dict: dict) -> TableStyle:
     ts = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
@@ -102,15 +47,234 @@ def _build_section(
     ])
     for i, col in enumerate(cols, start=1):
         try:
-            z_f = float(zscore_row.get(col, np.nan))
+            z_f = float(zscore_dict.get(col, np.nan))
             if not np.isnan(z_f):
-                ts.add("BACKGROUND", (6, i), (6, i), _color_from_hex(zscore_color(z_f)))
+                ts.add("BACKGROUND", (z_col_idx, i), (z_col_idx, i),
+                       _color_from_hex(zscore_color(z_f)))
         except Exception:
             pass
-    t.setStyle(ts)
+    return ts
+
+
+def _build_sample_section(
+    sample_name: str,
+    cols_for_sample: list,
+    row_data: dict,
+    zscore_dict: dict,
+    group_stats: dict,
+    styles,
+    samples: list,
+    report_type: str,       # "overall" or "method"
+    inst_method: dict = None,
+) -> list:
+    elements = []
+    section_style = ParagraphStyle(
+        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
+        fontName=KO,
+    )
+    elements.append(Paragraph(sample_name, section_style))
+
+    def fmt(v, d=2):
+        try:
+            f = float(v)
+            return f"{f:.{d}f}" if not np.isnan(f) else "-"
+        except Exception:
+            return "-"
+
+    if report_type == "overall":
+        header = ["성분", "제출값", "중앙값", "CV(%)", "n", "Z전체", "판정"]
+        cw = [35*mm, 25*mm, 25*mm, 20*mm, 15*mm, 25*mm, 35*mm]
+        z_col_idx = 5
+    else:
+        header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z방법별", "판정"]
+        cw = [28*mm, 30*mm, 20*mm, 20*mm, 18*mm, 12*mm, 22*mm, 30*mm]
+        z_col_idx = 6
+
+    rows = [header]
+    for col in cols_for_sample:
+        comp  = get_component_from_col(col, samples) or col
+        val   = row_data.get(col, "")
+        stats = group_stats.get(col, {})
+        z     = zscore_dict.get(col, np.nan)
+
+        try:
+            z_f   = float(z)
+            z_str = f"{z_f:.2f}" if not np.isnan(z_f) else "N/A"
+        except Exception:
+            z_f, z_str = np.nan, "N/A"
+
+        cv_val = stats.get("cv")
+        try:
+            cv_str = f"{float(cv_val):.1f}" if cv_val is not None and not np.isnan(float(cv_val)) else "-"
+        except Exception:
+            cv_str = "-"
+
+        flag = zscore_flag(z_f) if not np.isnan(z_f) else "N/A"
+
+        if report_type == "overall":
+            rows.append([
+                comp, fmt(val),
+                fmt(stats.get("median", "")),
+                cv_str,
+                str(stats.get("n", "")),
+                z_str, flag,
+            ])
+        else:
+            method = (inst_method or {}).get(comp, "")
+            rows.append([
+                comp, method, fmt(val),
+                fmt(stats.get("median", "")),
+                cv_str,
+                str(stats.get("n", "")),
+                z_str, flag,
+            ])
+
+    t = Table(rows, colWidths=cw, repeatRows=1)
+    t.setStyle(_make_table_style(z_col_idx, cols_for_sample, zscore_dict))
     elements.append(t)
     elements.append(Spacer(1, 4*mm))
     return elements
+
+
+def _generate_zscore_pdf(
+    title: str,
+    email: str,
+    institution: str,
+    row_data: dict,
+    zscore_dict: dict,
+    group_stats: dict,
+    value_cols: list,
+    report_type: str,
+    generated_at: str,
+    samples: list,
+    inst_method: dict = None,
+) -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=15*mm, rightMargin=15*mm,
+        topMargin=18*mm, bottomMargin=18*mm,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "title2", parent=styles["Title"], fontSize=16, spaceAfter=4,
+        alignment=TA_CENTER, fontName=KO,
+    )
+    info_style = ParagraphStyle("info2", parent=styles["Normal"], fontSize=10,
+                                spaceAfter=2, fontName=KO)
+    note_style = ParagraphStyle("note2", parent=styles["Normal"], fontSize=8,
+                                textColor=colors.grey, leftIndent=4, fontName=KO)
+
+    elements = []
+    elements.append(Paragraph(title, title_style))
+    elements.append(Spacer(1, 2*mm))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
+    elements.append(Spacer(1, 4*mm))
+    elements.append(Paragraph(f"<b>기관명:</b> {institution}", info_style))
+    elements.append(Paragraph(f"<b>이메일:</b> {email}", info_style))
+    elements.append(Paragraph(f"<b>보고서 생성일:</b> {generated_at}", info_style))
+    elements.append(Spacer(1, 5*mm))
+
+    # NIR 제외 컬럼만 사용
+    non_nir_cols = [c for c in value_cols if not c.startswith("NIR_")]
+
+    # 사료 종류별로 그룹핑 (samples 순서 유지)
+    sample_to_cols: dict[str, list] = {}
+    for col in non_nir_cols:
+        s = get_sample_from_col(col, samples) or "-"
+        sample_to_cols.setdefault(s, []).append(col)
+
+    # samples 리스트 순서대로 섹션 출력
+    ordered_samples = [s for s in samples if s in sample_to_cols]
+    for s in sample_to_cols:
+        if s not in ordered_samples:
+            ordered_samples.append(s)
+
+    for sample_name in ordered_samples:
+        scols = sample_to_cols[sample_name]
+        elements += _build_sample_section(
+            sample_name, scols, row_data, zscore_dict, group_stats,
+            styles, samples, report_type, inst_method,
+        )
+
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    elements.append(Spacer(1, 3*mm))
+    elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
+    elements.append(Paragraph("적합: |Z| <= 2.0", note_style))
+    elements.append(Paragraph("경고: 2.0 < |Z| <= 3.0", note_style))
+    elements.append(Paragraph("부적합: |Z| > 3.0", note_style))
+    elements.append(Spacer(1, 2*mm))
+    if report_type == "overall":
+        elements.append(Paragraph(
+            "* Robust Z-score = (제출값 - 중앙값) / (1.4826 x MAD)  |  CV(%) = 표준편차 / 평균 x 100",
+            note_style,
+        ))
+    else:
+        elements.append(Paragraph(
+            "* Z방법별: 동일 방법 사용 기관 5개 미만이면 N/A  |  CV(%) = 표준편차 / 평균 x 100",
+            note_style,
+        ))
+
+    doc.build(elements)
+    return buf.getvalue()
+
+
+def generate_pdf_overall(
+    email: str,
+    institution: str,
+    row_data: dict,
+    zscore_row: dict,
+    group_stats: dict,
+    value_cols: list,
+    generated_at: str = None,
+    samples: list = None,
+) -> bytes:
+    if samples is None:
+        from utils.config import get_samples
+        samples = get_samples()
+    generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+    return _generate_zscore_pdf(
+        title="회원사 비교분석 시험 Robust Z-score 보고서 (전체)",
+        email=email,
+        institution=institution,
+        row_data=row_data,
+        zscore_dict=zscore_row,
+        group_stats=group_stats,
+        value_cols=value_cols,
+        report_type="overall",
+        generated_at=generated_at,
+        samples=samples,
+    )
+
+
+def generate_pdf_by_method(
+    email: str,
+    institution: str,
+    row_data: dict,
+    z_method_row: dict,
+    group_stats: dict,
+    value_cols: list,
+    generated_at: str = None,
+    samples: list = None,
+    inst_method: dict = None,
+) -> bytes:
+    if samples is None:
+        from utils.config import get_samples
+        samples = get_samples()
+    generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
+    return _generate_zscore_pdf(
+        title="회원사 비교분석 시험 Robust Z-score 보고서 (방법별)",
+        email=email,
+        institution=institution,
+        row_data=row_data,
+        zscore_dict=z_method_row,
+        group_stats=group_stats,
+        value_cols=value_cols,
+        report_type="method",
+        generated_at=generated_at,
+        samples=samples,
+        inst_method=inst_method,
+    )
 
 
 def generate_submission_pdf(
@@ -258,7 +422,7 @@ def generate_submission_pdf(
             else:
                 for s in ALL_SAMPLES:
                     if rest == f"{s}":
-                        pass  # comp-only key, skip
+                        pass
                     elif rest.endswith(f"_{s}"):
                         comp = rest[: -len(s) - 1]
                         nir_comps.setdefault(comp, {})[s] = _fmt(val)
@@ -276,86 +440,6 @@ def generate_submission_pdf(
                 elements.append(Paragraph("NIR 측정값", sec_sty))
                 elements.append(_render_nir_table(nir_rows))
                 elements.append(Spacer(1, 4*mm))
-
-    doc.build(elements)
-    return buf.getvalue()
-
-
-def generate_pdf(
-    email: str,
-    institution: str,
-    row_data: dict,
-    zscore_row: dict,
-    z_method_row: dict,
-    group_stats: dict,
-    value_cols: list,
-    generated_at: str = None,
-    samples: list = None,
-) -> bytes:
-    if samples is None:
-        from utils.config import get_samples
-        samples = get_samples()
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        leftMargin=15*mm, rightMargin=15*mm,
-        topMargin=18*mm, bottomMargin=18*mm,
-    )
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "title2", parent=styles["Title"], fontSize=16, spaceAfter=4,
-        alignment=TA_CENTER, fontName=KO,
-    )
-    sub_style = ParagraphStyle(
-        "sub2", parent=styles["Normal"], fontSize=10, alignment=TA_CENTER,
-        textColor=colors.grey, fontName=KO,
-    )
-    info_style  = ParagraphStyle("info2",  parent=styles["Normal"], fontSize=10,
-                                 spaceAfter=2, fontName=KO)
-    note_style  = ParagraphStyle("note2",  parent=styles["Normal"], fontSize=8,
-                                 textColor=colors.grey, leftIndent=4, fontName=KO)
-
-    generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
-    elements = []
-
-    elements.append(Paragraph("사료 숙련도 시험 결과 보고서", title_style))
-    elements.append(Spacer(1, 5*mm))
-    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
-    elements.append(Spacer(1, 4*mm))
-    elements.append(Paragraph(f"<b>기관명:</b> {institution}", info_style))
-    elements.append(Paragraph(f"<b>이메일:</b> {email}", info_style))
-    elements.append(Paragraph(f"<b>보고서 생성일:</b> {generated_at}", info_style))
-    elements.append(Spacer(1, 5*mm))
-
-    # 성분 그룹별 섹션
-    from utils.config import get_component_groups
-    groups = get_component_groups()
-
-    for group_name, items in groups.items():
-        comp_names = [item["name"] for item in items]
-        grp_cols = [c for c in value_cols
-                    if get_component_from_col(c, samples) in comp_names
-                    and not c.startswith("NIR_")]
-        if grp_cols:
-            elements += _build_section(
-                group_name, grp_cols,
-                row_data, zscore_row, z_method_row, group_stats, styles, samples,
-            )
-
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
-    elements.append(Spacer(1, 3*mm))
-    elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
-    elements.append(Paragraph("적합: |Z| <= 2.0", note_style))
-    elements.append(Paragraph("경고: 2.0 < |Z| <= 3.0", note_style))
-    elements.append(Paragraph("부적합: |Z| > 3.0", note_style))
-    elements.append(Spacer(1, 2*mm))
-    elements.append(Paragraph(
-        "* Z전체: 전체 기관 대비 / Z방법별: 동일 방법 기관 3개 미만이면 N/A", note_style,
-    ))
-    elements.append(Paragraph(
-        "* Robust Z-score = (제출값 − 중앙값) / (1.4826 × MAD)", note_style,
-    ))
 
     doc.build(elements)
     return buf.getvalue()
