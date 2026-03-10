@@ -3,19 +3,17 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
-from email.utils import encode_rfc2231
 import streamlit as st
 
 
 def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
-    """PDF를 이메일에 첨부. 한글 파일명을 RFC 5987로 인코딩."""
+    """PDF를 이메일에 첨부. 한글 파일명을 RFC 2231 3-tuple로 처리."""
     part = MIMEBase("application", "octet-stream")
     part.set_payload(pdf_bytes)
     encoders.encode_base64(part)
-    # RFC 5987 인코딩으로 한글 파일명 처리
-    encoded_name = encode_rfc2231(filename, charset="utf-8")
+    # 3-tuple (charset, language, value) → filename*=utf-8''... (따옴표 없이 올바르게 생성)
     part.add_header("Content-Disposition", "attachment",
-                    **{"filename*": encoded_name})
+                    filename=("utf-8", "", filename))
     msg.attach(part)
 
 
