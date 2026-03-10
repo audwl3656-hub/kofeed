@@ -15,7 +15,7 @@ from utils.zscore import (
     compute_zscores, compute_zscores_by_method,
     zscore_flag, zscore_color,
 )
-from utils.report import generate_pdf
+from utils.report import generate_pdf_overall, generate_pdf_by_method
 from utils.email_sender import send_all_reports
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
@@ -213,10 +213,8 @@ with tab3:
             group_stats[col] = {"median": med, "mad": mad, "n": len(vals)}
 
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        # 기관명/이메일 필드명 동적 추출
-        inst_field  = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
-        email_field = next((f["name"] for f in INFO_FIELDS if f["email"]), "이메일")
+        inst_field   = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
+        email_field  = next((f["name"] for f in INFO_FIELDS if f["email"]), "이메일")
 
         st.markdown("#### 개별 보고서")
         for idx, row in df.iterrows():
@@ -237,17 +235,30 @@ with tab3:
                     })
                 st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
-                row_data   = {col: row.get(col, "") for col in main_cols}
+                full_row   = row.to_dict()
+                row_data   = {col: full_row.get(col, "") for col in main_cols}
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
-                pdf_bytes  = generate_pdf(
-                    email_to, inst, row_data, zscore_row, z_m_row,
-                    group_stats, main_cols, generated_at,
+
+                pdf_overall = generate_pdf_overall(
+                    email_to, inst, row_data, zscore_row,
+                    group_stats, main_cols, generated_at, SAMPLES,
                 )
-                st.download_button(
-                    "PDF 다운로드", pdf_bytes,
-                    f"report_{inst}.pdf", "application/pdf",
-                    key=f"dl_{idx}",
+                pdf_method = generate_pdf_by_method(
+                    email_to, inst, full_row, z_m_row,
+                    group_stats, main_cols, generated_at, SAMPLES,
+                )
+
+                dl1, dl2 = st.columns(2)
+                dl1.download_button(
+                    "전체 Z-score PDF", pdf_overall,
+                    f"회원사비교분석_{inst}_전체 Robust Z-score.pdf",
+                    "application/pdf", key=f"dl_ov_{idx}",
+                )
+                dl2.download_button(
+                    "방법별 Z-score PDF", pdf_method,
+                    f"회원사비교분석_{inst}_방법별 Robust Z-score.pdf",
+                    "application/pdf", key=f"dl_bm_{idx}",
                 )
 
         st.divider()
@@ -260,15 +271,21 @@ with tab3:
                 inst     = row.get(inst_field, "")
                 if not email_to:
                     continue
-                row_data   = {col: row.get(col, "") for col in main_cols}
+                full_row   = row.to_dict()
+                row_data   = {col: full_row.get(col, "") for col in main_cols}
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
-                pdf_bytes  = generate_pdf(
-                    email_to, inst, row_data, zscore_row, z_m_row,
-                    group_stats, main_cols, generated_at,
-                )
                 report_list.append({
-                    "email": email_to, "institution": inst, "pdf_bytes": pdf_bytes,
+                    "email":       email_to,
+                    "institution": inst,
+                    "pdf_overall": generate_pdf_overall(
+                        email_to, inst, row_data, zscore_row,
+                        group_stats, main_cols, generated_at, SAMPLES,
+                    ),
+                    "pdf_method":  generate_pdf_by_method(
+                        email_to, inst, full_row, z_m_row,
+                        group_stats, main_cols, generated_at, SAMPLES,
+                    ),
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)
