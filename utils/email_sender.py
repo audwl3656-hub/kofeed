@@ -3,7 +3,20 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from email.utils import encode_rfc2231
 import streamlit as st
+
+
+def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
+    """PDF를 이메일에 첨부. 한글 파일명을 RFC 5987로 인코딩."""
+    part = MIMEBase("application", "octet-stream")
+    part.set_payload(pdf_bytes)
+    encoders.encode_base64(part)
+    # RFC 5987 인코딩으로 한글 파일명 처리
+    encoded_name = encode_rfc2231(filename, charset="utf-8")
+    part.add_header("Content-Disposition", "attachment",
+                    **{"filename*": encoded_name})
+    msg.attach(part)
 
 
 def send_report(to_email: str, institution: str,
@@ -36,12 +49,8 @@ def send_report(to_email: str, institution: str,
         (pdf_overall, "전체"),
         (pdf_method,  "방법별"),
     ]:
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(pdf_bytes)
-        encoders.encode_base64(part)
-        fname = f"회원사비교분석_{institution}_{label} Robust Z-score.pdf"
-        part.add_header("Content-Disposition", f'attachment; filename="{fname}"')
-        msg.attach(part)
+        _attach_pdf(msg, pdf_bytes,
+                    f"회원사비교분석_{institution}_{label} Robust Z-score.pdf")
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
@@ -74,14 +83,7 @@ def send_confirmation(to_email: str, institution: str, row: dict, cfg) -> bool:
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
     pdf_bytes = generate_submission_pdf(row, cfg, generated_at=row.get("제출일시"))
-    part = MIMEBase("application", "octet-stream")
-    part.set_payload(pdf_bytes)
-    encoders.encode_base64(part)
-    part.add_header(
-        "Content-Disposition",
-        f'attachment; filename="submission_{institution}.pdf"',
-    )
-    msg.attach(part)
+    _attach_pdf(msg, pdf_bytes, f"데이터제출확인서_{institution}.pdf")
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
