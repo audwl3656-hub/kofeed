@@ -479,6 +479,6 @@ def generate_pdf_by_method(
         elements.append(Spacer(1, 4*mm))
 
     _pdf_footer(elements, styles,
-                extra_notes=["Z방법별: 동일 방법 사용 기관 3개 미만이면 N/A"])
+                extra_notes=["Z방법별: 동일 방법 사용 기관 5개 미만이면 N/A"])
     doc.build(elements)
     return buf.getvalue()

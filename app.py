@@ -277,6 +277,15 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         for k, v in all_data.items():
             row[k] = "" if v is None else v
 
+        # 임시 디버그: 캡처된 수치값 확인
+        captured_vals = {k: v for k, v in all_data.items()
+                         if v is not None and v != "" and any(k.endswith(f"_{s}") for s in SAMPLES)}
+        if captured_vals:
+            st.info(f"[디버그] 캡처된 수치값 {len(captured_vals)}개: {list(captured_vals.keys())[:10]}")
+        else:
+            st.warning(f"[디버그] 수치값 0개 캡처. all_data 키 목록: {list(all_data.keys())[:20]}")
+            st.warning(f"[디버그] SAMPLES={SAMPLES}")
+
         # 입력된 수치값 개수 확인
         numeric_count = sum(
             1 for k, v in row.items()
