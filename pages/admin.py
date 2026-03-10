@@ -96,8 +96,8 @@ with tab1:
 with tab2:
     st.subheader("Robust Z-score 분석")
 
-    if df.empty or len(df) < 3:
-        st.warning("Z-score 계산을 위해 최소 3개 기관의 데이터가 필요합니다.")
+    if df.empty or len(df) < 5:
+        st.warning("Z-score 계산을 위해 최소 5개 기관의 데이터가 필요합니다.")
     else:
         # 성분 그룹 분류
         GROUPS  = get_component_groups(cfg)
