@@ -34,19 +34,6 @@ NIR_GRP        = get_nir_groups(cfg)
 INFO_FIELDS    = get_info_fields(cfg)
 QUESTIONS      = get_questions(cfg)
 
-# ── 기관 정보 ─────────────────────────────────────────────────
-st.subheader("기관 정보")
-info_cols   = st.columns(max(len(INFO_FIELDS), 1))
-info_values: dict[str, str] = {}
-for i, field in enumerate(INFO_FIELDS):
-    with info_cols[i]:
-        label = field["name"] + (" *" if field["required"] else "")
-        info_values[field["name"]] = st.text_input(
-            label, placeholder=field["placeholder"], key=f"info_{field['name']}"
-        )
-
-st.divider()
-
 
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str):
@@ -190,47 +177,63 @@ def nir_table(items: list[dict]) -> dict:
     return data
 
 
-# ── 성분 그룹별 폼 ────────────────────────────────────────────
-all_data: dict = {}
+# ── 폼 (st.form으로 감싸서 타이밍 문제 해결) ──────────────────
+with st.form("main_form"):
 
-for group_name, items in GROUPS.items():
-    st.subheader(group_name)
-    all_data.update(component_table(items, prefix=f"{group_name}_"))
-    st.divider()
-
-# ── NIR 측정값 ───────────────────────────────────────────────
-if NIR_GRP:
-    st.subheader("NIR 측정값")
-    st.caption("NIR 기기로 측정한 값을 입력하세요.")
-    for group_name, items in NIR_GRP.items():
-        st.markdown(f"**{group_name}**")
-        all_data.update(nir_table(items))
-    st.divider()
-
-# ── 추가 질문 ─────────────────────────────────────────────────
-if QUESTIONS:
-    st.subheader("추가 설문")
-    for q in QUESTIONS:
-        if q["type"] == "text":
-            all_data[f"Q_{q['id']}"] = st.text_area(
-                q["text"], key=f"q_{q['id']}", placeholder=q["hint"],
+    # 기관 정보
+    st.subheader("기관 정보")
+    info_cols   = st.columns(max(len(INFO_FIELDS), 1))
+    info_values: dict[str, str] = {}
+    for i, field in enumerate(INFO_FIELDS):
+        with info_cols[i]:
+            label = field["name"] + (" *" if field["required"] else "")
+            info_values[field["name"]] = st.text_input(
+                label, placeholder=field["placeholder"], key=f"info_{field['name']}"
             )
-        elif q["type"] == "choice":
-            all_data[f"Q_{q['id']}"] = st.radio(
-                q["text"], ["(선택 안 함)"] + q["options"],
-                key=f"q_{q['id']}", horizontal=True,
-            )
-        elif q["type"] == "multicheck":
-            st.markdown(f"**{q['text']}**")
-            selected = [
-                opt for opt in q["options"]
-                if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
-            ]
-            all_data[f"Q_{q['id']}"] = ", ".join(selected)
     st.divider()
 
-# ── 제출 ─────────────────────────────────────────────────────
-if st.button("데이터 제출", type="primary", use_container_width=True):
+    # 성분 그룹별 폼
+    all_data: dict = {}
+    for group_name, items in GROUPS.items():
+        st.subheader(group_name)
+        all_data.update(component_table(items, prefix=f"{group_name}_"))
+        st.divider()
+
+    # NIR 측정값
+    if NIR_GRP:
+        st.subheader("NIR 측정값")
+        st.caption("NIR 기기로 측정한 값을 입력하세요.")
+        for group_name, items in NIR_GRP.items():
+            st.markdown(f"**{group_name}**")
+            all_data.update(nir_table(items))
+        st.divider()
+
+    # 추가 질문
+    if QUESTIONS:
+        st.subheader("추가 설문")
+        for q in QUESTIONS:
+            if q["type"] == "text":
+                all_data[f"Q_{q['id']}"] = st.text_area(
+                    q["text"], key=f"q_{q['id']}", placeholder=q["hint"],
+                )
+            elif q["type"] == "choice":
+                all_data[f"Q_{q['id']}"] = st.radio(
+                    q["text"], ["(선택 안 함)"] + q["options"],
+                    key=f"q_{q['id']}", horizontal=True,
+                )
+            elif q["type"] == "multicheck":
+                st.markdown(f"**{q['text']}**")
+                selected = [
+                    opt for opt in q["options"]
+                    if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
+                ]
+                all_data[f"Q_{q['id']}"] = ", ".join(selected)
+        st.divider()
+
+    submitted = st.form_submit_button("데이터 제출", type="primary", use_container_width=True)
+
+# ── 제출 처리 (폼 밖에서) ─────────────────────────────────────
+if submitted:
     errors = []
 
     # 기관 정보 검증
@@ -257,7 +260,7 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         for e in errors:
             st.error(e)
     else:
-        inst_field_name = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
+        inst_field_name  = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
         email_field_name = next((f["name"] for f in INFO_FIELDS if f["email"]), None)
         inst_name = info_values.get(inst_field_name, "").strip()
         email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
@@ -265,16 +268,8 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         row = {"제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         for field in INFO_FIELDS:
             row[field["name"]] = info_values.get(field["name"], "").strip()
-
         for k, v in all_data.items():
             row[k] = "" if v is None else v
-
-        # 임시 디버그
-        numeric_vals = {k: v for k, v in all_data.items() if v not in (None, "", "ERR")}
-        if numeric_vals:
-            st.info(f"[디버그] 캡처된 수치값 {len(numeric_vals)}개: {list(numeric_vals.items())[:8]}")
-        else:
-            st.warning(f"[디버그] 수치값 없음. all_data 전체: {dict(list(all_data.items())[:15])}")
 
         with st.spinner("제출 중..."):
             try:
