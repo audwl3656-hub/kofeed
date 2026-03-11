@@ -112,22 +112,18 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
                 data[f"{comp}_용매"] = ""
 
         free_dec = item.get("free_decimal", False)
+        fmt  = "%.4f" if free_dec else "%.2f"
+        step = 0.0001 if free_dec else 0.01
         for i, s in enumerate(all_sample_set):
             with cols[4 + i]:
                 if s in samples:
-                    raw = st.text_input(
+                    data[f"{comp}_{s}"] = st.number_input(
                         s, key=f"{prefix}{comp}_{s}",
-                        label_visibility="collapsed", placeholder="0.00",
+                        value=None, min_value=0.0,
+                        step=step, format=fmt,
+                        placeholder="0.00",
+                        label_visibility="collapsed",
                     )
-                    parsed = parse_float(raw, free_decimal=free_dec)
-                    if parsed == "ERR":
-                        st.markdown(
-                            "<small style='color:red'>숫자만 입력</small>",
-                            unsafe_allow_html=True,
-                        )
-                        data[f"{comp}_{s}"] = None
-                    else:
-                        data[f"{comp}_{s}"] = parsed
                 else:
                     st.markdown(
                         "<div style='color:#ccc;text-align:center'>—</div>",
@@ -166,15 +162,18 @@ def nir_table(items: list[dict]) -> dict:
                 label_visibility="collapsed", placeholder="기기명",
             )
         free_dec = item.get("free_decimal", False)
+        fmt  = "%.4f" if free_dec else "%.2f"
+        step = 0.0001 if free_dec else 0.01
         for i, s in enumerate(all_sample_set):
             with cols[2 + i]:
                 if s in samples:
-                    raw = st.text_input(
+                    data[f"NIR_{comp}_{s}"] = st.number_input(
                         s, key=f"NIR_{comp}_{s}",
-                        label_visibility="collapsed", placeholder="0.00",
+                        value=None, min_value=0.0,
+                        step=step, format=fmt,
+                        placeholder="0.00",
+                        label_visibility="collapsed",
                     )
-                    parsed = parse_float(raw, free_decimal=free_dec)
-                    data[f"NIR_{comp}_{s}"] = None if parsed == "ERR" else parsed
                 else:
                     st.markdown(
                         "<div style='color:#ccc;text-align:center'>—</div>",
@@ -278,9 +277,7 @@ if submitted:
         numeric_vals = {k: v for k, v in all_data.items()
                         if not k.endswith(("_방법", "_기기", "_용매")) and v is not None}
         if numeric_vals:
-            st.info(f"캡처된 수치값 {len(numeric_vals)}개: {list(numeric_vals.items())[:5]}{'...' if len(numeric_vals)>5 else ''}")
-        else:
-            st.warning("⚠️ 수치값이 하나도 캡처되지 않았습니다. 입력 후 제출하셨나요?")
+            st.info(f"캡처된 수치값 {len(numeric_vals)}개 (총 항목 {len(all_data)}개): {list(numeric_vals.items())[:5]}{'...' if len(numeric_vals)>5 else ''}")
 
         with st.spinner("제출 중..."):
             try:
