@@ -34,19 +34,17 @@ NIR_GRP        = get_nir_groups(cfg)
 INFO_FIELDS    = get_info_fields(cfg)
 QUESTIONS      = get_questions(cfg)
 
-# ── 숫자 입력 헬퍼 ────────────────────────────────────────────
-def _num_input(label: str, key: str, free_decimal: bool = False):
-    """숫자 전용 입력 위젯. free_decimal=False면 소수점 2자리, True면 4자리."""
-    if free_decimal:
-        return st.number_input(
-            label, value=None, step=0.0001, format="%.4f",
-            label_visibility="collapsed", key=key,
-        )
-    val = st.number_input(
-        label, value=None, step=0.01, format="%.2f",
-        label_visibility="collapsed", key=key,
-    )
-    return round(val, 2) if val is not None else None
+# ── 값 파싱 헬퍼 ──────────────────────────────────────────────
+def parse_float(s: str, free_decimal: bool = False):
+    """문자열 → float, 빈 값이면 None. free_decimal=False면 소수점 2자리로 반올림."""
+    s = s.strip().replace(",", ".")
+    if not s:
+        return None
+    try:
+        v = float(s)
+        return v if free_decimal else round(v, 2)
+    except ValueError:
+        return "ERR"
 
 
 # ── 성분 입력 테이블 ──────────────────────────────────────────
@@ -117,9 +115,19 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
         for i, s in enumerate(all_sample_set):
             with cols[4 + i]:
                 if s in samples:
-                    data[f"{comp}_{s}"] = _num_input(
-                        s, key=f"{prefix}{comp}_{s}", free_decimal=free_dec,
+                    raw = st.text_input(
+                        s, key=f"{prefix}{comp}_{s}",
+                        label_visibility="collapsed", placeholder="0.00",
                     )
+                    parsed = parse_float(raw, free_decimal=free_dec)
+                    if parsed == "ERR":
+                        st.markdown(
+                            "<small style='color:red'>숫자만 입력</small>",
+                            unsafe_allow_html=True,
+                        )
+                        data[f"{comp}_{s}"] = None
+                    else:
+                        data[f"{comp}_{s}"] = parsed
                 else:
                     st.markdown(
                         "<div style='color:#ccc;text-align:center'>—</div>",
@@ -161,9 +169,12 @@ def nir_table(items: list[dict]) -> dict:
         for i, s in enumerate(all_sample_set):
             with cols[2 + i]:
                 if s in samples:
-                    data[f"NIR_{comp}_{s}"] = _num_input(
-                        s, key=f"NIR_{comp}_{s}", free_decimal=free_dec,
+                    raw = st.text_input(
+                        s, key=f"NIR_{comp}_{s}",
+                        label_visibility="collapsed", placeholder="0.00",
                     )
+                    parsed = parse_float(raw, free_decimal=free_dec)
+                    data[f"NIR_{comp}_{s}"] = None if parsed == "ERR" else parsed
                 else:
                     st.markdown(
                         "<div style='color:#ccc;text-align:center'>—</div>",
