@@ -269,6 +269,13 @@ if st.button("데이터 제출", type="primary", use_container_width=True):
         for k, v in all_data.items():
             row[k] = "" if v is None else v
 
+        # 임시 디버그
+        numeric_vals = {k: v for k, v in all_data.items() if v not in (None, "", "ERR")}
+        if numeric_vals:
+            st.info(f"[디버그] 캡처된 수치값 {len(numeric_vals)}개: {list(numeric_vals.items())[:8]}")
+        else:
+            st.warning(f"[디버그] 수치값 없음. all_data 전체: {dict(list(all_data.items())[:15])}")
+
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
