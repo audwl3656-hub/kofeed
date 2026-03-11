@@ -275,6 +275,14 @@ if submitted:
         for k, v in all_data.items():
             row[k] = "" if v is None else v
 
+        # ── 디버그: 캡처된 수치값 확인 ───────────────────────
+        numeric_vals = {k: v for k, v in all_data.items()
+                        if not k.endswith(("_방법", "_기기", "_용매")) and v is not None}
+        if numeric_vals:
+            st.info(f"캡처된 수치값 {len(numeric_vals)}개: {list(numeric_vals.items())[:5]}{'...' if len(numeric_vals)>5 else ''}")
+        else:
+            st.warning("⚠️ 수치값이 하나도 캡처되지 않았습니다. 입력 후 제출하셨나요?")
+
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
