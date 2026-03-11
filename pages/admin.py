@@ -411,6 +411,7 @@ with tab4:
     edited_groups["samples"] = edited_groups["NIR포함"].apply(lambda x: "nir" if x else "")
     edited_groups["use_equip"] = ""
     edited_groups["use_solvent"] = ""
+    edited_groups["free_decimal"] = ""
     edited_groups = edited_groups[CONFIG_COLS]
 
     st.divider()
