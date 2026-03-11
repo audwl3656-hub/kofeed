@@ -266,6 +266,34 @@ if submitted:
         inst_name = info_values.get(inst_field_name, "").strip()
         email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
 
+        # ── session_state에서 직접 성분값 읽기 (함수 반환값 None 보완) ──
+        for group_name, items in GROUPS.items():
+            for item in items:
+                comp = item["name"]
+                for s in item["samples"]:
+                    ss_key = f"{group_name}_{comp}_{s}"
+                    ss_val = st.session_state.get(ss_key)
+                    if ss_val is not None:
+                        all_data[f"{comp}_{s}"] = ss_val
+                method_key = f"{group_name}_{comp}_method"
+                if method_key in st.session_state:
+                    all_data[f"{comp}_방법"] = st.session_state[method_key]
+                equip_key = f"{group_name}_{comp}_equip"
+                if equip_key in st.session_state:
+                    all_data[f"{comp}_기기"] = st.session_state[equip_key]
+                solvent_key = f"{group_name}_{comp}_solvent"
+                if solvent_key in st.session_state:
+                    all_data[f"{comp}_용매"] = st.session_state[solvent_key]
+        if NIR_GRP:
+            for group_name, items in NIR_GRP.items():
+                for item in items:
+                    comp = item["name"]
+                    for s in item["samples"]:
+                        ss_key = f"NIR_{comp}_{s}"
+                        ss_val = st.session_state.get(ss_key)
+                        if ss_val is not None:
+                            all_data[f"NIR_{comp}_{s}"] = ss_val
+
         row = {"제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         for field in INFO_FIELDS:
             row[field["name"]] = info_values.get(field["name"], "").strip()
@@ -276,8 +304,11 @@ if submitted:
         # ── 디버그: 캡처된 수치값 확인 ───────────────────────
         numeric_vals = {k: v for k, v in all_data.items()
                         if not k.endswith(("_방법", "_기기", "_용매")) and v is not None}
-        if numeric_vals:
-            st.info(f"캡처된 수치값 {len(numeric_vals)}개 (총 항목 {len(all_data)}개): {list(numeric_vals.items())[:5]}{'...' if len(numeric_vals)>5 else ''}")
+        ss_comp_keys = {k: v for k, v in st.session_state.items()
+                        if not k.startswith(("_", "FormSubmitter", "q_", "info_", "edit_", "admin"))}
+        st.info(f"all_data 수치값: {len(numeric_vals)}개 | session_state 성분 키: {len(ss_comp_keys)}개"
+                f"\n\n수치값 샘플: {list(numeric_vals.items())[:5]}"
+                f"\n\nsession_state 샘플: {list(ss_comp_keys.items())[:5]}")
 
         with st.spinner("제출 중..."):
             try:
