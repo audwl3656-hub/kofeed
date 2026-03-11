@@ -125,13 +125,16 @@ with tab2:
                 vals = df[col].dropna()
                 if vals.empty:
                     continue
-                med = np.median(vals)
-                mad = np.median(np.abs(vals - med))
+                med  = float(np.median(vals))
+                mean = float(vals.mean())
+                std  = float(vals.std())
+                cv   = round(std / mean * 100, 2) if mean != 0 else np.nan
                 stats_rows.append({
                     "사료종류": get_sample_from_col(col, SAMPLES) or "-",
-                    "n": len(vals),
-                    "중앙값": round(float(med), 4),
-                    "MAD":    round(float(mad), 4),
+                    "n":      len(vals),
+                    "평균":   round(mean, 4),
+                    "중앙값": round(med, 4),
+                    "CV(%)":  cv if not np.isnan(cv) else "N/A",
                     "최솟값": round(float(vals.min()), 4),
                     "최댓값": round(float(vals.max()), 4),
                 })

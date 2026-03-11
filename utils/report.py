@@ -421,9 +421,7 @@ def generate_submission_pdf(
                 nir_comps.setdefault(comp, {})["_기기"] = str(val or "")
             else:
                 for s in ALL_SAMPLES:
-                    if rest == f"{s}":
-                        pass
-                    elif rest.endswith(f"_{s}"):
+                    if rest.endswith(f"_{s}"):
                         comp = rest[: -len(s) - 1]
                         nir_comps.setdefault(comp, {})[s] = _fmt(val)
                         break
