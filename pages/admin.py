@@ -429,6 +429,11 @@ with tab4:
         else:
             raw = comp_df[_col].astype(str).str.strip().str.lower()
             comp_df[_col] = ~raw.isin(["false", "0", "no"])
+    if "free_decimal" not in comp_df.columns:
+        comp_df["free_decimal"] = False
+    else:
+        raw = comp_df["free_decimal"].astype(str).str.strip().str.lower()
+        comp_df["free_decimal"] = raw.isin(["true", "1", "yes"])
 
     # 현재 유효한 섹션명 목록 (선택용)
     valid_groups = [
@@ -437,21 +442,25 @@ with tab4:
     ]
 
     edited_comps = st.data_editor(
-        comp_df[["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent"]],
+        comp_df[["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent", "free_decimal"]],
         num_rows="dynamic",
         use_container_width=True,
         column_config={
-            "type":        None,
-            "group":       st.column_config.SelectboxColumn("그룹", options=valid_groups),
-            "name":        st.column_config.TextColumn("성분명 *"),
-            "samples":     st.column_config.TextColumn(
+            "type":         None,
+            "group":        st.column_config.SelectboxColumn("그룹", options=valid_groups),
+            "name":         st.column_config.TextColumn("성분명 *"),
+            "samples":      st.column_config.TextColumn(
                 "적용 사료",
                 help="all = 전체 / 축우사료,양계사료 처럼 쉼표로 구분",
             ),
-            "order":       st.column_config.NumberColumn("순서", min_value=1, step=1),
-            "enabled":     st.column_config.CheckboxColumn("활성화"),
-            "use_equip":   st.column_config.CheckboxColumn("기기명 사용"),
-            "use_solvent": st.column_config.CheckboxColumn("용매 사용"),
+            "order":        st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled":      st.column_config.CheckboxColumn("활성화"),
+            "use_equip":    st.column_config.CheckboxColumn("기기명 사용"),
+            "use_solvent":  st.column_config.CheckboxColumn("용매 사용"),
+            "free_decimal": st.column_config.CheckboxColumn(
+                "소수점 자유",
+                help="체크 시 소수점 제한 없음(4자리). 기본은 소수점 2자리.",
+            ),
         },
         key="edit_comps",
         hide_index=True,
@@ -542,9 +551,9 @@ with tab4:
             edited_methods   = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
             edited_questions = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
 
-            # use_equip / use_solvent 컬럼이 없는 타입은 빈 문자열로 채움
+            # use_equip / use_solvent / free_decimal 컬럼이 없는 타입은 빈 문자열로 채움
             for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_questions]:
-                for _col in ("use_equip", "use_solvent"):
+                for _col in ("use_equip", "use_solvent", "free_decimal"):
                     if _col not in _df.columns:
                         _df[_col] = ""
             new_cfg = pd.concat(
