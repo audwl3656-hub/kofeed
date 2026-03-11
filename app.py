@@ -34,20 +34,6 @@ NIR_GRP        = get_nir_groups(cfg)
 INFO_FIELDS    = get_info_fields(cfg)
 QUESTIONS      = get_questions(cfg)
 
-# ── 기관 정보 ─────────────────────────────────────────────────
-st.subheader("기관 정보")
-info_cols   = st.columns(max(len(INFO_FIELDS), 1))
-info_values: dict[str, str] = {}
-for i, field in enumerate(INFO_FIELDS):
-    with info_cols[i]:
-        label = field["name"] + (" *" if field["required"] else "")
-        info_values[field["name"]] = st.text_input(
-            label, placeholder=field["placeholder"], key=f"info_{field['name']}"
-        )
-
-st.divider()
-
-
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str):
     """문자열 → 소수점 2자리 float, 빈 값이면 None"""
@@ -194,47 +180,60 @@ def nir_table(items: list[dict]) -> dict:
     return data
 
 
-# ── 성분 그룹별 폼 ────────────────────────────────────────────
-all_data: dict = {}
-
-for group_name, items in GROUPS.items():
-    st.subheader(group_name)
-    all_data.update(component_table(items, prefix=f"{group_name}_"))
-    st.divider()
-
-# ── NIR 측정값 ───────────────────────────────────────────────
-if NIR_GRP:
-    st.subheader("NIR 측정값")
-    st.caption("NIR 기기로 측정한 값을 입력하세요.")
-    for group_name, items in NIR_GRP.items():
-        st.markdown(f"**{group_name}**")
-        all_data.update(nir_table(items))
-    st.divider()
-
-# ── 추가 질문 ─────────────────────────────────────────────────
-if QUESTIONS:
-    st.subheader("추가 설문")
-    for q in QUESTIONS:
-        if q["type"] == "text":
-            all_data[f"Q_{q['id']}"] = st.text_area(
-                q["text"], key=f"q_{q['id']}", placeholder=q["hint"],
+# ── 폼 ───────────────────────────────────────────────────────
+with st.form("main_form"):
+    # 기관 정보
+    st.subheader("기관 정보")
+    info_cols = st.columns(max(len(INFO_FIELDS), 1))
+    info_values: dict[str, str] = {}
+    for i, field in enumerate(INFO_FIELDS):
+        with info_cols[i]:
+            label = field["name"] + (" *" if field["required"] else "")
+            info_values[field["name"]] = st.text_input(
+                label, placeholder=field["placeholder"], key=f"info_{field['name']}"
             )
-        elif q["type"] == "choice":
-            all_data[f"Q_{q['id']}"] = st.radio(
-                q["text"], ["(선택 안 함)"] + q["options"],
-                key=f"q_{q['id']}", horizontal=True,
-            )
-        elif q["type"] == "multicheck":
-            st.markdown(f"**{q['text']}**")
-            selected = [
-                opt for opt in q["options"]
-                if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
-            ]
-            all_data[f"Q_{q['id']}"] = ", ".join(selected)
     st.divider()
 
-# ── 제출 ─────────────────────────────────────────────────────
-if st.button("데이터 제출", type="primary", use_container_width=True):
+    all_data: dict = {}
+
+    for group_name, items in GROUPS.items():
+        st.subheader(group_name)
+        all_data.update(component_table(items, prefix=f"{group_name}_"))
+        st.divider()
+
+    if NIR_GRP:
+        st.subheader("NIR 측정값")
+        st.caption("NIR 기기로 측정한 값을 입력하세요.")
+        for group_name, items in NIR_GRP.items():
+            st.markdown(f"**{group_name}**")
+            all_data.update(nir_table(items))
+        st.divider()
+
+    if QUESTIONS:
+        st.subheader("추가 설문")
+        for q in QUESTIONS:
+            if q["type"] == "text":
+                all_data[f"Q_{q['id']}"] = st.text_area(
+                    q["text"], key=f"q_{q['id']}", placeholder=q["hint"],
+                )
+            elif q["type"] == "choice":
+                all_data[f"Q_{q['id']}"] = st.radio(
+                    q["text"], ["(선택 안 함)"] + q["options"],
+                    key=f"q_{q['id']}", horizontal=True,
+                )
+            elif q["type"] == "multicheck":
+                st.markdown(f"**{q['text']}**")
+                selected = [
+                    opt for opt in q["options"]
+                    if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
+                ]
+                all_data[f"Q_{q['id']}"] = ", ".join(selected)
+        st.divider()
+
+    submitted = st.form_submit_button("데이터 제출", type="primary", use_container_width=True)
+
+# ── 제출 처리 ─────────────────────────────────────────────────
+if submitted:
     errors = []
 
     # 기관 정보 검증
