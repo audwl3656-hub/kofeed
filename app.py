@@ -295,7 +295,10 @@ if submitted:
         for e in errors:
             st.error(e)
     else:
-        inst_field_name = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
+        inst_field_name = next(
+            (f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))),
+            INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명"
+        )
         email_field_name = next((f["name"] for f in INFO_FIELDS if f["email"]), None)
         inst_name = info_values.get(inst_field_name, "").strip()
         email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
