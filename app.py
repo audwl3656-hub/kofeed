@@ -248,6 +248,29 @@ submitted = st.button("데이터 제출", type="primary", use_container_width=Tr
 if submitted:
     errors = []
 
+    # ── session_state에서 직접 성분값 읽기 (검증 전에 수행) ──────
+    for group_name, items in GROUPS.items():
+        for item in items:
+            comp = item["name"]
+            for s in item["samples"]:
+                ss_val = st.session_state.get(f"{group_name}_{comp}_{s}")
+                if ss_val is not None:
+                    all_data[f"{comp}_{s}"] = ss_val
+            if (v := st.session_state.get(f"{group_name}_{comp}_method")) is not None:
+                all_data[f"{comp}_방법"] = v
+            if (v := st.session_state.get(f"{group_name}_{comp}_equip")) is not None:
+                all_data[f"{comp}_기기"] = v
+            if (v := st.session_state.get(f"{group_name}_{comp}_solvent")) is not None:
+                all_data[f"{comp}_용매"] = v
+    if NIR_GRP:
+        for group_name, items in NIR_GRP.items():
+            for item in items:
+                comp = item["name"]
+                for s in item["samples"]:
+                    ss_val = st.session_state.get(f"NIR_{comp}_{s}")
+                    if ss_val is not None:
+                        all_data[f"NIR_{comp}_{s}"] = ss_val
+
     # 기관 정보 검증
     for field in INFO_FIELDS:
         val = info_values.get(field["name"], "").strip()
@@ -257,11 +280,11 @@ if submitted:
             errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
 
     # 값 입력 시 방법 필수 검증
-    for group_items in GROUPS.values():
+    for group_name, group_items in GROUPS.items():
         for item in group_items:
             comp = item["name"]
             method_val = all_data.get(f"{comp}_방법", "")
-            any_value  = any(
+            any_value = any(
                 all_data.get(f"{comp}_{s}") is not None
                 for s in item["samples"]
             )
@@ -277,49 +300,11 @@ if submitted:
         inst_name = info_values.get(inst_field_name, "").strip()
         email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
 
-        # ── session_state에서 직접 성분값 읽기 (함수 반환값 None 보완) ──
-        for group_name, items in GROUPS.items():
-            for item in items:
-                comp = item["name"]
-                for s in item["samples"]:
-                    ss_key = f"{group_name}_{comp}_{s}"
-                    ss_val = st.session_state.get(ss_key)
-                    if ss_val is not None:
-                        all_data[f"{comp}_{s}"] = ss_val
-                method_key = f"{group_name}_{comp}_method"
-                if method_key in st.session_state:
-                    all_data[f"{comp}_방법"] = st.session_state[method_key]
-                equip_key = f"{group_name}_{comp}_equip"
-                if equip_key in st.session_state:
-                    all_data[f"{comp}_기기"] = st.session_state[equip_key]
-                solvent_key = f"{group_name}_{comp}_solvent"
-                if solvent_key in st.session_state:
-                    all_data[f"{comp}_용매"] = st.session_state[solvent_key]
-        if NIR_GRP:
-            for group_name, items in NIR_GRP.items():
-                for item in items:
-                    comp = item["name"]
-                    for s in item["samples"]:
-                        ss_key = f"NIR_{comp}_{s}"
-                        ss_val = st.session_state.get(ss_key)
-                        if ss_val is not None:
-                            all_data[f"NIR_{comp}_{s}"] = ss_val
-
         row = {"제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         for field in INFO_FIELDS:
             row[field["name"]] = info_values.get(field["name"], "").strip()
-
         for k, v in all_data.items():
             row[k] = "" if v is None else v
-
-        # ── 디버그: 캡처된 수치값 확인 ───────────────────────
-        numeric_vals = {k: v for k, v in all_data.items()
-                        if not k.endswith(("_방법", "_기기", "_용매")) and v is not None}
-        ss_comp_keys = {k: v for k, v in st.session_state.items()
-                        if not k.startswith(("_", "FormSubmitter", "q_", "info_", "edit_", "admin"))}
-        st.info(f"all_data 수치값: {len(numeric_vals)}개 | session_state 성분 키: {len(ss_comp_keys)}개"
-                f"\n\n수치값 샘플: {list(numeric_vals.items())[:5]}"
-                f"\n\nsession_state 샘플: {list(ss_comp_keys.items())[:5]}")
 
         with st.spinner("제출 중..."):
             try:
