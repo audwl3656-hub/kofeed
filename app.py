@@ -13,12 +13,23 @@ st.set_page_config(
     layout="wide",
 )
 
-# +/- 스핀 버튼 숨기기
+# 숫자 입력 UI 커스텀
 st.markdown("""
 <style>
+/* 브라우저 기본 spin 버튼 제거 */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none !important; }
 input[type=number] { -moz-appearance: textfield !important; }
+
+/* Streamlit +/- 버튼 숨기기 */
+button[data-testid="stNumberInputStepUp"],
+button[data-testid="stNumberInputStepDown"] { display: none !important; }
+
+/* "Press Enter to apply" 힌트 숨기기 */
+div[data-testid="InputInstructions"] { display: none !important; }
+
+/* 숫자 입력 중앙 정렬 */
+div[data-testid="stNumberInput"] input { text-align: center !important; }
 </style>
 """, unsafe_allow_html=True)
 
