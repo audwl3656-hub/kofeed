@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 
 from utils.sheets import get_all_data, BASE_FIELDS, submit_data
 from utils.config import (
@@ -36,7 +38,7 @@ if not st.session_state.admin_auth:
     st.stop()
 
 st.title("숙련도 시험 관리자")
-st.caption(f"로그인됨 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"로그인됨 | {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}")
 if st.button("로그아웃"):
     st.session_state.admin_auth = False
     st.rerun()
@@ -145,7 +147,7 @@ with tab2:
             st.markdown(f"#### {sel_comp} — 기관별 전체 Z-score")
             z_df = compute_zscores(df, comp_cols)
 
-            inst_col = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), META_COLS[1] if len(META_COLS) > 1 else "기관명")
+            inst_col = next((f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))), META_COLS[1] if len(META_COLS) > 1 else META_COLS[0])
             disp = pd.DataFrame({"기관명": df[inst_col].values if inst_col in df.columns else ""})
             z_display_cols = []
             for col in comp_cols:
@@ -219,10 +221,10 @@ with tab3:
             group_stats[col] = {"median": med, "mad": mad, "n": len(vals),
                                 "mean": mean, "std": std, "cv": cv}
 
-        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        generated_at = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
 
         # 기관명/이메일 필드명 동적 추출
-        inst_field  = next((f["name"] for f in INFO_FIELDS if "기관" in f["name"]), "기관명")
+        inst_field  = next((f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))), INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명")
         email_field = next((f["name"] for f in INFO_FIELDS if f["email"]), "이메일")
 
         st.markdown("#### 개별 보고서")

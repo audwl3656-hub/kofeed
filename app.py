@@ -1,5 +1,7 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 from utils.sheets import submit_data
 from utils.config import (
     get_config, get_samples, get_component_groups, get_nir_groups,
@@ -306,7 +308,7 @@ if submitted:
         inst_name = info_values.get(inst_field_name, "").strip()
         email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
 
-        row = {"제출일시": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        row = {"제출일시": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")}
         for field in INFO_FIELDS:
             row[field["name"]] = info_values.get(field["name"], "").strip()
         for k, v in all_data.items():
