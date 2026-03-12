@@ -312,12 +312,6 @@ if submitted:
         for k, v in all_data.items():
             row[k] = "" if v is None else v
 
-        # ── 임시 디버그 ──────────────────────────────────────────
-        method_ss = {k: v for k, v in st.session_state.items() if "_method" in k or "_equip" in k or "_solvent" in k}
-        method_row = {k: v for k, v in row.items() if k.endswith(("_방법", "_기기", "_용매"))}
-        st.info(f"**[디버그] session_state 방법/기기/용매 키:**\n{method_ss}\n\n**row 방법/기기/용매:**\n{method_row}")
-        # ─────────────────────────────────────────────────────────
-
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
