@@ -279,13 +279,16 @@ if submitted:
         elif field["email"] and val and "@" not in val:
             errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
 
-    # 값 입력 시 방법 필수 검증
+    # 값 입력 시 방법 필수 검증 (session_state에서 직접 읽기)
     for group_name, group_items in GROUPS.items():
         for item in group_items:
             comp = item["name"]
-            method_val = all_data.get(f"{comp}_방법", "")
+            method_val = (
+                st.session_state.get(f"{group_name}_{comp}_method", "")
+                or all_data.get(f"{comp}_방법", "")
+            )
             any_value = any(
-                all_data.get(f"{comp}_{s}") is not None
+                st.session_state.get(f"{group_name}_{comp}_{s}") is not None
                 for s in item["samples"]
             )
             if any_value and not method_val:
