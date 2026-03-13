@@ -547,16 +547,47 @@ with tab4:
 
     st.divider()
 
+    # ── 참가자 코드 관리 ──────────────────────────────────────
+    st.markdown("### 참가자 코드")
+    st.caption(
+        "코드 → 회사명 매핑. 참가코드 입력 시 회사명이 자동으로 결정됩니다.\n\n"
+        "**코드**: 참가자에게 배포할 고유 코드 (예: 01, A001).\n\n"
+        "**회사명**: 코드 입력 시 자동으로 채워질 회사명."
+    )
+    part_df = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
+    edited_participants = st.data_editor(
+        part_df[["group", "name", "order", "enabled"]],
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "group":   st.column_config.TextColumn("코드 *", help="참가자에게 배포할 고유 코드"),
+            "name":    st.column_config.TextColumn("회사명 *"),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+        },
+        key="edit_participants",
+        hide_index=True,
+    )
+    edited_participants["type"]         = "participant"
+    edited_participants["samples"]      = ""
+    edited_participants["use_equip"]    = ""
+    edited_participants["use_solvent"]  = ""
+    edited_participants["free_decimal"] = ""
+    edited_participants = edited_participants[CONFIG_COLS]
+
+    st.divider()
+
     # ── 저장 ──────────────────────────────────────────────────
     col_save, col_reset = st.columns([1, 1])
     with col_save:
         if st.button("설정 저장", type="primary", use_container_width=True):
-            edited_info      = edited_info[edited_info["name"].astype(str).str.strip() != ""]
-            edited_samples   = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
-            edited_groups    = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
-            edited_comps     = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
-            edited_methods   = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
-            edited_questions = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
+            edited_info         = edited_info[edited_info["name"].astype(str).str.strip() != ""]
+            edited_samples      = edited_samples[edited_samples["name"].astype(str).str.strip() != ""]
+            edited_groups       = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
+            edited_comps        = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
+            edited_methods      = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
+            edited_questions    = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
+            edited_participants = edited_participants[edited_participants["name"].astype(str).str.strip() != ""]
 
             # use_equip / use_solvent / free_decimal 컬럼이 없는 타입은 빈 문자열로 채움
             for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_questions]:
@@ -565,7 +596,7 @@ with tab4:
                         _df[_col] = ""
             new_cfg = pd.concat(
                 [edited_info, edited_samples, edited_groups,
-                 edited_comps, edited_methods, edited_questions],
+                 edited_comps, edited_methods, edited_questions, edited_participants],
                 ignore_index=True,
             )[CONFIG_COLS]
 

@@ -149,6 +149,20 @@ def get_method_options(cfg: pd.DataFrame = None, comp: str = None) -> list[str]:
     return [str(v) for v in global_rows["name"].tolist() if v is not None and str(v).strip() not in ("", "nan")]
 
 
+def get_participant_map(cfg: pd.DataFrame = None) -> dict[str, str]:
+    """참가코드 → 회사명 매핑. config type='participant', group=코드, name=회사명."""
+    if cfg is None:
+        cfg = get_config()
+    rows = cfg[(cfg["type"] == "participant") & (cfg["enabled"])]
+    result = {}
+    for _, r in rows.iterrows():
+        code = str(r["group"]).strip()
+        name = str(r["name"]).strip()
+        if code and name and code not in ("", "nan") and name not in ("", "nan"):
+            result[code] = name
+    return result
+
+
 def get_questions(cfg: pd.DataFrame = None) -> list[dict]:
     """
     추가 질문 목록.

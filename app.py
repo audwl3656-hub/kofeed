@@ -6,6 +6,7 @@ from utils.sheets import submit_data
 from utils.config import (
     get_config, get_samples, get_component_groups,
     get_info_fields, get_method_options, get_questions,
+    get_participant_map,
 )
 from utils.email_sender import send_confirmation
 
@@ -55,11 +56,18 @@ st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.
 st.divider()
 
 # ── 설정 로드 ─────────────────────────────────────────────────
-cfg         = get_config()
-SAMPLES     = get_samples(cfg)
-GROUPS      = get_component_groups(cfg)
-INFO_FIELDS = get_info_fields(cfg)
-QUESTIONS   = get_questions(cfg)
+cfg              = get_config()
+SAMPLES          = get_samples(cfg)
+GROUPS           = get_component_groups(cfg)
+INFO_FIELDS      = get_info_fields(cfg)
+QUESTIONS        = get_questions(cfg)
+PARTICIPANT_MAP  = get_participant_map(cfg)
+
+# 회사명에 해당하는 필드명 사전 결정
+_INST_FIELD = next(
+    (f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))),
+    INFO_FIELDS[0]["name"] if INFO_FIELDS else "회사명"
+)
 
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str, free_decimal: bool = False):
@@ -163,14 +171,32 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
 # ── 입력 폼 ──────────────────────────────────────────────────
 # 기관 정보
 st.subheader("기관 정보")
+
+# ── 참가코드 → 회사명 자동 입력 ──────────────────────────────
+if PARTICIPANT_MAP:
+    code_input = st.text_input("참가코드 *", placeholder="예: 01", key="participant_code").strip()
+    _company_from_code = PARTICIPANT_MAP.get(code_input, "")
+    if code_input and not _company_from_code:
+        st.error(f"등록되지 않은 코드입니다: '{code_input}'")
+    elif _company_from_code:
+        st.caption(f"회사명: **{_company_from_code}**")
+else:
+    code_input = ""
+    _company_from_code = ""
+
 info_cols = st.columns(max(len(INFO_FIELDS), 1))
 info_values: dict[str, str] = {}
 for i, field in enumerate(INFO_FIELDS):
     with info_cols[i]:
         label = field["name"] + (" *" if field["required"] else "")
-        info_values[field["name"]] = st.text_input(
-            label, placeholder=field["placeholder"], key=f"info_{field['name']}"
-        )
+        if PARTICIPANT_MAP and field["name"] == _INST_FIELD:
+            # 코드로 자동 결정 — 직접 입력 불가
+            info_values[field["name"]] = _company_from_code
+            st.text_input(label, value=_company_from_code, disabled=True, key=f"info_{field['name']}")
+        else:
+            info_values[field["name"]] = st.text_input(
+                label, placeholder=field["placeholder"], key=f"info_{field['name']}"
+            )
 st.divider()
 
 all_data: dict = {}
@@ -228,6 +254,14 @@ if submitted:
             errors.append(f"{field['name']}을(를) 입력해주세요.")
         elif field["email"] and val and "@" not in val:
             errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
+
+    # 참가코드 검증
+    if PARTICIPANT_MAP:
+        _code = st.session_state.get("participant_code", "").strip()
+        if not _code:
+            errors.append("참가코드를 입력해주세요.")
+        elif _code not in PARTICIPANT_MAP:
+            errors.append(f"등록되지 않은 참가코드입니다: '{_code}'")
 
     # 값 입력 시 방법 필수 검증 (session_state에서 직접 읽기)
     for group_name, group_items in GROUPS.items():
