@@ -22,7 +22,7 @@ def compute_zscores(df: pd.DataFrame, value_cols: list) -> pd.DataFrame:
         vals = pd.to_numeric(df[col], errors="coerce")
         valid = vals.notna()
         z = pd.Series(np.nan, index=df.index)
-        if valid.sum() >= 3:
+        if valid.sum() > 5:
             z.loc[valid[valid].index] = robust_zscore(vals[valid].values)
         result[col] = z
     return result
@@ -43,7 +43,7 @@ def compute_zscores_by_method(
             continue
         vals = pd.to_numeric(grp[value_col], errors="coerce")
         valid = vals.notna()
-        if valid.sum() < 5:
+        if valid.sum() <= 5:
             continue
         z = robust_zscore(vals[valid].values)
         result.loc[vals[valid].index] = z
