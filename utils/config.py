@@ -144,9 +144,9 @@ def get_method_options(cfg: pd.DataFrame = None, comp: str = None) -> list[str]:
     if comp:
         comp_rows = rows[rows["group"].astype(str).str.strip() == comp]
         if not comp_rows.empty:
-            return comp_rows["name"].tolist()
+            return [str(v) for v in comp_rows["name"].tolist() if v is not None and str(v).strip() not in ("", "nan")]
     global_rows = rows[rows["group"].astype(str).str.strip() == ""]
-    return global_rows["name"].tolist()
+    return [str(v) for v in global_rows["name"].tolist() if v is not None and str(v).strip() not in ("", "nan")]
 
 
 def get_questions(cfg: pd.DataFrame = None) -> list[dict]:

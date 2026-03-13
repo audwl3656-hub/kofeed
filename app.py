@@ -311,8 +311,14 @@ if submitted:
         row = {"제출일시": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")}
         for field in INFO_FIELDS:
             row[field["name"]] = info_values.get(field["name"], "").strip()
+        import math
         for k, v in all_data.items():
-            row[k] = "" if v is None else v
+            if v is None:
+                row[k] = ""
+            elif isinstance(v, float) and math.isnan(v):
+                row[k] = ""
+            else:
+                row[k] = v
 
         with st.spinner("제출 중..."):
             try:

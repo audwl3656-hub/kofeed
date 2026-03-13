@@ -39,7 +39,7 @@ def submit_data(row: dict):
         if new_keys:
             sheet.update("A1", [existing_headers + new_keys])
     headers = sheet.row_values(1)
-    sheet.append_row([row.get(h, "") for h in headers])
+    sheet.append_row(["" if (v := row.get(h)) is None else v for h in headers])
 
 
 def get_all_data() -> pd.DataFrame:
