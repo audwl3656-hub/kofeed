@@ -555,6 +555,8 @@ with tab4:
         "**회사명**: 코드 입력 시 자동으로 채워질 회사명."
     )
     part_df = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
+    part_df["order"]   = pd.to_numeric(part_df["order"], errors="coerce").fillna(1).astype(int)
+    part_df["enabled"] = part_df["enabled"].astype(bool)
     edited_participants = st.data_editor(
         part_df[["group", "name", "order", "enabled"]],
         num_rows="dynamic",
