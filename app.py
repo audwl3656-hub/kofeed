@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 KST = timezone(timedelta(hours=9))
 from utils.sheets import submit_data
 from utils.config import (
-    get_config, get_samples, get_component_groups, get_nir_groups,
+    get_config, get_samples, get_component_groups,
     get_info_fields, get_method_options, get_questions,
 )
 from utils.email_sender import send_confirmation
@@ -35,17 +35,31 @@ div[data-testid="stNumberInput"] input { text-align: center !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── 접근 제한 ─────────────────────────────────────────────────
+if "app_auth" not in st.session_state:
+    st.session_state.app_auth = False
+
+if not st.session_state.app_auth:
+    st.title("회원사 비교분석 시험")
+    pw = st.text_input("접속 비밀번호를 입력하세요", type="password")
+    if st.button("입장"):
+        if pw == st.secrets.get("app", {}).get("password", ""):
+            st.session_state.app_auth = True
+            st.rerun()
+        else:
+            st.error("비밀번호가 틀렸습니다.")
+    st.stop()
+
 st.title("회원사 비교분석 시험")
 st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
 st.divider()
 
 # ── 설정 로드 ─────────────────────────────────────────────────
-cfg            = get_config()
-SAMPLES        = get_samples(cfg)
-GROUPS         = get_component_groups(cfg)
-NIR_GRP        = get_nir_groups(cfg)
-INFO_FIELDS    = get_info_fields(cfg)
-QUESTIONS      = get_questions(cfg)
+cfg         = get_config()
+SAMPLES     = get_samples(cfg)
+GROUPS      = get_component_groups(cfg)
+INFO_FIELDS = get_info_fields(cfg)
+QUESTIONS   = get_questions(cfg)
 
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str, free_decimal: bool = False):
@@ -145,55 +159,6 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
     return data
 
 
-def nir_table(items: list[dict]) -> dict:
-    data = {}
-
-    all_sample_set: list[str] = []
-    for item in items:
-        for s in item["samples"]:
-            if s not in all_sample_set:
-                all_sample_set.append(s)
-
-    col_ratios = [2, 3] + [2] * len(all_sample_set)
-    hcols = st.columns(col_ratios)
-    hcols[0].markdown("**성분**")
-    hcols[1].markdown("**기기명**")
-    for i, s in enumerate(all_sample_set):
-        hcols[2 + i].markdown(f"**{s}**")
-    st.markdown("<hr style='margin:2px 0 6px 0; border-color:#e0e0e0'>",
-                unsafe_allow_html=True)
-
-    for item in items:
-        comp    = item["name"]
-        samples = item["samples"]
-        cols    = st.columns(col_ratios)
-        cols[0].markdown(f"**{comp}**")
-
-        with cols[1]:
-            data[f"NIR_{comp}_기기"] = st.text_input(
-                "기기", key=f"NIR_{comp}_equip",
-                label_visibility="collapsed", placeholder="기기명",
-            )
-        free_dec = item.get("free_decimal", False)
-        fmt  = "%.4f" if free_dec else "%.2f"
-        step = 0.0001 if free_dec else 0.01
-        for i, s in enumerate(all_sample_set):
-            with cols[2 + i]:
-                if s in samples:
-                    data[f"NIR_{comp}_{s}"] = st.number_input(
-                        s, key=f"NIR_{comp}_{s}",
-                        value=None, min_value=0.0,
-                        step=step, format=fmt,
-                        placeholder="0.00",
-                        label_visibility="collapsed",
-                    )
-                else:
-                    st.markdown(
-                        "<div style='color:#ccc;text-align:center'>—</div>",
-                        unsafe_allow_html=True,
-                    )
-    return data
-
 
 # ── 입력 폼 ──────────────────────────────────────────────────
 # 기관 정보
@@ -213,14 +178,6 @@ all_data: dict = {}
 for group_name, items in GROUPS.items():
     st.subheader(group_name)
     all_data.update(component_table(items, prefix=f"{group_name}_"))
-    st.divider()
-
-if NIR_GRP:
-    st.subheader("NIR 측정값")
-    st.caption("NIR 기기로 측정한 값을 입력하세요.")
-    for group_name, items in NIR_GRP.items():
-        st.markdown(f"**{group_name}**")
-        all_data.update(nir_table(items))
     st.divider()
 
 if QUESTIONS:
@@ -264,15 +221,6 @@ if submitted:
                 all_data[f"{comp}_기기"] = v
             if (v := st.session_state.get(f"{group_name}_{comp}_solvent")) is not None:
                 all_data[f"{comp}_용매"] = v
-    if NIR_GRP:
-        for group_name, items in NIR_GRP.items():
-            for item in items:
-                comp = item["name"]
-                for s in item["samples"]:
-                    ss_val = st.session_state.get(f"NIR_{comp}_{s}")
-                    if ss_val is not None:
-                        all_data[f"NIR_{comp}_{s}"] = ss_val
-
     # 기관 정보 검증
     for field in INFO_FIELDS:
         val = info_values.get(field["name"], "").strip()
