@@ -70,8 +70,8 @@ def _build_sample_section(
     z_cell_style = ParagraphStyle("zcell", fontName=KO, fontSize=8, alignment=TA_CENTER)
 
     if report_type == "overall":
-        header = ["성분", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
-        cw = [38*mm, 27*mm, 27*mm, 22*mm, 16*mm, 30*mm]
+        header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
+        cw = [30*mm, 32*mm, 22*mm, 22*mm, 18*mm, 13*mm, 25*mm]
     else:
         header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z방법별"]
         cw = [30*mm, 32*mm, 22*mm, 22*mm, 18*mm, 13*mm, 25*mm]
@@ -106,16 +106,16 @@ def _build_sample_section(
         except Exception:
             cv_str = "-"
 
+        method = (inst_method or {}).get(comp, "")
         if report_type == "overall":
             rows.append([
-                comp, fmt(val),
+                comp, method, fmt(val),
                 fmt(stats.get("median", "")),
                 cv_str,
                 str(stats.get("n", "")),
                 _z_cell(z_f, z_str),
             ])
         else:
-            method = (inst_method or {}).get(comp, "")
             rows.append([
                 comp, method, fmt(val),
                 fmt(stats.get("median", "")),
