@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from utils.zscore import zscore_flag, zscore_color
+
 from utils.config import get_component_from_col, get_sample_from_col
 
 # 한글 TTF 폰트 등록 (Streamlit Cloud: packages.txt에 fonts-nanum 필요)
@@ -26,14 +26,9 @@ except Exception:
     KO = "Helvetica"  # 한글 깨질 수 있음 (로컬 환경 폴백)
 
 
-def _color_from_hex(hex_str: str):
-    hex_str = hex_str.lstrip("#")
-    r, g, b = int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16)
-    return colors.Color(r / 255, g / 255, b / 255)
 
-
-def _make_table_style(z_col_idx: int, cols: list, zscore_dict: dict) -> TableStyle:
-    ts = TableStyle([
+def _make_table_style() -> TableStyle:
+    return TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
         ("FONTNAME",   (0, 0), (-1, -1), KO),
@@ -45,15 +40,6 @@ def _make_table_style(z_col_idx: int, cols: list, zscore_dict: dict) -> TableSty
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ])
-    for i, col in enumerate(cols, start=1):
-        try:
-            z_f = float(zscore_dict.get(col, np.nan))
-            if not np.isnan(z_f):
-                ts.add("BACKGROUND", (z_col_idx, i), (z_col_idx, i),
-                       _color_from_hex(zscore_color(z_f)))
-        except Exception:
-            pass
-    return ts
 
 
 def _build_sample_section(
@@ -81,14 +67,25 @@ def _build_sample_section(
         except Exception:
             return "-"
 
+    z_cell_style = ParagraphStyle("zcell", fontName=KO, fontSize=8, alignment=TA_CENTER)
+
     if report_type == "overall":
-        header = ["성분", "제출값", "중앙값", "CV(%)", "n", "Z전체", "판정"]
-        cw = [35*mm, 25*mm, 25*mm, 20*mm, 15*mm, 25*mm, 35*mm]
-        z_col_idx = 5
+        header = ["성분", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
+        cw = [38*mm, 27*mm, 27*mm, 22*mm, 16*mm, 30*mm]
     else:
-        header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z방법별", "판정"]
-        cw = [28*mm, 30*mm, 20*mm, 20*mm, 18*mm, 12*mm, 22*mm, 30*mm]
-        z_col_idx = 6
+        header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z방법별"]
+        cw = [30*mm, 32*mm, 22*mm, 22*mm, 18*mm, 13*mm, 25*mm]
+
+    def _z_cell(z_f: float, z_str: str):
+        if z_str == "N/A":
+            return z_str
+        abs_z = abs(z_f)
+        if abs_z > 3:
+            return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_style)
+        elif abs_z > 2:
+            return Paragraph(f'<font color="#27ae60">{z_str}</font>', z_cell_style)
+        else:
+            return Paragraph(f'<font color="#2980b9">{z_str}</font>', z_cell_style)
 
     rows = [header]
     for col in cols_for_sample:
@@ -109,15 +106,13 @@ def _build_sample_section(
         except Exception:
             cv_str = "-"
 
-        flag = zscore_flag(z_f) if not np.isnan(z_f) else "N/A"
-
         if report_type == "overall":
             rows.append([
                 comp, fmt(val),
                 fmt(stats.get("median", "")),
                 cv_str,
                 str(stats.get("n", "")),
-                z_str, flag,
+                _z_cell(z_f, z_str),
             ])
         else:
             method = (inst_method or {}).get(comp, "")
@@ -126,11 +121,11 @@ def _build_sample_section(
                 fmt(stats.get("median", "")),
                 cv_str,
                 str(stats.get("n", "")),
-                z_str, flag,
+                _z_cell(z_f, z_str),
             ])
 
     t = Table(rows, colWidths=cw, repeatRows=1)
-    t.setStyle(_make_table_style(z_col_idx, cols_for_sample, zscore_dict))
+    t.setStyle(_make_table_style())
     elements.append(t)
     elements.append(Spacer(1, 4*mm))
     return elements
