@@ -334,6 +334,9 @@ with tab4:
         "**flags**: `required` = 필수 입력 / `email` = 이메일 형식 검증 / 복수 시 `required,email`."
     )
     info_df = cfg_edit[cfg_edit["type"] == "info_field"][CONFIG_COLS].reset_index(drop=True)
+    if not info_df.empty:
+        info_df["order"]   = pd.to_numeric(info_df["order"], errors="coerce").fillna(1).astype(int)
+        info_df["enabled"] = info_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     edited_info = st.data_editor(
         info_df,
         num_rows="dynamic",
@@ -357,6 +360,9 @@ with tab4:
     st.markdown("### 사료 종류")
     st.caption("사료명 추가/삭제/수정. 순서 숫자로 조정.")
     sample_df = cfg_edit[cfg_edit["type"] == "sample"][CONFIG_COLS].reset_index(drop=True)
+    if not sample_df.empty:
+        sample_df["order"]   = pd.to_numeric(sample_df["order"], errors="coerce").fillna(1).astype(int)
+        sample_df["enabled"] = sample_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     edited_samples = st.data_editor(
         sample_df,
         num_rows="dynamic",
@@ -386,7 +392,10 @@ with tab4:
         "섹션명을 변경하면 아래 성분 종목의 '그룹' 칸도 동일하게 수정해 주세요."
     )
     group_df = cfg_edit[cfg_edit["type"] == "group"][CONFIG_COLS].reset_index(drop=True)
-    group_df["NIR포함"] = group_df["samples"].str.lower().str.contains("nir").fillna(False)
+    if not group_df.empty:
+        group_df["order"]   = pd.to_numeric(group_df["order"], errors="coerce").fillna(1).astype(int)
+        group_df["enabled"] = group_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
+    group_df["NIR포함"] = group_df["samples"].astype(str).str.lower().str.contains("nir").fillna(False)
 
     edited_groups_ui = st.data_editor(
         group_df[["name", "order", "enabled", "NIR포함"]],
@@ -440,6 +449,9 @@ with tab4:
     else:
         raw = comp_df["free_decimal"].astype(str).str.strip().str.lower()
         comp_df["free_decimal"] = raw.isin(["true", "1", "yes"])
+    if not comp_df.empty:
+        comp_df["order"]   = pd.to_numeric(comp_df["order"], errors="coerce").fillna(1).astype(int)
+        comp_df["enabled"] = comp_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
 
     # 현재 유효한 섹션명 목록 (선택용)
     valid_groups = [
@@ -488,9 +500,20 @@ with tab4:
         "성분명을 입력하면 해당 성분에만 표시됩니다 (예: `수분`, `조단백질`).\n\n"
         "특정 성분에 전용 옵션이 1개 이상 있으면 공통 옵션은 해당 성분에 표시되지 않습니다."
     )
-    method_df = cfg_edit[cfg_edit["type"] == "method_option"][CONFIG_COLS].reset_index(drop=True)
+    _raw_method = cfg_edit[cfg_edit["type"] == "method_option"][CONFIG_COLS].reset_index(drop=True)
+    if _raw_method.empty:
+        method_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
+            {"group": str, "name": str, "order": int, "enabled": bool}
+        )
+    else:
+        method_df = pd.DataFrame({
+            "group":   _raw_method["group"].astype(str).replace("nan", ""),
+            "name":    _raw_method["name"].astype(str).replace("nan", ""),
+            "order":   pd.to_numeric(_raw_method["order"], errors="coerce").fillna(1).astype(int),
+            "enabled": _raw_method["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
+        })
     edited_methods = st.data_editor(
-        method_df[["group", "name", "order", "enabled"]],
+        method_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
@@ -524,7 +547,11 @@ with tab4:
         "- `choice:옵션1|옵션2|옵션3` — 단일 선택\n"
         "- `multicheck:옵션1|옵션2|옵션3` — 복수 선택"
     )
-    question_df = cfg_edit[cfg_edit["type"] == "question"][CONFIG_COLS].reset_index(drop=True)
+    _raw_q = cfg_edit[cfg_edit["type"] == "question"][CONFIG_COLS].reset_index(drop=True)
+    if not _raw_q.empty:
+        _raw_q["order"]   = pd.to_numeric(_raw_q["order"], errors="coerce").fillna(1).astype(int)
+        _raw_q["enabled"] = _raw_q["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
+    question_df = _raw_q
     edited_questions = st.data_editor(
         question_df,
         num_rows="dynamic",
@@ -554,11 +581,20 @@ with tab4:
         "**코드**: 참가자에게 배포할 고유 코드 (예: 01, A001).\n\n"
         "**회사명**: 코드 입력 시 자동으로 채워질 회사명."
     )
-    part_df = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
-    part_df["order"]   = pd.to_numeric(part_df["order"], errors="coerce").fillna(1).astype(int)
-    part_df["enabled"] = part_df["enabled"].astype(bool)
+    _raw_part = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
+    if _raw_part.empty:
+        part_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
+            {"group": str, "name": str, "order": int, "enabled": bool}
+        )
+    else:
+        part_df = pd.DataFrame({
+            "group":   _raw_part["group"].astype(str).replace("nan", ""),
+            "name":    _raw_part["name"].astype(str).replace("nan", ""),
+            "order":   pd.to_numeric(_raw_part["order"], errors="coerce").fillna(1).astype(int),
+            "enabled": _raw_part["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
+        })
     edited_participants = st.data_editor(
-        part_df[["group", "name", "order", "enabled"]],
+        part_df,
         num_rows="dynamic",
         use_container_width=True,
         column_config={
