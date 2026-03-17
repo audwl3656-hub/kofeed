@@ -71,10 +71,10 @@ def _build_sample_section(
 
     if report_type == "overall":
         header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
-        cw = [30*mm, 32*mm, 22*mm, 22*mm, 18*mm, 13*mm, 25*mm]
+        cw = [30*mm, 35*mm, 22*mm, 22*mm, 16*mm, 12*mm, 23*mm]
     else:
         header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z방법별"]
-        cw = [30*mm, 32*mm, 22*mm, 22*mm, 18*mm, 13*mm, 25*mm]
+        cw = [30*mm, 35*mm, 22*mm, 22*mm, 16*mm, 12*mm, 23*mm]
 
     def _z_cell(z_f: float, z_str: str):
         if z_str == "N/A":
@@ -107,22 +107,13 @@ def _build_sample_section(
             cv_str = "-"
 
         method = (inst_method or {}).get(comp, "")
-        if report_type == "overall":
-            rows.append([
-                comp, method, fmt(val),
-                fmt(stats.get("median", "")),
-                cv_str,
-                str(stats.get("n", "")),
-                _z_cell(z_f, z_str),
-            ])
-        else:
-            rows.append([
-                comp, method, fmt(val),
-                fmt(stats.get("median", "")),
-                cv_str,
-                str(stats.get("n", "")),
-                _z_cell(z_f, z_str),
-            ])
+        rows.append([
+            comp, method, fmt(val),
+            fmt(stats.get("median", "")),
+            cv_str,
+            str(stats.get("n", "")),
+            _z_cell(z_f, z_str),
+        ])
 
     t = Table(rows, colWidths=cw, repeatRows=1)
     t.setStyle(_make_table_style())
@@ -223,6 +214,7 @@ def generate_pdf_overall(
     value_cols: list,
     generated_at: str = None,
     samples: list = None,
+    inst_method: dict = None,
 ) -> bytes:
     if samples is None:
         from utils.config import get_samples
@@ -239,6 +231,7 @@ def generate_pdf_overall(
         report_type="overall",
         generated_at=generated_at,
         samples=samples,
+        inst_method=inst_method,
     )
 
 
@@ -389,7 +382,7 @@ def generate_submission_pdf(
 
     if NIR_GROUPS:
         elements.append(Paragraph("NIR 측정값", sec_sty))
-        for _gname, items in NIR_GROUPS.items():
+        for _, items in NIR_GROUPS.items():
             grp_samples: list[str] = []
             for item in items:
                 for s in item["samples"]:

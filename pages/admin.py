@@ -258,7 +258,7 @@ with tab3:
                             inst_method[comp] = str(row.get(mc, "") or "")
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
-                    group_stats, main_cols, generated_at, SAMPLES,
+                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,
@@ -300,7 +300,7 @@ with tab3:
                             inst_method[comp] = str(row.get(mc, "") or "")
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
-                    group_stats, main_cols, generated_at, SAMPLES,
+                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,

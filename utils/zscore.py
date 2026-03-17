@@ -6,12 +6,16 @@ def robust_zscore(values: np.ndarray) -> np.ndarray:
     """
     Robust Z-score (AAFCO 방식)
     Z = (x - median) / (1.4826 * MAD)
+    MAD=0인 경우 표준편차 기반 Z-score로 폴백.
     """
     values = np.array(values, dtype=float)
     median = np.median(values)
     mad = np.median(np.abs(values - median))
     if mad == 0:
-        return np.where(values == median, 0.0, np.nan)
+        std = np.std(values)
+        if std == 0:
+            return np.zeros_like(values)
+        return (values - np.mean(values)) / std
     return (values - median) / (1.4826 * mad)
 
 
