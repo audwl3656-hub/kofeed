@@ -272,6 +272,7 @@ def generate_pdf_summary(
     inst_field: str,
     generated_at: str,
     samples: list,
+    participant_map: dict = None,
 ) -> bytes:
     """전체 요약 보고서: 통계 요약표 + 전체/방법별 Z-score 표."""
     import pandas as pd
@@ -419,7 +420,10 @@ def generate_pdf_summary(
             return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_p)
         return z_str
 
-    inst_names = df[inst_field].fillna("").astype(str).tolist()
+    # 회사명 → 참가코드 역변환 (participant_map: {코드: 회사명})
+    _name_to_code = {v: k for k, v in (participant_map or {}).items()}
+    raw_names  = df[inst_field].fillna("").astype(str).tolist()
+    inst_names = [_name_to_code.get(n, n) for n in raw_names]
     idx_list   = df.index.tolist()
 
     inst_w = 45

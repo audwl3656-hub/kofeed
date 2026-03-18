@@ -11,6 +11,7 @@ from utils.config import (
     get_nir_groups, get_all_value_columns, get_group_order,
     get_info_fields, get_method_options, get_questions,
     is_value_col, get_component_from_col, get_sample_from_col,
+    get_participant_map,
     DEFAULT_CONFIG, CONFIG_COLS,
 )
 from utils.zscore import (
@@ -259,6 +260,7 @@ with tab3:
             df=df, z_all=z_all, z_method=z_method,
             group_stats=group_stats, value_cols=main_cols,
             inst_field=inst_field, generated_at=generated_at, samples=SAMPLES,
+            participant_map=get_participant_map(cfg),
         )
         st.download_button(
             "전체 요약 PDF 다운로드",
