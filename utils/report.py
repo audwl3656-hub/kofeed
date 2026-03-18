@@ -297,27 +297,6 @@ def generate_pdf_summary(
         except Exception:
             return "-"
 
-    def _cv_bar(cv_val, draw_w, draw_h=10, max_cv=30.0):
-        try:
-            cv = float(cv_val)
-            if np.isnan(cv):
-                return "-"
-        except Exception:
-            return "-"
-        d = Drawing(draw_w, draw_h)
-        fill_w = min(cv / max_cv, 1.0) * draw_w
-        bar_color = (colors.HexColor("#27ae60") if cv < 5 else
-                     colors.HexColor("#f39c12") if cv < 10 else
-                     colors.HexColor("#e74c3c"))
-        d.add(Rect(0, 0, draw_w, draw_h,
-                   fillColor=colors.HexColor("#ecf0f1"),
-                   strokeColor=colors.HexColor("#cccccc"), strokeWidth=0.5))
-        if fill_w > 0:
-            d.add(Rect(0, 0, fill_w, draw_h, fillColor=bar_color, strokeColor=None))
-        d.add(GStr(draw_w / 2, 1.5, f"{cv:.1f}%", fontSize=7, fontName=KO,
-                   fillColor=colors.HexColor("#2c3e50"), textAnchor="middle"))
-        return d
-
     import pandas as _pd
     non_nir = [c for c in value_cols if not c.startswith("NIR_")]
 
@@ -344,13 +323,8 @@ def generate_pdf_summary(
             seen_comps.append(comp)
         comp_to_cols.setdefault(comp, []).append(col)
 
-    # 가용폭 계산
-    avail_mm  = 180
-    comp_w    = 35
-    per_s     = (avail_mm - comp_w) / max(len(samples), 1)
-    mean_w    = per_s * 0.40
-    cv_w      = per_s * 0.60
-    bar_pts   = cv_w * mm  # Drawing width (points)
+    avail_mm = 180
+    comp_w   = 35
 
     elements = []
 
@@ -367,10 +341,9 @@ def generate_pdf_summary(
 
     # 데이터가 있는 사료만 열로 표시
     valid_stat_samples = [s for s in samples if any(f"{c}_{s}" in non_nir_set for c in seen_comps)]
-    per_s2   = (avail_mm - comp_w) / max(len(valid_stat_samples), 1)
-    mean_w2  = per_s2 * 0.40
-    cv_w2    = per_s2 * 0.60
-    bar_pts2 = cv_w2 * mm
+    per_s2  = (avail_mm - comp_w) / max(len(valid_stat_samples), 1)
+    mean_w2 = per_s2 * 0.50
+    cv_w2   = per_s2 * 0.50
 
     cw_stats = [comp_w*mm] + [mean_w2*mm, cv_w2*mm] * len(valid_stat_samples)
     hdr0 = ["성분"] + [s for s in valid_stat_samples for _ in range(2)]
@@ -382,7 +355,7 @@ def generate_pdf_summary(
             col = f"{comp}_{s}"
             sd = group_stats.get(col, {})
             row.append(fmt(sd.get("mean", "")))
-            row.append(_cv_bar(sd.get("cv"), bar_pts2))
+            row.append(fmt(sd.get("cv", ""), 1))
         stat_rows.append(row)
 
     stat_tbl = Table(stat_rows, colWidths=cw_stats, repeatRows=2)
@@ -403,6 +376,65 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ] + span_cmds))
     elements.append(stat_tbl)
+    elements.append(Spacer(1, 6*mm))
+
+    # ━━━ CV 막대그래프 ━━━
+    elements.append(Paragraph("CV(%) 막대그래프", section_style))
+
+    # 데이터 수집: [(레이블, cv값), ...]
+    cv_items = []
+    for comp in seen_comps:
+        for s in valid_stat_samples:
+            col = f"{comp}_{s}"
+            sd = group_stats.get(col, {})
+            try:
+                cv_f = float(sd.get("cv", ""))
+                if not np.isnan(cv_f):
+                    cv_items.append((f"{comp} ({s})", cv_f))
+            except Exception:
+                pass
+
+    if cv_items:
+        bar_h   = 14
+        bar_gap = 4
+        label_w = 55 * mm
+        val_w   = 18 * mm
+        bar_area = avail_mm * mm - label_w - val_w
+        max_cv  = max(v for _, v in cv_items)
+        max_cv  = max(max_cv * 1.1, 5.0)  # 여유 10%
+        chart_h = len(cv_items) * (bar_h + bar_gap) + bar_gap + 20
+
+        d = Drawing(avail_mm * mm, chart_h)
+
+        # X축 눈금선 + 레이블
+        for tick in [0, max_cv * 0.25, max_cv * 0.5, max_cv * 0.75, max_cv]:
+            x = label_w + (tick / max_cv) * bar_area
+            d.add(GStr(x, chart_h - 12, f"{tick:.1f}", fontSize=6, fontName=KO,
+                       textAnchor="middle", fillColor=colors.HexColor("#888888")))
+            d.add(Rect(x, bar_gap, 0.3, chart_h - bar_gap - 16,
+                       fillColor=colors.HexColor("#dddddd"), strokeColor=None))
+
+        for i, (label, cv) in enumerate(cv_items):
+            y = chart_h - 20 - (i + 1) * (bar_h + bar_gap)
+            bw = (cv / max_cv) * bar_area
+
+            # 레이블
+            d.add(GStr(label_w - 4, y + 3, label, fontSize=7, fontName=KO,
+                       textAnchor="end", fillColor=colors.black))
+            # 배경
+            d.add(Rect(label_w, y, bar_area, bar_h,
+                       fillColor=colors.HexColor("#f5f5f5"),
+                       strokeColor=colors.HexColor("#dddddd"), strokeWidth=0.3))
+            # 막대
+            if bw > 0:
+                d.add(Rect(label_w, y, bw, bar_h,
+                           fillColor=colors.HexColor("#4a6fa5"), strokeColor=None))
+            # 값 레이블
+            d.add(GStr(label_w + bar_area + 4, y + 3, f"{cv:.1f}%", fontSize=7,
+                       fontName=KO, textAnchor="start", fillColor=colors.black))
+
+        elements.append(d)
+
     elements.append(Spacer(1, 8*mm))
 
     # ━━━ Z-score 공통 ━━━
@@ -471,7 +503,6 @@ def generate_pdf_summary(
     elements.append(Spacer(1, 3*mm))
     elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
     elements.append(Paragraph("적합: |Z| ≤ 2.0   경고: 2.0 < |Z| ≤ 3.0   부적합: |Z| > 3.0", note_style))
-    elements.append(Paragraph("CV(%) 막대: 녹색 &lt; 5%, 주황 5~10%, 빨강 &gt; 10%", note_style))
 
     doc.build(elements)
     return buf.getvalue()
