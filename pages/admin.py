@@ -68,6 +68,11 @@ value_cols = [c for c in df.columns if c not in META_COLS and is_value_col(c, SA
 nir_cols   = [c for c in value_cols if c.startswith("NIR_")]
 main_cols  = [c for c in value_cols if not c.startswith("NIR_")]
 
+# 섹션/성분 설정 순서대로 정렬
+_ordered = [c for c in get_all_value_columns(cfg) if not c.startswith("NIR_")]
+_main_set = set(main_cols)
+main_cols = [c for c in _ordered if c in _main_set] + [c for c in main_cols if c not in set(_ordered)]
+
 for col in value_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -221,6 +226,27 @@ with tab3:
             group_stats[col] = {"median": med, "mad": mad, "n": len(vals),
                                 "mean": mean, "std": std, "cv": cv}
 
+        def _calc_method_group_stats(inst_method_dict):
+            """기관의 방법을 기준으로 동일 방법 기관들만의 통계를 반환."""
+            stats = {}
+            for col in main_cols:
+                comp = get_component_from_col(col, SAMPLES)
+                mc   = f"{comp}_방법" if comp else None
+                method = inst_method_dict.get(comp, "").strip() if comp else ""
+                if mc and mc in df.columns and method:
+                    mask = df[mc].fillna("").astype(str).str.strip() == method
+                    vals = df.loc[mask, col].dropna()
+                    if not vals.empty:
+                        med  = float(np.median(vals))
+                        mean = float(vals.mean())
+                        std  = float(vals.std())
+                        cv   = (std / mean * 100) if mean != 0 else np.nan
+                        stats[col] = {"median": med, "n": len(vals),
+                                      "mean": mean, "std": std, "cv": cv}
+                        continue
+                stats[col] = {}
+            return stats
+
         generated_at = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
 
         # 기관명/이메일 필드명 동적 추출
@@ -256,13 +282,14 @@ with tab3:
                         mc = f"{comp}_방법"
                         if mc in df.columns:
                             inst_method[comp] = str(row.get(mc, "") or "")
+                method_group_stats = _calc_method_group_stats(inst_method)
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
                     group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,
-                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
+                    method_group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 c1, c2 = st.columns(2)
                 with c1:
@@ -298,13 +325,14 @@ with tab3:
                         mc = f"{comp}_방법"
                         if mc in df.columns:
                             inst_method[comp] = str(row.get(mc, "") or "")
+                method_group_stats = _calc_method_group_stats(inst_method)
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
                     group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,
-                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
+                    method_group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 report_list.append({
                     "email": email_to, "institution": inst,
