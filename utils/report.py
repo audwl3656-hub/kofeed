@@ -329,11 +329,12 @@ def generate_pdf_summary(
     elements = []
 
     # 제목
-    elements.append(Paragraph("회원사 비교분석 전체 요약 보고서", title_style))
+    _now = datetime.now()
+    _half = "상반기" if _now.month <= 6 else "하반기"
+    _report_title = f"{_now.year}년 {_half} 회원사 비교분석 전체 보고서"
+    elements.append(Paragraph(_report_title, title_style))
     elements.append(Spacer(1, 2*mm))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
-    elements.append(Spacer(1, 4*mm))
-    elements.append(Paragraph(f"<b>보고서 생성일:</b> {generated_at}", info_style))
     elements.append(Spacer(1, 5*mm))
 
     # ━━━ 1. 통계 요약 ━━━
