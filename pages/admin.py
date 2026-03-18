@@ -17,7 +17,7 @@ from utils.zscore import (
     compute_zscores, compute_zscores_by_method,
     zscore_flag, zscore_color,
 )
-from utils.report import generate_pdf_overall, generate_pdf_by_method
+from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
 from utils.email_sender import send_all_reports
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
@@ -252,6 +252,22 @@ with tab3:
         # 기관명/이메일 필드명 동적 추출
         inst_field  = next((f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))), INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명")
         email_field = next((f["name"] for f in INFO_FIELDS if f["email"]), "이메일")
+
+        # ── 전체 요약 보고서
+        st.markdown("#### 전체 요약 보고서")
+        summary_pdf = generate_pdf_summary(
+            df=df, z_all=z_all, z_method=z_method,
+            group_stats=group_stats, value_cols=main_cols,
+            inst_field=inst_field, generated_at=generated_at, samples=SAMPLES,
+        )
+        st.download_button(
+            "전체 요약 PDF 다운로드",
+            summary_pdf,
+            "회원사비교분석_전체요약.pdf",
+            "application/pdf",
+            key="dl_summary",
+        )
+        st.divider()
 
         st.markdown("#### 개별 보고서")
         for idx, row in df.iterrows():
