@@ -321,8 +321,22 @@ def generate_pdf_summary(
                    fillColor=colors.HexColor("#2c3e50"), textAnchor="middle"))
         return d
 
+    import pandas as _pd
     non_nir = [c for c in value_cols if not c.startswith("NIR_")]
+
+    # 데이터가 없는 컬럼 제거 (통계 없음 = 제출 데이터 없음)
+    non_nir = [c for c in non_nir if group_stats.get(c)]
     non_nir_set = set(non_nir)
+
+    def _z_has_data(col, z_src):
+        """해당 컬럼의 Z-score가 하나라도 유효한지 확인."""
+        try:
+            if isinstance(z_src, _pd.DataFrame):
+                return z_src[col].notna().any() if col in z_src.columns else False
+            ser = z_src.get(col)
+            return ser.notna().any() if ser is not None else False
+        except Exception:
+            return False
 
     # 성분 목록 (순서 유지)
     seen_comps: list = []
@@ -354,22 +368,29 @@ def generate_pdf_summary(
     # ━━━ 1. 통계 요약 ━━━
     elements.append(Paragraph("1. 전체 통계 요약", section_style))
 
-    cw_stats = [comp_w*mm] + [mean_w*mm, cv_w*mm] * len(samples)
-    hdr0 = ["성분"] + [s for s in samples for _ in range(2)]
-    hdr1 = [""]     + ["평균", "CV(%)"] * len(samples)
+    # 데이터가 있는 사료만 열로 표시
+    valid_stat_samples = [s for s in samples if any(f"{c}_{s}" in non_nir_set for c in seen_comps)]
+    per_s2   = (avail_mm - comp_w) / max(len(valid_stat_samples), 1)
+    mean_w2  = per_s2 * 0.40
+    cv_w2    = per_s2 * 0.60
+    bar_pts2 = cv_w2 * mm
+
+    cw_stats = [comp_w*mm] + [mean_w2*mm, cv_w2*mm] * len(valid_stat_samples)
+    hdr0 = ["성분"] + [s for s in valid_stat_samples for _ in range(2)]
+    hdr1 = [""]     + ["평균", "CV(%)"] * len(valid_stat_samples)
     stat_rows = [hdr0, hdr1]
     for comp in seen_comps:
         row = [comp]
-        for s in samples:
+        for s in valid_stat_samples:
             col = f"{comp}_{s}"
             sd = group_stats.get(col, {})
             row.append(fmt(sd.get("mean", "")))
-            row.append(_cv_bar(sd.get("cv"), bar_pts))
+            row.append(_cv_bar(sd.get("cv"), bar_pts2))
         stat_rows.append(row)
 
     stat_tbl = Table(stat_rows, colWidths=cw_stats, repeatRows=2)
     span_cmds = [("SPAN", (0, 0), (0, 1))]
-    for i in range(len(samples)):
+    for i in range(len(valid_stat_samples)):
         c0 = 1 + i * 2
         span_cmds.append(("SPAN", (c0, 0), (c0 + 1, 0)))
     stat_tbl.setStyle(TableStyle([
@@ -408,23 +429,28 @@ def generate_pdf_summary(
     idx_list   = df.index.tolist()
 
     inst_w = 45
-    samp_w = (avail_mm - inst_w) / max(len(samples), 1)
-    cw_z   = [inst_w*mm] + [samp_w*mm] * len(samples)
 
     def _build_zscore_section(sec_title, z_src):
         elems = [Paragraph(sec_title, section_style)]
         for num, comp in enumerate(seen_comps, 1):
+            # 이 성분에서 Z-score 데이터가 있는 사료만 사용
+            valid_samples = [s for s in samples
+                             if f"{comp}_{s}" in non_nir_set
+                             and _z_has_data(f"{comp}_{s}", z_src)]
+            if not valid_samples:
+                continue
+
+            samp_w = (avail_mm - inst_w) / len(valid_samples)
+            cw_z   = [inst_w*mm] + [samp_w*mm] * len(valid_samples)
+
             elems.append(Paragraph(f"{num}) {comp}", comp_style))
-            z_rows = [["기관명"] + list(samples)]
+            z_rows = [["기관명"] + valid_samples]
             for inst, row_idx in zip(inst_names, idx_list):
                 row = [inst]
-                for s in samples:
+                for s in valid_samples:
                     col = f"{comp}_{s}"
-                    if col not in non_nir_set:
-                        row.append("-")
-                        continue
                     try:
-                        if isinstance(z_src, pd.DataFrame):
+                        if isinstance(z_src, _pd.DataFrame):
                             zv = z_src.at[row_idx, col] if col in z_src.columns else np.nan
                         else:
                             ser = z_src.get(col)
