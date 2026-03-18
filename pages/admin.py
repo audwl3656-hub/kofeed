@@ -221,6 +221,31 @@ with tab3:
             group_stats[col] = {"median": med, "mad": mad, "n": len(vals),
                                 "mean": mean, "std": std, "cv": cv}
 
+        # 방법별 통계 (방법별 PDF 보고서용) — col → method → stats
+        method_stats: dict[str, dict[str, dict]] = {}
+        for col in main_cols:
+            comp = get_component_from_col(col, SAMPLES)
+            if not comp:
+                continue
+            method_col = f"{comp}_방법"
+            method_stats[col] = {}
+            if method_col not in df.columns:
+                continue
+            for method, grp in df.groupby(df[method_col].fillna("").astype(str)):
+                if not method.strip():
+                    continue
+                vals = pd.to_numeric(grp[col], errors="coerce").dropna()
+                if len(vals) <= 5:
+                    continue
+                med  = float(np.median(vals))
+                mean = float(vals.mean())
+                std  = float(vals.std())
+                cv   = (std / mean * 100) if mean != 0 else np.nan
+                method_stats[col][method.strip()] = {
+                    "median": med, "n": len(vals),
+                    "mean": mean, "std": std, "cv": cv,
+                }
+
         generated_at = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
 
         # 기관명/이메일 필드명 동적 추출
@@ -256,13 +281,20 @@ with tab3:
                         mc = f"{comp}_방법"
                         if mc in df.columns:
                             inst_method[comp] = str(row.get(mc, "") or "")
+                # 이 기관이 사용한 방법 기준의 방법별 통계
+                inst_method_stats = {
+                    col: method_stats.get(col, {}).get(
+                        inst_method.get(get_component_from_col(col, SAMPLES) or "", "").strip(), {}
+                    )
+                    for col in main_cols
+                }
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
                     group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,
-                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
+                    inst_method_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 c1, c2 = st.columns(2)
                 with c1:
@@ -298,13 +330,19 @@ with tab3:
                         mc = f"{comp}_방법"
                         if mc in df.columns:
                             inst_method[comp] = str(row.get(mc, "") or "")
+                inst_method_stats = {
+                    col: method_stats.get(col, {}).get(
+                        inst_method.get(get_component_from_col(col, SAMPLES) or "", "").strip(), {}
+                    )
+                    for col in main_cols
+                }
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
                     group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 pdf_method = generate_pdf_by_method(
                     email_to, inst, row_data, z_m_row,
-                    group_stats, main_cols, generated_at, SAMPLES, inst_method,
+                    inst_method_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
                 report_list.append({
                     "email": email_to, "institution": inst,
