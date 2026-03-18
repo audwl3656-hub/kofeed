@@ -22,8 +22,9 @@ def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
 
 
 def send_report(to_email: str, institution: str,
-                pdf_overall: bytes, pdf_method: bytes) -> bool:
-    """전체/방법별 Robust Z-score 보고서 2개를 이메일로 발송."""
+                pdf_overall: bytes, pdf_method: bytes,
+                pdf_summary: bytes = None) -> bool:
+    """전체/방법별 Robust Z-score 보고서를 이메일로 발송. 요약 보고서 선택 첨부."""
     cfg = st.secrets["email"]
     sender   = cfg["sender"]
     password = cfg["password"]
@@ -46,6 +47,8 @@ def send_report(to_email: str, institution: str,
     msg.attach(MIMEText(body, "plain", "utf-8"))
     _attach_pdf(msg, pdf_overall, f"회원사비교분석_{institution}_전체 Robust Z-score.pdf")
     _attach_pdf(msg, pdf_method,  f"회원사비교분석_{institution}_방법별 Robust Z-score.pdf")
+    if pdf_summary:
+        _attach_pdf(msg, pdf_summary, "회원사비교분석_전체요약.pdf")
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
@@ -90,14 +93,16 @@ def send_confirmation(to_email: str, institution: str, row: dict, cfg) -> bool:
 def send_all_reports(report_list: list) -> dict:
     """
     report_list: [{"email": str, "institution": str,
-                   "pdf_overall": bytes, "pdf_method": bytes}, ...]
+                   "pdf_overall": bytes, "pdf_method": bytes,
+                   "pdf_summary": bytes (optional)}, ...]
     반환: {"success": [...], "fail": [...]}
     """
     result = {"success": [], "fail": []}
     for item in report_list:
         try:
             send_report(item["email"], item["institution"],
-                        item["pdf_overall"], item["pdf_method"])
+                        item["pdf_overall"], item["pdf_method"],
+                        item.get("pdf_summary"))
             result["success"].append(item["email"])
         except Exception as e:
             result["fail"].append({"email": item["email"], "error": str(e)})

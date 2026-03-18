@@ -353,6 +353,7 @@ with tab3:
                 report_list.append({
                     "email": email_to, "institution": inst,
                     "pdf_overall": pdf_overall, "pdf_method": pdf_method,
+                    "pdf_summary": summary_pdf,
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)

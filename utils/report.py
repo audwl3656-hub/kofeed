@@ -81,13 +81,9 @@ def _build_sample_section(
     def _z_cell(z_f: float, z_str: str):
         if z_str == "N/A":
             return z_str
-        abs_z = abs(z_f)
-        if abs_z > 3:
+        if abs(z_f) > 3:
             return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_style)
-        elif abs_z > 2:
-            return Paragraph(f'<font color="#27ae60">{z_str}</font>', z_cell_style)
-        else:
-            return Paragraph(f'<font color="#2980b9">{z_str}</font>', z_cell_style)
+        return z_str
 
     rows = [header]
     for col in cols_for_sample:
@@ -421,9 +417,7 @@ def generate_pdf_summary(
             return "N/A"
         if abs(z_f) > 3:
             return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_p)
-        elif abs(z_f) > 2:
-            return Paragraph(f'<font color="#27ae60">{z_str}</font>', z_cell_p)
-        return Paragraph(f'<font color="#2980b9">{z_str}</font>', z_cell_p)
+        return z_str
 
     inst_names = df[inst_field].fillna("").astype(str).tolist()
     idx_list   = df.index.tolist()
