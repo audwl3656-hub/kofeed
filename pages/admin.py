@@ -20,8 +20,8 @@ from utils.zscore import (
 )
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
 from utils.email_sender import send_all_reports
-from utils.config import get_history, append_history_row, delete_history_rows
-from utils.history_dashboard import generate_history_html_bytes
+from utils.config import get_history, append_history_rows, delete_history_rows
+from utils.history_dashboard import generate_institution_html_bytes
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
 
@@ -78,6 +78,10 @@ main_cols = [c for c in _ordered if c in _main_set] + [c for c in main_cols if c
 
 for col in value_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# 기관명 필드 (공통 사용)
+inst_field  = next((f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))), INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명")
+email_field = next((f["name"] for f in INFO_FIELDS if "email" in f.get("samples", "").lower()), "이메일")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -339,12 +343,6 @@ with tab3:
         )
 
         if st.button("전체 보고서 발송", type="primary"):
-            # 히스토리 HTML 미리 생성 (첨부 시)
-            html_dashboard_bytes = None
-            if attach_html and not hist_df.empty:
-                hist_records = hist_df.to_dict("records")
-                html_dashboard_bytes = generate_history_html_bytes(hist_records)
-
             report_list = []
             for idx, row in df.iterrows():
                 email_to = row.get(email_field, "")
@@ -370,11 +368,15 @@ with tab3:
                     email_to, inst, row_data, z_m_row,
                     method_group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
+                # 기관별 연도별 대시보드 HTML
+                html_bytes = None
+                if attach_html and not hist_df.empty:
+                    html_bytes = generate_institution_html_bytes(hist_df, inst)
                 report_list.append({
                     "email": email_to, "institution": inst,
                     "pdf_overall": pdf_overall, "pdf_method": pdf_method,
                     "pdf_summary": summary_pdf,
-                    "html_dashboard": html_dashboard_bytes,
+                    "html_dashboard": html_bytes,
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)
@@ -742,15 +744,17 @@ with tab5:
         st.markdown("#### 저장된 히스토리")
         st.dataframe(hist_df, use_container_width=True, hide_index=True)
 
-        # HTML 미리보기 다운로드
-        hist_records = hist_df.to_dict("records")
-        html_bytes = generate_history_html_bytes(hist_records)
-        st.download_button(
-            "대시보드 HTML 미리보기 다운로드",
-            data=html_bytes,
-            file_name="사료_ZScore_연도별_대시보드.html",
-            mime="text/html",
-        )
+        # 기관별 HTML 미리보기 다운로드
+        insts_in_hist = sorted(hist_df["institution"].dropna().unique().tolist()) if "institution" in hist_df.columns else []
+        if insts_in_hist:
+            preview_inst = st.selectbox("미리보기 기관 선택", insts_in_hist, key="preview_inst")
+            html_bytes = generate_institution_html_bytes(hist_df, preview_inst)
+            st.download_button(
+                f"{preview_inst} 대시보드 HTML 다운로드",
+                data=html_bytes,
+                file_name=f"사료_ZScore_{preview_inst}_연도별.html",
+                mime="text/html",
+            )
 
         # 행 삭제
         st.markdown("#### 히스토리 행 삭제")
@@ -773,7 +777,7 @@ with tab5:
 
     # ── 이번 회차 데이터 저장 ─────────────────────────────────
     st.markdown("#### 이번 회차 데이터를 히스토리에 저장")
-    st.caption("현재 제출된 데이터의 사료별·성분별 중앙값을 계산해서 저장합니다.")
+    st.caption("현재 제출된 기관별 원값을 연도별로 누적 저장합니다. 각 기관이 자신의 연도별 추이를 확인할 수 있습니다.")
 
     if df.empty:
         st.warning("제출된 데이터가 없습니다.")
@@ -781,28 +785,40 @@ with tab5:
         save_year = st.number_input("저장 연도", min_value=2000, max_value=2100,
                                     value=datetime.now(KST).year, step=1)
 
-        # 사료별 성분 중앙값 계산
+        # 기관별·사료별 원값 수집
         preview_rows = []
-        for sample in SAMPLES:
-            sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
-            if not sample_cols:
+        for _, row in df.iterrows():
+            inst_name = row.get(inst_field, "")
+            if not inst_name:
                 continue
-            row_dict = {"year": int(save_year), "feed": sample}
-            for col in sample_cols:
-                comp = get_component_from_col(col, SAMPLES)
-                if comp:
-                    vals = pd.to_numeric(df[col], errors="coerce").dropna()
-                    row_dict[comp] = round(float(np.median(vals)), 4) if not vals.empty else None
-            preview_rows.append(row_dict)
+            for sample in SAMPLES:
+                sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
+                if not sample_cols:
+                    continue
+                row_dict = {"year": int(save_year), "feed": sample, "institution": inst_name}
+                has_val = False
+                for col in sample_cols:
+                    comp = get_component_from_col(col, SAMPLES)
+                    if comp:
+                        val = pd.to_numeric(row.get(col, None), errors="coerce")
+                        row_dict[comp] = round(float(val), 4) if not pd.isna(val) else None
+                        if not pd.isna(val):
+                            has_val = True
+                if has_val:
+                    preview_rows.append(row_dict)
 
         if preview_rows:
-            st.markdown("**저장 미리보기** (중앙값 기준)")
+            st.markdown(f"**저장 미리보기** — {len(preview_rows)}행 (기관 × 사료)")
             st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
 
             if st.button("히스토리에 저장", type="primary"):
-                # 동일 연도+사료 기존 행 삭제 후 새로 저장
+                # 동일 연도+사료 기존 행 전체 삭제 후 새로 저장
+                deleted_keys = set()
                 for pr in preview_rows:
-                    delete_history_rows(pr["year"], pr["feed"])
-                    append_history_row(pr)
-                st.success(f"{save_year}년 데이터 저장 완료 ({len(preview_rows)}종)")
+                    key = (pr["year"], pr["feed"])
+                    if key not in deleted_keys:
+                        delete_history_rows(pr["year"], pr["feed"])
+                        deleted_keys.add(key)
+                append_history_rows(preview_rows)
+                st.success(f"{save_year}년 데이터 저장 완료 ({len(preview_rows)}행)")
                 st.rerun()

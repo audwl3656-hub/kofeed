@@ -380,26 +380,31 @@ def get_history() -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def append_history_row(row: dict):
-    """history 시트에 행 하나 추가. row = {"year": 2024, "feed": "축우사료", "조단백": 18.2, ...}"""
+def append_history_rows(rows: list[dict]):
+    """
+    history 시트에 여러 행 추가.
+    row = {"year": 2024, "feed": "축우사료", "institution": "CJ", "조단백": 18.2, ...}
+    """
+    if not rows:
+        return
     ws = _get_or_create_history_sheet()
     existing = ws.get_all_records()
     if not existing:
-        # 헤더 없음 → 헤더 + 첫 행
-        ws.update([list(row.keys()), list(row.values())])
+        headers = list(rows[0].keys())
+        data = [headers] + [[r.get(h, "") for h in headers] for r in rows]
+        ws.update(data)
     else:
         headers = list(existing[0].keys())
-        # 누락 컬럼은 빈 문자열
-        new_row = [row.get(h, "") for h in headers]
-        ws.append_row(new_row)
+        for row in rows:
+            new_row = [row.get(h, "") for h in headers]
+            ws.append_row(new_row)
     get_history.clear()
 
 
 def delete_history_rows(year: int, feed: str):
-    """history 시트에서 특정 연도+사료 행 삭제."""
+    """history 시트에서 특정 연도+사료의 모든 기관 행 삭제."""
     ws = _get_or_create_history_sheet()
     records = ws.get_all_records()
-    # 뒤에서부터 삭제 (인덱스 밀림 방지)
     to_delete = [i + 2 for i, r in enumerate(records)
                  if str(r.get("year")) == str(year) and str(r.get("feed")) == str(feed)]
     for row_num in reversed(to_delete):
