@@ -33,57 +33,28 @@ def send_report(to_email: str, institution: str,
                 pdf_overall: bytes, pdf_method: bytes,
                 pdf_summary: bytes = None,
                 html_dashboard: bytes = None,
-                html_body: str = None) -> bool:
-    """전체/방법별 Robust Z-score 보고서를 이메일로 발송.
-    html_body: 이메일 본문에 삽입할 정적 HTML (연도별 Z-score 표)
-    html_dashboard: 첨부할 인터랙티브 HTML 파일
-    """
+                **_) -> bool:
+    """전체/방법별 Robust Z-score 보고서를 이메일로 발송."""
     cfg = st.secrets["email"]
     sender   = cfg["sender"]
     password = cfg["password"]
 
-    # 최상위: mixed (첨부파일 포함)
-    msg = MIMEMultipart("mixed")
+    msg = MIMEMultipart()
     msg["From"]    = sender
     msg["To"]      = to_email
     msg["Subject"] = f"[회원사비교분석] {institution} 회원사 비교분석 결과 보고서"
 
-    # 본문: alternative (plain + html)
-    body_alt = MIMEMultipart("alternative")
-
-    plain_body = f"""\
+    body = f"""\
 {institution} 귀중
 
 회원사 비교분석 시험 결과 보고서를 첨부 파일로 송부드립니다.
 보고서에는 귀 기관의 제출값과 Robust Z-score 판정 결과가 포함되어 있습니다.
-{"연도별 Z-Score 추이 대시보드(HTML)도 함께 첨부하였습니다. 브라우저에서 열어 확인하시기 바랍니다." if html_dashboard else ""}
+{"연도별 Z-Score 추이 대시보드(HTML 파일)도 함께 첨부하였습니다. 파일을 저장 후 브라우저에서 열어 확인하시기 바랍니다." if html_dashboard else ""}
 문의 사항이 있으시면 회신해 주시기 바랍니다.
 
 감사합니다.
 """
-    body_alt.attach(MIMEText(plain_body, "plain", "utf-8"))
-
-    if html_body:
-        full_html = f"""<!DOCTYPE html>
-<html lang="ko">
-<head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:20px;background:#f1f5f9;">
-<p style="font-family:'Malgun Gothic',sans-serif;font-size:13px;color:#1e293b;margin-bottom:16px;">
-  {institution} 귀중<br><br>
-  회원사 비교분석 시험 결과 보고서를 첨부 파일로 송부드립니다.<br>
-  보고서에는 귀 기관의 제출값과 Robust Z-score 판정 결과가 포함되어 있습니다.
-  {"<br>연도별 Z-Score 추이는 아래 표 및 첨부 HTML 파일을 통해 확인하실 수 있습니다." if html_dashboard else ""}
-</p>
-{html_body}
-<p style="font-family:'Malgun Gothic',sans-serif;font-size:12px;color:#64748b;margin-top:16px;">
-  문의 사항이 있으시면 회신해 주시기 바랍니다.<br>감사합니다.
-</p>
-</body>
-</html>"""
-        body_alt.attach(MIMEText(full_html, "html", "utf-8"))
-
-    msg.attach(body_alt)
-
+    msg.attach(MIMEText(body, "plain", "utf-8"))
     _attach_pdf(msg, pdf_overall, f"회원사비교분석_{institution}_전체 Robust Z-score.pdf")
     _attach_pdf(msg, pdf_method,  f"회원사비교분석_{institution}_방법별 Robust Z-score.pdf")
     if pdf_summary:
