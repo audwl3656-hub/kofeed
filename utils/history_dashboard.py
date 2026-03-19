@@ -298,6 +298,24 @@ def _robust_z(value: float, values: list[float]) -> float | None:
     return round((value - median) / (1.4826 * mad), 3)
 
 
+def _ordered_item_cols(history_df: pd.DataFrame) -> list[str]:
+    """
+    config 성분 순서에 맞게 item_cols 정렬.
+    config에 없는 성분은 뒤에 추가.
+    """
+    raw_cols = [c for c in history_df.columns if c not in ("year", "feed", "institution")]
+    try:
+        from utils.config import get_config
+        cfg = get_config()
+        comp_rows = cfg[cfg["type"] == "component"].sort_values("order")
+        cfg_order = comp_rows["name"].tolist()
+        ordered = [c for c in cfg_order if c in raw_cols]
+        remaining = [c for c in raw_cols if c not in ordered]
+        return ordered + remaining
+    except Exception:
+        return raw_cols
+
+
 def generate_institution_html(
     history_df: pd.DataFrame,
     institution: str,
@@ -306,13 +324,14 @@ def generate_institution_html(
     history_df 컬럼: year | feed | institution | 성분1 | 성분2 | ...
     institution: 이 HTML을 받는 기관명
     반환: 자체완결 HTML 문자열
+    성분 순서는 config 기준, 데이터 없는 연도는 '–' 표시.
     """
     if history_df.empty:
         return ""
 
-    item_cols = [c for c in history_df.columns if c not in ("year", "feed", "institution")]
+    item_cols = _ordered_item_cols(history_df)
     feeds = sorted(history_df["feed"].dropna().unique().tolist())
-    years = sorted(history_df["year"].dropna().unique().tolist())
+    years = sorted([int(y) for y in history_df["year"].dropna().unique()])
 
     # MY_DATA: {"{year}_{feed}_{item}": {"raw": float, "z": float}}
     my_data: dict = {}
@@ -420,7 +439,7 @@ def generate_institution_email_html(
     if history_df.empty:
         return ""
 
-    item_cols = [c for c in history_df.columns if c not in ("year", "feed", "institution")]
+    item_cols = _ordered_item_cols(history_df)
     feeds = sorted(history_df["feed"].dropna().unique().tolist())
     years = sorted([int(y) for y in history_df["year"].dropna().unique()])
 

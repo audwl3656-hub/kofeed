@@ -384,20 +384,36 @@ def append_history_rows(rows: list[dict]):
     """
     history 시트에 여러 행 추가.
     row = {"year": 2024, "feed": "축우사료", "institution": "CJ", "조단백": 18.2, ...}
+    새 성분 컬럼이 생기면 시트 헤더를 자동으로 확장합니다.
     """
     if not rows:
         return
     ws = _get_or_create_history_sheet()
     existing = ws.get_all_records()
+
     if not existing:
+        # 시트가 비어 있으면 헤더 + 데이터 한 번에 쓰기
         headers = list(rows[0].keys())
         data = [headers] + [[r.get(h, "") for h in headers] for r in rows]
         ws.update(data)
     else:
         headers = list(existing[0].keys())
+
+        # 새 성분 컬럼이 있으면 헤더에 추가
+        all_new_keys = []
+        for row in rows:
+            for k in row.keys():
+                if k not in headers and k not in all_new_keys:
+                    all_new_keys.append(k)
+
+        if all_new_keys:
+            headers = headers + all_new_keys
+            ws.update("A1", [headers])  # 헤더 행 업데이트
+
         for row in rows:
             new_row = [row.get(h, "") for h in headers]
             ws.append_row(new_row)
+
     get_history.clear()
 
 
