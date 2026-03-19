@@ -21,7 +21,7 @@ from utils.zscore import (
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
 from utils.email_sender import send_all_reports
 from utils.config import get_history, append_history_rows, delete_history_rows
-from utils.history_dashboard import generate_institution_html_bytes
+from utils.history_dashboard import generate_institution_html_bytes, generate_institution_email_html
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
 
@@ -368,15 +368,18 @@ with tab3:
                     email_to, inst, row_data, z_m_row,
                     method_group_stats, main_cols, generated_at, SAMPLES, inst_method,
                 )
-                # 기관별 연도별 대시보드 HTML
+                # 기관별 연도별 대시보드 HTML (본문 삽입 + 첨부)
                 html_bytes = None
+                html_body  = None
                 if attach_html and not hist_df.empty:
                     html_bytes = generate_institution_html_bytes(hist_df, inst)
+                    html_body  = generate_institution_email_html(hist_df, inst)
                 report_list.append({
                     "email": email_to, "institution": inst,
                     "pdf_overall": pdf_overall, "pdf_method": pdf_method,
                     "pdf_summary": summary_pdf,
                     "html_dashboard": html_bytes,
+                    "html_body": html_body,
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)

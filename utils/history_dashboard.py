@@ -377,3 +377,124 @@ def generate_institution_html(
 
 def generate_institution_html_bytes(history_df: pd.DataFrame, institution: str) -> bytes:
     return generate_institution_html(history_df, institution).encode("utf-8")
+
+
+def _z_td(z: float | None, raw: float | None, med: float | None) -> str:
+    """이메일용 정적 Z-score 셀 HTML."""
+    if z is None:
+        return '<td style="padding:6px 10px;text-align:center;color:#94a3b8;">–</td>'
+    abs_z = abs(z)
+    if abs_z > 3:
+        bg, color, border = "#fef2f2", "#b91c1c", "1px solid #fca5a5"
+    elif abs_z > 2:
+        bg, color, border = "#fff7ed", "#c2410c", "1px solid #fed7aa"
+    elif abs_z > 1:
+        bg, color, border = "#fef9f0", "#d97706", "none"
+    elif z < -1:
+        bg, color, border = "#eff6ff", "#1d4ed8", "none"
+    else:
+        bg, color, border = "#f8fafc", "#374151", "none"
+
+    z_str = f"+{z:.2f}" if z > 0 else f"{z:.2f}"
+    raw_str = f"{raw:.2f}" if raw is not None else "–"
+    med_str = f"그룹중앙 {med:.2f}" if med is not None else ""
+    warn = " ⚠" if abs_z > 2 else ""
+
+    return f"""<td style="padding:6px 8px;text-align:center;vertical-align:middle;">
+  <div style="display:inline-block;background:{bg};border:{border};border-radius:6px;padding:4px 10px;min-width:80px;">
+    <div style="font-size:13px;font-weight:700;color:{color};">{z_str}{warn}</div>
+    <div style="font-size:10px;color:#94a3b8;">{raw_str}</div>
+    <div style="font-size:9px;color:#c4b5fd;">{med_str}</div>
+  </div>
+</td>"""
+
+
+def generate_institution_email_html(
+    history_df: pd.DataFrame,
+    institution: str,
+) -> str:
+    """
+    이메일 본문 삽입용 정적 HTML (JavaScript 없음).
+    Z-score 표를 사료별로 생성하며 색상 강조 포함.
+    """
+    if history_df.empty:
+        return ""
+
+    item_cols = [c for c in history_df.columns if c not in ("year", "feed", "institution")]
+    feeds = sorted(history_df["feed"].dropna().unique().tolist())
+    years = sorted([int(y) for y in history_df["year"].dropna().unique()])
+
+    # 데이터 계산 (generate_institution_html와 동일 로직)
+    my_data: dict = {}
+    group_data: dict = {}
+    for feed in feeds:
+        for year in years:
+            year_feed = history_df[(history_df["feed"] == feed) & (history_df["year"] == year)]
+            if year_feed.empty:
+                continue
+            for item in item_cols:
+                all_vals = pd.to_numeric(year_feed[item], errors="coerce").dropna().tolist()
+                key = f"{year}_{feed}_{item}"
+                group_data[key] = float(np.median(all_vals)) if all_vals else None
+                my_row = year_feed[year_feed["institution"] == institution]
+                if my_row.empty:
+                    continue
+                raw_val = pd.to_numeric(my_row.iloc[0][item], errors="coerce")
+                if pd.isna(raw_val):
+                    continue
+                raw_val = float(raw_val)
+                z = _robust_z(raw_val, all_vals)
+                my_data[key] = {"raw": raw_val, "z": z}
+
+    year_headers = "".join(
+        f'<th style="padding:8px 10px;text-align:center;color:#475569;font-size:11px;min-width:100px;">'
+        f'{y}년<br><span style="font-weight:400;color:#94a3b8;font-size:9px;">Z (원값)</span></th>'
+        for y in years
+    )
+
+    sections = []
+    for feed in feeds:
+        rows_html = []
+        for i, item in enumerate(item_cols):
+            bg_row = "#f8fafc" if i % 2 == 0 else "#ffffff"
+            tds = []
+            for year in years:
+                key = f"{year}_{feed}_{item}"
+                md = my_data.get(key)
+                z   = md["z"]   if md else None
+                raw = md["raw"] if md else None
+                med = group_data.get(key)
+                tds.append(_z_td(z, raw, med))
+            rows_html.append(
+                f'<tr style="background:{bg_row};">'
+                f'<td style="padding:8px 10px;font-weight:600;color:#1e293b;font-size:12px;white-space:nowrap;">{item}</td>'
+                + "".join(tds) +
+                "</tr>"
+            )
+
+        sections.append(f"""
+<h3 style="margin:20px 0 8px;font-size:13px;color:#1e293b;border-left:3px solid #2563eb;padding-left:8px;">{feed}</h3>
+<table style="border-collapse:collapse;width:100%;font-size:12px;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;">
+  <thead>
+    <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0;">
+      <th style="padding:8px 10px;text-align:left;color:#475569;font-size:11px;min-width:70px;">항목</th>
+      {year_headers}
+    </tr>
+  </thead>
+  <tbody>{"".join(rows_html)}</tbody>
+</table>""")
+
+    return f"""
+<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;max-width:700px;margin:0 auto;color:#1e293b;">
+  <div style="background:linear-gradient(135deg,#1e40af,#7c3aed);padding:20px 24px;border-radius:10px 10px 0 0;">
+    <h2 style="margin:0;color:#fff;font-size:16px;">📊 {institution} — 연도별 Z-Score 추이</h2>
+    <p style="margin:4px 0 0;color:#bfdbfe;font-size:11px;">{min(years)}–{max(years)}년 · {len(feeds)}종 사료 · {len(item_cols)}항목 | 각 연도 전체 참가기관 기준 표준화</p>
+  </div>
+  <div style="background:#fff;padding:16px 20px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;">
+    {"".join(sections)}
+    <p style="margin-top:14px;font-size:10px;color:#94a3b8;text-align:right;">
+      ⚠ = |Z|&gt;2 주의 &nbsp;|&nbsp; 빨강 = |Z|&gt;3 이상치 &nbsp;|&nbsp; 괄호=기관 원값 &nbsp;|&nbsp; 그룹중앙=해당 연도 참가기관 중앙값<br>
+      첨부 HTML 파일을 브라우저에서 열면 인터랙티브 대시보드를 확인할 수 있습니다.
+    </p>
+  </div>
+</div>"""
