@@ -117,8 +117,7 @@ def send_all_reports(report_list: list) -> dict:
             send_report(item["email"], item["institution"],
                         item["pdf_overall"], item["pdf_method"],
                         item.get("pdf_summary"),
-                        item.get("html_dashboard"),
-                        item.get("html_body"))
+                        item.get("html_dashboard"))
             result["success"].append(item["email"])
         except Exception as e:
             result["fail"].append({"email": item["email"], "error": str(e)})
