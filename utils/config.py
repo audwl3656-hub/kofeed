@@ -202,14 +202,17 @@ def get_questions(cfg: pd.DataFrame = None) -> list[dict]:
             opts   = []
             hint   = ""
 
+        required = bool(row.get("use_equip", False))
+
         if not q_text:
             continue
         result.append({
-            "id":      q_id or f"q{len(result)+1}",
-            "text":    q_text,
-            "type":    q_type,
-            "options": opts,
-            "hint":    hint,
+            "id":       q_id or f"q{len(result)+1}",
+            "text":     q_text,
+            "type":     q_type,
+            "options":  opts,
+            "hint":     hint,
+            "required": required,
         })
     return result
 

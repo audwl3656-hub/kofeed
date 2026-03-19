@@ -219,17 +219,18 @@ for group_name, items in GROUPS.items():
 if QUESTIONS:
     st.subheader("추가 설문")
     for q in QUESTIONS:
+        label = q["text"] + (" *" if q.get("required") else "")
         if q["type"] == "text":
             all_data[f"Q_{q['id']}"] = st.text_area(
-                q["text"], key=f"q_{q['id']}", placeholder=q["hint"],
+                label, key=f"q_{q['id']}", placeholder=q["hint"],
             )
         elif q["type"] == "choice":
             all_data[f"Q_{q['id']}"] = st.radio(
-                q["text"], ["(선택 안 함)"] + q["options"],
+                label, ["(선택 안 함)"] + q["options"],
                 key=f"q_{q['id']}", horizontal=True,
             )
         elif q["type"] == "multicheck":
-            st.markdown(f"**{q['text']}**")
+            st.markdown(f"**{label}**")
             selected = [
                 opt for opt in q["options"]
                 if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
@@ -264,6 +265,16 @@ if submitted:
             errors.append(f"{field['name']}을(를) 입력해주세요.")
         elif field["email"] and val and "@" not in val:
             errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
+
+    # 필수 설문 검증
+    for q in QUESTIONS:
+        if not q.get("required"):
+            continue
+        val = all_data.get(f"Q_{q['id']}", "")
+        if q["type"] == "choice" and (not val or val == "(선택 안 함)"):
+            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
+        elif q["type"] in ("text", "multicheck") and not str(val).strip():
+            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
 
     # 값 입력 시 방법 필수 검증 (session_state에서 직접 읽기)
     for group_name, group_items in GROUPS.items():
