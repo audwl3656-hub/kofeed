@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
-from utils.sheets import submit_data
+from utils.sheets import submit_data, get_submitted_by_institution
 from utils.config import (
     get_config, get_samples, get_component_groups,
     get_info_fields, get_method_options, get_questions,
@@ -180,6 +180,19 @@ if _company_from_code:
 else:
     st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
 st.divider()
+
+# ── 이미 제출한 데이터 표시 ───────────────────────────────────
+if _company_from_code:
+    _prev = get_submitted_by_institution(_company_from_code, _INST_FIELD)
+    if _prev is not None:
+        latest = _prev.iloc[-1]
+        with st.expander(f"✅ 제출된 데이터가 있습니다 (제출일시: {latest.get('제출일시', '-')})", expanded=True):
+            _skip = {"제출일시"}
+            _display = {k: v for k, v in latest.items() if k not in _skip and str(v).strip() not in ("", "0", "0.0")}
+            _cols = st.columns(3)
+            for i, (k, v) in enumerate(_display.items()):
+                _cols[i % 3].markdown(f"**{k}**: {v}")
+        st.divider()
 
 st.subheader("기관 정보")
 info_cols = st.columns(max(len(INFO_FIELDS), 1))

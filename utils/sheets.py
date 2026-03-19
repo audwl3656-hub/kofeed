@@ -57,3 +57,12 @@ def get_all_data() -> pd.DataFrame:
     sheet = _get_sheet()
     records = sheet.get_all_records()
     return pd.DataFrame(records)
+
+
+def get_submitted_by_institution(institution_name: str, inst_field: str = "기관명") -> pd.DataFrame | None:
+    """특정 기관명으로 제출된 데이터 반환 (최신순). 없으면 None."""
+    df = get_all_data()
+    if df.empty or inst_field not in df.columns:
+        return None
+    rows = df[df[inst_field].astype(str) == institution_name]
+    return rows.reset_index(drop=True) if not rows.empty else None
