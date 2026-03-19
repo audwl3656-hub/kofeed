@@ -28,6 +28,17 @@ def _get_sheet():
         return old
 
 
+def _fmt(v):
+    """숫자면 소수점 2자리 반올림, 아니면 그대로."""
+    if v is None:
+        return ""
+    try:
+        f = float(v)
+        return round(f, 2)
+    except (TypeError, ValueError):
+        return v
+
+
 def submit_data(row: dict):
     sheet = _get_sheet()
     existing = sheet.get_all_values()
@@ -39,7 +50,7 @@ def submit_data(row: dict):
         if new_keys:
             sheet.update("A1", [existing_headers + new_keys])
     headers = sheet.row_values(1)
-    sheet.append_row(["" if (v := row.get(h)) is None else v for h in headers])
+    sheet.append_row([_fmt(row.get(h)) for h in headers])
 
 
 def get_all_data() -> pd.DataFrame:
