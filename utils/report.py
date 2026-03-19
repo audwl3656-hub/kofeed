@@ -90,8 +90,12 @@ def _build_sample_section(
         comp  = get_component_from_col(col, samples) or col
         val   = row_data.get(col, "")
 
-        # 제출값이 없는 항목은 제외
-        if val is None or str(val).strip() == "":
+        # 제출값이 없는 항목은 제외 (빈 문자열, None, NaN, 0 포함)
+        try:
+            _empty = val is None or str(val).strip() in ("", "nan") or (isinstance(val, float) and np.isnan(val))
+        except Exception:
+            _empty = False
+        if _empty:
             continue
 
         stats = group_stats.get(col, {})
