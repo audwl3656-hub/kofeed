@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
 from utils.sheets import submit_data, get_submitted_by_institution
+from utils.report import generate_submission_pdf
 from utils.config import (
     get_config, get_samples, get_component_groups,
     get_info_fields, get_method_options, get_questions,
@@ -185,13 +186,16 @@ st.divider()
 if _company_from_code:
     _prev = get_submitted_by_institution(_company_from_code, _INST_FIELD)
     if _prev is not None:
-        latest = _prev.iloc[-1]
-        with st.expander(f"✅ 제출된 데이터가 있습니다 (제출일시: {latest.get('제출일시', '-')})", expanded=True):
-            _skip = {"제출일시"}
-            _display = {k: v for k, v in latest.items() if k not in _skip and str(v).strip() not in ("", "0", "0.0")}
-            _cols = st.columns(3)
-            for i, (k, v) in enumerate(_display.items()):
-                _cols[i % 3].markdown(f"**{k}**: {v}")
+        latest = _prev.iloc[-1].to_dict()
+        submitted_at = latest.get("제출일시", "-")
+        st.success(f"✅ 이미 데이터를 제출하셨습니다. (제출일시: {submitted_at})")
+        _pdf_bytes = generate_submission_pdf(latest, cfg, generated_at=submitted_at)
+        st.download_button(
+            label="📄 데이터 제출 확인서 다운로드",
+            data=_pdf_bytes,
+            file_name=f"제출확인서_{_entered_code}_{submitted_at[:10]}.pdf",
+            mime="application/pdf",
+        )
         st.divider()
 
 st.subheader("기관 정보")
