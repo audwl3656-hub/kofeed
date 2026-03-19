@@ -745,7 +745,7 @@ with tab5:
         st.dataframe(hist_df, use_container_width=True, hide_index=True)
 
         # 기관별 HTML 미리보기 다운로드
-        insts_in_hist = sorted(hist_df["institution"].dropna().unique().tolist()) if "institution" in hist_df.columns else []
+        insts_in_hist = sorted([str(v) for v in hist_df["institution"].dropna().unique()]) if "institution" in hist_df.columns else []
         if insts_in_hist:
             preview_inst = st.selectbox("미리보기 기관 선택", insts_in_hist, key="preview_inst")
             html_bytes = generate_institution_html_bytes(hist_df, preview_inst)
@@ -758,8 +758,8 @@ with tab5:
 
         # 행 삭제
         st.markdown("#### 히스토리 행 삭제")
-        years_in_hist = sorted(hist_df["year"].dropna().unique().tolist())
-        feeds_in_hist = sorted(hist_df["feed"].dropna().unique().tolist())
+        years_in_hist = sorted([str(v) for v in hist_df["year"].dropna().unique()])
+        feeds_in_hist = sorted([str(v) for v in hist_df["feed"].dropna().unique()])
         del_col1, del_col2, del_col3 = st.columns([1, 1, 1])
         with del_col1:
             del_year = st.selectbox("삭제할 연도", years_in_hist, key="del_year")
