@@ -20,6 +20,8 @@ from utils.zscore import (
 )
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
 from utils.email_sender import send_all_reports
+from utils.config import get_history, append_history_row, delete_history_rows
+from utils.history_dashboard import generate_history_html_bytes
 
 st.set_page_config(page_title="관리자 페이지", page_icon=None, layout="wide")
 
@@ -78,8 +80,8 @@ for col in value_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-tab1, tab2, tab3, tab4 = st.tabs([
-    "제출 현황", "Z-score 분석", "보고서 발송", "설정"
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "제출 현황", "Z-score 분석", "보고서 발송", "설정", "연도별 히스토리"
 ])
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -326,7 +328,23 @@ with tab3:
         st.divider()
         st.markdown("#### 전체 일괄 발송")
         st.warning("발송 후 취소 불가. 데이터 확정 후 실행하세요.")
+
+        # 히스토리 HTML 첨부 여부
+        hist_df = get_history()
+        attach_html = st.checkbox(
+            "연도별 Z-Score 대시보드(HTML) 첨부",
+            value=not hist_df.empty,
+            disabled=hist_df.empty,
+            help="히스토리 탭에서 데이터를 먼저 저장해야 활성화됩니다.",
+        )
+
         if st.button("전체 보고서 발송", type="primary"):
+            # 히스토리 HTML 미리 생성 (첨부 시)
+            html_dashboard_bytes = None
+            if attach_html and not hist_df.empty:
+                hist_records = hist_df.to_dict("records")
+                html_dashboard_bytes = generate_history_html_bytes(hist_records)
+
             report_list = []
             for idx, row in df.iterrows():
                 email_to = row.get(email_field, "")
@@ -356,6 +374,7 @@ with tab3:
                     "email": email_to, "institution": inst,
                     "pdf_overall": pdf_overall, "pdf_method": pdf_method,
                     "pdf_summary": summary_pdf,
+                    "html_dashboard": html_dashboard_bytes,
                 })
             with st.spinner(f"{len(report_list)}개 기관 발송 중..."):
                 result = send_all_reports(report_list)
@@ -704,3 +723,86 @@ with tab4:
             else:
                 st.session_state.confirm_reset = True
                 st.warning("한 번 더 클릭하면 초기화됩니다.")
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+with tab5:
+    st.subheader("연도별 히스토리 관리")
+    st.caption(
+        "회차별 참가기관 중앙값을 연도별로 누적 저장합니다. "
+        "저장된 데이터는 보고서 발송 시 **연도별 Z-Score 대시보드(HTML)**로 첨부됩니다."
+    )
+
+    hist_df = get_history()
+
+    # ── 현재 히스토리 표시 ────────────────────────────────────
+    if hist_df.empty:
+        st.info("저장된 히스토리가 없습니다. 아래에서 이번 회차 데이터를 저장하세요.")
+    else:
+        st.markdown("#### 저장된 히스토리")
+        st.dataframe(hist_df, use_container_width=True, hide_index=True)
+
+        # HTML 미리보기 다운로드
+        hist_records = hist_df.to_dict("records")
+        html_bytes = generate_history_html_bytes(hist_records)
+        st.download_button(
+            "대시보드 HTML 미리보기 다운로드",
+            data=html_bytes,
+            file_name="사료_ZScore_연도별_대시보드.html",
+            mime="text/html",
+        )
+
+        # 행 삭제
+        st.markdown("#### 히스토리 행 삭제")
+        years_in_hist = sorted(hist_df["year"].dropna().unique().tolist())
+        feeds_in_hist = sorted(hist_df["feed"].dropna().unique().tolist())
+        del_col1, del_col2, del_col3 = st.columns([1, 1, 1])
+        with del_col1:
+            del_year = st.selectbox("삭제할 연도", years_in_hist, key="del_year")
+        with del_col2:
+            del_feed = st.selectbox("삭제할 사료", feeds_in_hist, key="del_feed")
+        with del_col3:
+            st.write("")
+            st.write("")
+            if st.button("선택 행 삭제", type="secondary"):
+                delete_history_rows(del_year, del_feed)
+                st.success(f"{del_year}년 {del_feed} 삭제 완료")
+                st.rerun()
+
+    st.divider()
+
+    # ── 이번 회차 데이터 저장 ─────────────────────────────────
+    st.markdown("#### 이번 회차 데이터를 히스토리에 저장")
+    st.caption("현재 제출된 데이터의 사료별·성분별 중앙값을 계산해서 저장합니다.")
+
+    if df.empty:
+        st.warning("제출된 데이터가 없습니다.")
+    else:
+        save_year = st.number_input("저장 연도", min_value=2000, max_value=2100,
+                                    value=datetime.now(KST).year, step=1)
+
+        # 사료별 성분 중앙값 계산
+        preview_rows = []
+        for sample in SAMPLES:
+            sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
+            if not sample_cols:
+                continue
+            row_dict = {"year": int(save_year), "feed": sample}
+            for col in sample_cols:
+                comp = get_component_from_col(col, SAMPLES)
+                if comp:
+                    vals = pd.to_numeric(df[col], errors="coerce").dropna()
+                    row_dict[comp] = round(float(np.median(vals)), 4) if not vals.empty else None
+            preview_rows.append(row_dict)
+
+        if preview_rows:
+            st.markdown("**저장 미리보기** (중앙값 기준)")
+            st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+
+            if st.button("히스토리에 저장", type="primary"):
+                # 동일 연도+사료 기존 행 삭제 후 새로 저장
+                for pr in preview_rows:
+                    delete_history_rows(pr["year"], pr["feed"])
+                    append_history_row(pr)
+                st.success(f"{save_year}년 데이터 저장 완료 ({len(preview_rows)}종)")
+                st.rerun()

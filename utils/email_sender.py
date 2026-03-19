@@ -21,10 +21,19 @@ def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
     msg.attach(part)
 
 
+def _attach_html(msg: MIMEMultipart, html_bytes: bytes, filename: str) -> None:
+    part = MIMEBase("text", "html", charset="utf-8")
+    part.set_payload(html_bytes)
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", "attachment", filename=_rfc2047(filename))
+    msg.attach(part)
+
+
 def send_report(to_email: str, institution: str,
                 pdf_overall: bytes, pdf_method: bytes,
-                pdf_summary: bytes = None) -> bool:
-    """전체/방법별 Robust Z-score 보고서를 이메일로 발송. 요약 보고서 선택 첨부."""
+                pdf_summary: bytes = None,
+                html_dashboard: bytes = None) -> bool:
+    """전체/방법별 Robust Z-score 보고서를 이메일로 발송. 요약/대시보드 선택 첨부."""
     cfg = st.secrets["email"]
     sender   = cfg["sender"]
     password = cfg["password"]
@@ -39,7 +48,7 @@ def send_report(to_email: str, institution: str,
 
 회원사 비교분석 시험 결과 보고서를 첨부 파일로 송부드립니다.
 보고서에는 귀 기관의 제출값과 Robust Z-score 판정 결과가 포함되어 있습니다.
-
+{chr(10) + "기존 3년 Z-Score 추이 대시보드(HTML)도 함께 첨부하였습니다. 브라우저에서 열어 확인하시기 바랍니다." if html_dashboard else ""}
 문의 사항이 있으시면 회신해 주시기 바랍니다.
 
 감사합니다.
@@ -49,6 +58,8 @@ def send_report(to_email: str, institution: str,
     _attach_pdf(msg, pdf_method,  f"회원사비교분석_{institution}_방법별 Robust Z-score.pdf")
     if pdf_summary:
         _attach_pdf(msg, pdf_summary, "회원사비교분석_전체요약.pdf")
+    if html_dashboard:
+        _attach_html(msg, html_dashboard, "사료_ZScore_연도별_대시보드.html")
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
@@ -94,7 +105,8 @@ def send_all_reports(report_list: list) -> dict:
     """
     report_list: [{"email": str, "institution": str,
                    "pdf_overall": bytes, "pdf_method": bytes,
-                   "pdf_summary": bytes (optional)}, ...]
+                   "pdf_summary": bytes (optional),
+                   "html_dashboard": bytes (optional)}, ...]
     반환: {"success": [...], "fail": [...]}
     """
     result = {"success": [], "fail": []}
@@ -102,7 +114,8 @@ def send_all_reports(report_list: list) -> dict:
         try:
             send_report(item["email"], item["institution"],
                         item["pdf_overall"], item["pdf_method"],
-                        item.get("pdf_summary"))
+                        item.get("pdf_summary"),
+                        item.get("html_dashboard"))
             result["success"].append(item["email"])
         except Exception as e:
             result["fail"].append({"email": item["email"], "error": str(e)})
