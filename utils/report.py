@@ -89,6 +89,11 @@ def _build_sample_section(
     for col in cols_for_sample:
         comp  = get_component_from_col(col, samples) or col
         val   = row_data.get(col, "")
+
+        # 제출값이 없는 항목은 제외
+        if val is None or str(val).strip() == "":
+            continue
+
         stats = group_stats.get(col, {})
         z     = zscore_dict.get(col, np.nan)
 
@@ -112,6 +117,10 @@ def _build_sample_section(
             str(stats.get("n", "")),
             _z_cell(z_f, z_str),
         ])
+
+    # 데이터 행이 없으면 섹션 전체 스킵
+    if len(rows) == 1:
+        return []
 
     t = Table(rows, colWidths=cw, repeatRows=1)
     t.setStyle(_make_table_style())
