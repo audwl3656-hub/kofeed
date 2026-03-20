@@ -301,15 +301,26 @@ def _robust_z(value: float, values: list[float]) -> float | None:
 def _ordered_item_cols(history_df: pd.DataFrame) -> list[str]:
     """
     config 성분 순서에 맞게 item_cols 정렬.
-    config에 없는 성분은 뒤에 추가.
+    그룹 order → 성분 order 2단계 정렬. config에 없는 성분은 뒤에 추가.
     """
     raw_cols = [c for c in history_df.columns if c not in ("year", "feed", "institution")]
     try:
         from utils.config import get_config
         cfg = get_config()
-        comp_rows = cfg[cfg["type"] == "component"].sort_values("order")
+
+        # 그룹별 order 매핑
+        group_order_map = {
+            row["name"]: int(row["order"])
+            for _, row in cfg[cfg["type"] == "group"].iterrows()
+        }
+
+        comp_rows = cfg[cfg["type"] == "component"].copy()
+        comp_rows["group_order"] = comp_rows["group"].map(group_order_map).fillna(999).astype(int)
+        comp_rows["comp_order"] = comp_rows["order"].fillna(999).astype(int)
+        comp_rows = comp_rows.sort_values(["group_order", "comp_order"])
+
         cfg_order = comp_rows["name"].tolist()
-        ordered = [c for c in cfg_order if c in raw_cols]
+        ordered   = [c for c in cfg_order if c in raw_cols]
         remaining = [c for c in raw_cols if c not in ordered]
         return ordered + remaining
     except Exception:
