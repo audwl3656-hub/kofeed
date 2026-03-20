@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.graphics.shapes import Drawing, Rect
+from reportlab.graphics.shapes import Drawing, Rect, Line
 from reportlab.graphics.shapes import String as GStr
 
 from utils.config import get_component_from_col, get_sample_from_col
@@ -392,62 +392,133 @@ def generate_pdf_summary(
     elements.append(stat_tbl)
     elements.append(Spacer(1, 6*mm))
 
-    # ━━━ CV 막대그래프 ━━━
-    elements.append(Paragraph("CV(%) 막대그래프", section_style))
+    # ━━━ CV 세로 그룹 막대그래프 ━━━
+    elements.append(Paragraph("각 성분별 변이계수(CV%)", section_style))
 
-    # 데이터 수집: [(레이블, cv값), ...]
-    cv_items = []
+    # 데이터 수집: {comp: {feed: cv_value}}
+    cv_data: dict[str, dict[str, float]] = {}
     for comp in seen_comps:
         for s in valid_stat_samples:
             col = f"{comp}_{s}"
-            sd = group_stats.get(col, {})
+            sd  = group_stats.get(col, {})
             try:
                 cv_f = float(sd.get("cv", ""))
                 if not np.isnan(cv_f):
-                    cv_items.append((f"{comp} ({s})", cv_f))
+                    cv_data.setdefault(comp, {})[s] = cv_f
             except Exception:
                 pass
 
-    if cv_items:
-        bar_h   = 14
-        bar_gap = 4
-        label_w = 55 * mm
-        val_w   = 18 * mm
-        bar_area = avail_mm * mm - label_w - val_w
-        max_cv  = max(v for _, v in cv_items)
-        max_cv  = max(max_cv * 1.1, 5.0)  # 여유 10%
-        chart_h = len(cv_items) * (bar_h + bar_gap) + bar_gap + 20
+    if cv_data:
+        comps_with_data  = [c for c in seen_comps if c in cv_data]
+        feeds_with_data  = [s for s in valid_stat_samples
+                            if any(s in cv_data.get(c, {}) for c in comps_with_data)]
 
-        d = Drawing(avail_mm * mm, chart_h)
+        _PALETTE = ["#2563eb","#d97706","#16a34a","#dc2626","#7c3aed","#0891b2","#be185d"]
+        feed_color = {s: _PALETTE[i % len(_PALETTE)] for i, s in enumerate(feeds_with_data)}
 
-        # X축 눈금선 + 레이블
-        for tick in [0, max_cv * 0.25, max_cv * 0.5, max_cv * 0.75, max_cv]:
-            x = label_w + (tick / max_cv) * bar_area
-            d.add(GStr(x, chart_h - 12, f"{tick:.1f}", fontSize=6, fontName=KO,
-                       textAnchor="middle", fillColor=colors.HexColor("#888888")))
-            d.add(Rect(x, bar_gap, 0.3, chart_h - bar_gap - 16,
-                       fillColor=colors.HexColor("#dddddd"), strokeColor=None))
+        # ── 치수 ──
+        chart_w    = avail_mm * mm
+        ml, mr, mb, mt = 28, 6, 32, 10   # margin left/right/bottom/top (pt)
+        plot_w  = chart_w - ml - mr
+        plot_h  = 110.0
 
-        for i, (label, cv) in enumerate(cv_items):
-            y = chart_h - 20 - (i + 1) * (bar_h + bar_gap)
-            bw = (cv / max_cv) * bar_area
+        n_comps = len(comps_with_data)
+        n_feeds = len(feeds_with_data)
+        group_w = plot_w / n_comps
+        bar_w   = min((group_w - 4) / max(n_feeds, 1), 14)
+        group_bw = bar_w * n_feeds
 
-            # 레이블
-            d.add(GStr(label_w - 4, y + 3, label, fontSize=7, fontName=KO,
-                       textAnchor="end", fillColor=colors.black))
-            # 배경
-            d.add(Rect(label_w, y, bar_area, bar_h,
-                       fillColor=colors.HexColor("#f5f5f5"),
-                       strokeColor=colors.HexColor("#dddddd"), strokeWidth=0.3))
-            # 막대
-            if bw > 0:
-                d.add(Rect(label_w, y, bw, bar_h,
-                           fillColor=colors.HexColor("#4a6fa5"), strokeColor=None))
-            # 값 레이블
-            d.add(GStr(label_w + bar_area + 4, y + 3, f"{cv:.1f}%", fontSize=7,
-                       fontName=KO, textAnchor="start", fillColor=colors.black))
+        all_vals = [v for d in cv_data.values() for v in d.values()]
+        max_cv   = max(all_vals) * 1.15 if all_vals else 10.0
+        max_cv   = max(max_cv, 5.0)
+
+        legend_h = 14 * ((n_feeds + 2) // 3)   # 3열 범례
+        total_h  = mt + plot_h + mb + legend_h + 4
+
+        d = Drawing(chart_w, total_h)
+        base_y = legend_h + mb   # 플롯 영역 하단 y
+
+        # Y축 눈금선 + 레이블
+        n_ticks = 5
+        for ti in range(n_ticks + 1):
+            tv  = max_cv * ti / n_ticks
+            ty  = base_y + (tv / max_cv) * plot_h
+            d.add(GStr(ml - 3, ty - 3, f"{tv:.0f}", fontSize=6, fontName=KO,
+                       textAnchor="end", fillColor=colors.HexColor("#666666")))
+            d.add(Line(ml, ty, ml + plot_w, ty,
+                       strokeColor=colors.HexColor("#e5e7eb"), strokeWidth=0.5))
+
+        # 축선
+        d.add(Line(ml, base_y, ml + plot_w, base_y,
+                   strokeColor=colors.HexColor("#999999"), strokeWidth=0.7))
+        d.add(Line(ml, base_y, ml, base_y + plot_h,
+                   strokeColor=colors.HexColor("#999999"), strokeWidth=0.7))
+
+        # 막대 + X축 레이블
+        for ci, comp in enumerate(comps_with_data):
+            gx = ml + ci * group_w + (group_w - group_bw) / 2
+            for fi, feed in enumerate(feeds_with_data):
+                cv_val = cv_data.get(comp, {}).get(feed)
+                if cv_val is None:
+                    continue
+                bx = gx + fi * bar_w
+                bh = (cv_val / max_cv) * plot_h
+                d.add(Rect(bx, base_y, bar_w - 0.5, bh,
+                           fillColor=colors.HexColor(feed_color[feed]),
+                           strokeColor=None))
+            # X축 성분 레이블 (긴 이름은 줄임)
+            label = comp if len(comp) <= 6 else comp[:5] + "…"
+            d.add(GStr(ml + ci * group_w + group_w / 2, base_y - 10,
+                       label, fontSize=6, fontName=KO,
+                       textAnchor="middle", fillColor=colors.black))
+
+        # 범례 (3열)
+        cols_per_row = 3
+        for fi, feed in enumerate(feeds_with_data):
+            row, col = divmod(fi, cols_per_row)
+            lx = ml + col * (plot_w / cols_per_row)
+            ly = legend_h - 12 - row * 13
+            d.add(Rect(lx, ly, 9, 7,
+                       fillColor=colors.HexColor(feed_color[feed]), strokeColor=None))
+            d.add(GStr(lx + 12, ly, feed, fontSize=7, fontName=KO,
+                       textAnchor="start", fillColor=colors.black))
 
         elements.append(d)
+
+        # ── 하단 데이터 표 ──
+        tbl_header = [""] + comps_with_data
+        tbl_rows   = [tbl_header]
+        for feed in feeds_with_data:
+            row = [feed]
+            for comp in comps_with_data:
+                cv_val = cv_data.get(comp, {}).get(feed)
+                row.append(f"{cv_val:.2f}" if cv_val is not None else "")
+            tbl_rows.append(row)
+
+        n_cols   = len(tbl_header)
+        feed_col_w = 30 * mm
+        comp_col_w = (avail_mm * mm - feed_col_w) / max(n_cols - 1, 1)
+        tbl_cw   = [feed_col_w] + [comp_col_w] * (n_cols - 1)
+
+        tbl = Table(tbl_rows, colWidths=tbl_cw)
+        tbl_style = TableStyle([
+            ("FONTNAME",    (0,0), (-1,-1), KO),
+            ("FONTSIZE",    (0,0), (-1,-1), 7),
+            ("ALIGN",       (1,0), (-1,-1), "CENTER"),
+            ("ALIGN",       (0,0), (0,-1),  "LEFT"),
+            ("BACKGROUND",  (0,0), (-1,0),  colors.HexColor("#dbeafe")),
+            ("BACKGROUND",  (0,0), (0,-1),  colors.HexColor("#f1f5f9")),
+            ("GRID",        (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
+            ("TOPPADDING",  (0,0), (-1,-1), 2),
+            ("BOTTOMPADDING",(0,0),(-1,-1), 2),
+        ])
+        # 사료별 행 색상 (범례 색상과 일치)
+        for fi, feed in enumerate(feeds_with_data):
+            fc = colors.HexColor(feed_color[feed])
+            tbl_style.add("TEXTCOLOR", (0, fi+1), (0, fi+1), fc)
+            tbl_style.add("FONTNAME",  (0, fi+1), (0, fi+1), KO)
+        tbl.setStyle(tbl_style)
+        elements.append(tbl)
 
     elements.append(Spacer(1, 8*mm))
 
