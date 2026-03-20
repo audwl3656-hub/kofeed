@@ -353,42 +353,117 @@ def generate_pdf_summary(
     # ━━━ 1. 통계 요약 ━━━
     elements.append(Paragraph("1. 전체 통계 요약", section_style))
 
-    # 데이터가 있는 사료만 열로 표시
     valid_stat_samples = [s for s in samples if any(f"{c}_{s}" in non_nir_set for c in seen_comps)]
-    per_s2  = (avail_mm - comp_w) / max(len(valid_stat_samples), 1)
-    mean_w2 = per_s2 * 0.50
-    cv_w2   = per_s2 * 0.50
 
-    cw_stats = [comp_w*mm] + [mean_w2*mm, cv_w2*mm] * len(valid_stat_samples)
-    hdr0 = ["성분"] + [s for s in valid_stat_samples for _ in range(2)]
-    hdr1 = [""]     + ["평균", "CV(%)"] * len(valid_stat_samples)
+    # ── 열 너비 계산 ──
+    comp_w   = 18   # 성분 (mm)
+    method_w = 30   # 분석법 (mm)
+    remain   = avail_mm - comp_w - method_w
+    n_feeds  = max(len(valid_stat_samples), 1)
+    per_feed = remain / n_feeds          # 각 사료 4열 합계 (mm)
+    n_col = 4                            # N / 평균 / 표준편차 / 변이계수
+    sub_w = per_feed / n_col
+    cw_stat = ([comp_w*mm, method_w*mm]
+               + [sub_w*mm] * n_col * len(valid_stat_samples))
+
+    cell_s = ParagraphStyle("csp", fontName=KO, fontSize=7,
+                            leading=9, alignment=TA_CENTER)
+    def _p(txt):
+        return Paragraph(str(txt), cell_s)
+
+    # ── 헤더 2행 ──
+    hdr0 = [_p("성분"), _p("분석법")]
+    for s in valid_stat_samples:
+        hdr0 += [_p(s), _p(""), _p(""), _p("")]
+    hdr1 = [_p(""), _p("")]
+    for _ in valid_stat_samples:
+        hdr1 += [_p("N"), _p("평균"), _p("표준편차"), _p("변이계수")]
     stat_rows = [hdr0, hdr1]
+
+    span_cmds = [
+        ("SPAN", (0, 0), (0, 1)),  # 성분 헤더 병합
+        ("SPAN", (1, 0), (1, 1)),  # 분석법 헤더 병합
+    ]
+    for i, _ in enumerate(valid_stat_samples):
+        c0 = 2 + i * n_col
+        span_cmds.append(("SPAN", (c0, 0), (c0 + n_col - 1, 0)))  # 사료명 병합
+
+    whole_rows: set = set()   # "전체" 행 인덱스 추적
+
     for comp in seen_comps:
-        row = [comp]
+        method_col = f"{comp}_방법"
+        methods: list[str] = []
+        if method_col in df.columns:
+            methods = sorted(df[method_col].dropna().astype(str).unique().tolist())
+
+        comp_rows_data = []
+        for meth in methods:
+            row = [_p(""), _p(meth)]
+            for s in valid_stat_samples:
+                col = f"{comp}_{s}"
+                if col not in df.columns:
+                    row += [_p("")]*n_col; continue
+                mask = (df[method_col].astype(str) == meth)
+                vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+                if len(vals) == 0:
+                    row += [_p("")]*n_col; continue
+                mean_ = vals.mean()
+                std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
+                cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
+                row += [_p(len(vals)),
+                        _p(fmt(mean_)),
+                        _p(fmt(std_) if not np.isnan(std_) else "-"),
+                        _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
+            comp_rows_data.append(row)
+
+        # 전체 행
+        whole_row = [_p(""), _p(f"{comp} 전체")]
         for s in valid_stat_samples:
             col = f"{comp}_{s}"
-            sd = group_stats.get(col, {})
-            row.append(fmt(sd.get("mean", "")))
-            row.append(fmt(sd.get("cv", ""), 1))
-        stat_rows.append(row)
+            if col not in df.columns:
+                whole_row += [_p("")]*n_col; continue
+            vals = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(vals) == 0:
+                whole_row += [_p("")]*n_col; continue
+            mean_ = vals.mean()
+            std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
+            cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
+            whole_row += [_p(len(vals)),
+                          _p(fmt(mean_)),
+                          _p(fmt(std_) if not np.isnan(std_) else "-"),
+                          _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
+        comp_rows_data.append(whole_row)
 
-    stat_tbl = Table(stat_rows, colWidths=cw_stats, repeatRows=2)
-    span_cmds = [("SPAN", (0, 0), (0, 1))]
-    for i in range(len(valid_stat_samples)):
-        c0 = 1 + i * 2
-        span_cmds.append(("SPAN", (c0, 0), (c0 + 1, 0)))
-    stat_tbl.setStyle(TableStyle([
+        # 성분명은 첫 번째 행에만, 세로 병합
+        if comp_rows_data:
+            comp_rows_data[0][0] = _p(comp)
+        base_idx = len(stat_rows)
+        if len(comp_rows_data) > 1:
+            span_cmds.append(("SPAN", (0, base_idx),
+                              (0, base_idx + len(comp_rows_data) - 1)))
+        whole_rows.add(base_idx + len(comp_rows_data) - 1)
+        stat_rows.extend(comp_rows_data)
+
+    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
+    tbl_style_cmds = [
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("FONTSIZE",      (0, 0), (-1, -1), 7),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#dee2e6")),
+        ("TOPPADDING",    (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
-        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
-        ("TOPPADDING",    (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ] + span_cmds))
+    ] + span_cmds
+    # 전체 행 강조
+    for ri in whole_rows:
+        tbl_style_cmds += [
+            ("BACKGROUND",  (0, ri), (-1, ri), colors.HexColor("#e8edf2")),
+            ("FONTNAME",    (0, ri), (-1, ri), KO),
+        ]
+    stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
     elements.append(Spacer(1, 6*mm))
 
