@@ -455,7 +455,11 @@ def generate_pdf_summary(
         ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#dee2e6")),
         ("TOPPADDING",    (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        # 성분 열(0)은 흰색 고정 — ROWBACKGROUNDS가 SPAN 내부 행에 적용되어 색 갈림 방지
+        ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds
     # 전체 행 강조
     for ri in whole_rows:
