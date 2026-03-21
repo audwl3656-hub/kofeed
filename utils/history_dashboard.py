@@ -163,56 +163,81 @@ function FeedView({ feed, items, years, myData, groupData, feedColor }) {
 
 // ── 요약 브리핑 ───────────────────────────────────────────────
 function Briefing({ myData, feeds, items, years }) {
-  const alerts = [];
+  const latestYear = Math.max(...years);
+  const prevYears  = years.filter(y => y !== latestYear);
+
+  const issues   = [];  // 최근 연도 |Z| > 2
+  const improved = [];  // 이전에 이상 → 최근에 |Z| ≤ 1로 개선
+
   feeds.forEach(feed => {
     items.forEach(item => {
-      years.forEach(y => {
-        const m = myData[`${y}_${feed}_${item}`];
-        if (m && m.z !== null && Math.abs(m.z) > 2) {
-          alerts.push({ year: y, feed, item, z: m.z, raw: m.raw });
-        }
-      });
+      const latestM = myData[`${latestYear}_${feed}_${item}`];
+      const latestZ = latestM?.z ?? null;
+      const prevZs  = prevYears.map(y => myData[`${y}_${feed}_${item}`]?.z ?? null).filter(v => v !== null);
+
+      if (latestZ !== null && Math.abs(latestZ) > 2) {
+        issues.push({ feed, item, z: latestZ });
+      } else if (prevZs.some(z => Math.abs(z) > 2) && latestZ !== null && Math.abs(latestZ) <= 1) {
+        const worstPrev = prevZs.reduce((a, b) => Math.abs(a) > Math.abs(b) ? a : b);
+        improved.push({ feed, item, prevZ: worstPrev, latestZ });
+      }
     });
   });
-  const highAlerts = alerts.filter(a => Math.abs(a.z) > 3);
 
-  if (alerts.length === 0) {
+  if (issues.length === 0 && improved.length === 0) {
     return (
       <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10,
         padding:"14px 18px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
         <span style={{ fontSize:18 }}>✅</span>
         <p style={{ margin:0, fontSize:13, color:"#166534", lineHeight:1.7 }}>
-          분석 기간({Math.min(...years)}–{Math.max(...years)}) 동안 이상치(|Z|&gt;2)가 감지되지 않았습니다.
-          전 사료·전 항목에서 안정적인 품질 수준을 유지하고 있습니다.
+          {latestYear}년 기준 모든 항목이 안정적인 범위 내에 있습니다.
         </p>
       </div>
     );
   }
+
   return (
-    <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10,
-      padding:"14px 18px", marginBottom:20 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-        <span style={{ fontSize:16 }}>{highAlerts.length > 0 ? "🔴" : "⚠️"}</span>
-        <span style={{ fontSize:13, fontWeight:800, color:"#92400e" }}>
-          {alerts.length}건의 주의 항목이 감지되었습니다
-          {highAlerts.length > 0 ? ` (이 중 ${highAlerts.length}건 재검사 권장)` : ""}
-        </span>
-      </div>
-      <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-        {alerts.sort((a,b) => Math.abs(b.z)-Math.abs(a.z)).map((a, i) => {
-          const tc = a.z > 0 ? "#b91c1c" : "#1d4ed8";
-          const isHigh = Math.abs(a.z) > 3;
-          return (
-            <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
-              background: isHigh ? "#fef2f2" : "#fff",
-              border:`1px solid ${isHigh ? "#fecaca" : "#fde68a"}`, color:"#374151" }}>
-              <strong style={{ color:tc }}>{a.year}년 {a.feed} {a.item}</strong>
-              {" "}Z={a.z > 0 ? "+" : ""}{a.z.toFixed(2)}
-              {isHigh && <span style={{ color:"#dc2626", fontWeight:700, marginLeft:4 }}> 재검사</span>}
-            </div>
-          );
-        })}
-      </div>
+    <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
+      {issues.length > 0 && (
+        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:"#991b1b", marginBottom:8 }}>
+            ⚠️ 주의 필요 — {latestYear}년 기준 {issues.length}건 (|Z| &gt; 2)
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            {issues.sort((a,b) => Math.abs(b.z)-Math.abs(a.z)).map((a, i) => {
+              const tc = a.z > 0 ? "#b91c1c" : "#1d4ed8";
+              const isHigh = Math.abs(a.z) > 3;
+              return (
+                <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
+                  background: isHigh ? "#fff1f2" : "#fff",
+                  border:`1px solid ${isHigh ? "#fca5a5" : "#fecaca"}`, color:"#374151" }}>
+                  <strong style={{ color:tc }}>{a.feed} · {a.item}</strong>
+                  {" "}Z={a.z > 0 ? "+" : ""}{a.z.toFixed(2)}
+                  {isHigh && <span style={{ color:"#dc2626", fontWeight:700, marginLeft:4 }}>🔴 재검사</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {improved.length > 0 && (
+        <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:"#166534", marginBottom:8 }}>
+            ✅ 개선된 항목 — 이전 이상치 → {latestYear}년 정상 범위 ({improved.length}건)
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            {improved.map((a, i) => (
+              <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
+                background:"#fff", border:"1px solid #bbf7d0", color:"#374151" }}>
+                <strong style={{ color:"#166534" }}>{a.feed} · {a.item}</strong>
+                {" "}Z: <span style={{ color:"#6b7280" }}>{a.prevZ > 0 ? "+" : ""}{a.prevZ.toFixed(2)}</span>
+                {" → "}<span style={{ color:"#166534", fontWeight:700 }}>{a.latestZ > 0 ? "+" : ""}{a.latestZ.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
