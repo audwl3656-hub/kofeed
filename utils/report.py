@@ -232,7 +232,7 @@ def generate_pdf_overall(
         samples = get_samples()
     generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     return _generate_zscore_pdf(
-        title="회원사 비교분석 시험 Robust Z-score 보고서 (전체)",
+        title="한국사료협회 비교분석 시험 Robust Z-score 보고서 (전체)",
         email=email,
         institution=institution,
         row_data=row_data,
@@ -262,7 +262,7 @@ def generate_pdf_by_method(
         samples = get_samples()
     generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     return _generate_zscore_pdf(
-        title="회원사 비교분석 시험 Robust Z-score 보고서 (방법별)",
+        title="한국사료협회 비교분석 시험 Robust Z-score 보고서 (방법별)",
         email=email,
         institution=institution,
         row_data=row_data,
@@ -344,7 +344,7 @@ def generate_pdf_summary(
     # 제목
     _now = datetime.now()
     _half = "상반기" if _now.month <= 6 else "하반기"
-    _report_title = f"{_now.year}년 {_half} 회원사 비교분석 전체 보고서"
+    _report_title = f"{_now.year}년 {_half} 한국사료협회 비교분석 전체 보고서"
     elements.append(Paragraph(_report_title, title_style))
     elements.append(Spacer(1, 2*mm))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
@@ -638,7 +638,7 @@ def generate_pdf_summary(
             cw_z   = [inst_w*mm] + [samp_w*mm] * len(valid_samples)
 
             elems.append(Paragraph(f"{num}) {comp}", comp_style))
-            z_rows = [["기관명"] + valid_samples]
+            z_rows = [["참가코드"] + valid_samples]
             for inst, row_idx in zip(inst_names, idx_list):
                 row = [inst]
                 for s in valid_samples:
