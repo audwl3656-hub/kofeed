@@ -92,6 +92,7 @@ function FeedView({ feed, items, years, myData, groupData, feedColor }) {
               return (g !== null && g !== undefined) ? g.median : null;
             });
             const cleanZ = zVals.filter(v => v !== null);
+            if (cleanZ.length === 0) return null;
             const avgZ = cleanZ.length ? +(cleanZ.reduce((a,b)=>a+b,0)/cleanZ.length).toFixed(2) : null;
             const hasAlert = zVals.some(v => v !== null && Math.abs(v) >= 3);
             return (
