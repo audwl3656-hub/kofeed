@@ -16,17 +16,14 @@ _PALETTE = [
 
 _JSX_BODY = r"""
 function zBg(z) {
-  if (z === null || z === undefined) return "transparent";
-  const c = Math.max(-3, Math.min(3, z));
-  if (c < 0) return `rgba(37,99,235,${(-c / 3) * 0.18})`;
-  return `rgba(220,38,38,${(c / 3) * 0.18})`;
+  if (z === null || z === undefined || Math.abs(z) < 3) return "transparent";
+  if (z < 0) return "rgba(37,99,235,0.12)";
+  return "rgba(220,38,38,0.12)";
 }
 function zText(z) {
   if (z === null || z === undefined) return "#94a3b8";
-  if (z > 2) return "#b91c1c";
-  if (z < -2) return "#1d4ed8";
-  if (z > 1) return "#dc2626";
-  if (z < -1) return "#2563eb";
+  if (z >= 3) return "#b91c1c";
+  if (z <= -3) return "#1d4ed8";
   return "#374151";
 }
 
@@ -96,7 +93,7 @@ function FeedView({ feed, items, years, myData, groupData, feedColor }) {
             });
             const cleanZ = zVals.filter(v => v !== null);
             const avgZ = cleanZ.length ? +(cleanZ.reduce((a,b)=>a+b,0)/cleanZ.length).toFixed(2) : null;
-            const hasAlert = zVals.some(v => v !== null && Math.abs(v) > 2);
+            const hasAlert = zVals.some(v => v !== null && Math.abs(v) >= 3);
             return (
               <tr key={item} style={{ background:idx%2===0?"#f8fafc":"#fff", borderBottom:"1px solid #f1f5f9" }}>
                 <td style={{ padding:"10px 12px 10px 4px", fontWeight:700, color:"#1e293b", fontSize:12.5 }}>
@@ -107,7 +104,7 @@ function FeedView({ feed, items, years, myData, groupData, feedColor }) {
                   const z   = zVals[yi];
                   const raw = rawVals[yi];
                   const med = medVals[yi];
-                  const alert = z !== null && Math.abs(z) > 2;
+                  const alert = z !== null && Math.abs(z) >= 3;
                   return (
                     <td key={y} style={{ padding:"6px 8px", textAlign:"center", verticalAlign:"middle" }}>
                       {z !== null ? (
@@ -175,9 +172,9 @@ function Briefing({ myData, feeds, items, years }) {
       const latestZ = latestM?.z ?? null;
       const prevZs  = prevYears.map(y => myData[`${y}_${feed}_${item}`]?.z ?? null).filter(v => v !== null);
 
-      if (latestZ !== null && Math.abs(latestZ) > 2) {
+      if (latestZ !== null && Math.abs(latestZ) >= 3) {
         issues.push({ feed, item, z: latestZ });
-      } else if (prevZs.some(z => Math.abs(z) > 2) && latestZ !== null && Math.abs(latestZ) <= 1) {
+      } else if (prevZs.some(z => Math.abs(z) >= 3) && latestZ !== null && Math.abs(latestZ) <= 1) {
         const worstPrev = prevZs.reduce((a, b) => Math.abs(a) > Math.abs(b) ? a : b);
         improved.push({ feed, item, prevZ: worstPrev, latestZ });
       }
@@ -201,7 +198,7 @@ function Briefing({ myData, feeds, items, years }) {
       {issues.length > 0 && (
         <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontWeight:800, fontSize:13, color:"#991b1b", marginBottom:8 }}>
-            ⚠️ 주의 필요 — {latestYear}년 기준 {issues.length}건 (|Z| &gt; 2)
+            ⚠️ 주의 필요 — {latestYear}년 기준 {issues.length}건 (|Z| ≥ 3)
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
             {issues.sort((a,b) => Math.abs(b.z)-Math.abs(a.z)).map((a, i) => {
