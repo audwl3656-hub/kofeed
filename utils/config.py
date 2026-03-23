@@ -332,18 +332,43 @@ def get_all_value_columns(cfg: pd.DataFrame = None) -> list[str]:
     return cols
 
 
+import re as _re
+
+
+def _strip_col_suffix(col: str) -> tuple[str, str]:
+    """'조단백질_축우사료_2' → ('조단백질_축우사료', '_2'), 없으면 (col, '')"""
+    m = _re.match(r'^(.+)(_\d+)$', col)
+    if m:
+        return m.group(1), m.group(2)
+    return col, ""
+
+
+def get_base_col(col: str) -> str:
+    """'조단백질_축우사료_2' → '조단백질_축우사료'"""
+    base, _ = _strip_col_suffix(col)
+    return base
+
+
+def get_col_suffix(col: str) -> str:
+    """'조단백질_축우사료_2' → '_2',  '조단백질_축우사료' → ''"""
+    _, sfx = _strip_col_suffix(col)
+    return sfx
+
+
 def is_value_col(col: str, samples: list[str] = None) -> bool:
     if samples is None:
         samples = get_samples()
-    return any(col.endswith(f"_{s}") for s in samples)
+    base, _ = _strip_col_suffix(col)
+    return any(base.endswith(f"_{s}") for s in samples)
 
 
 def get_component_from_col(col: str, samples: list[str] = None) -> str | None:
     if samples is None:
         samples = get_samples()
+    base, _ = _strip_col_suffix(col)
     for s in samples:
-        if col.endswith(f"_{s}"):
-            prefix = col[: -len(f"_{s}")]
+        if base.endswith(f"_{s}"):
+            prefix = base[: -len(f"_{s}")]
             return prefix[4:] if prefix.startswith("NIR_") else prefix
     return None
 
@@ -351,8 +376,9 @@ def get_component_from_col(col: str, samples: list[str] = None) -> str | None:
 def get_sample_from_col(col: str, samples: list[str] = None) -> str | None:
     if samples is None:
         samples = get_samples()
+    base, _ = _strip_col_suffix(col)
     for s in samples:
-        if col.endswith(f"_{s}"):
+        if base.endswith(f"_{s}"):
             return s
     return None
 

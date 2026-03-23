@@ -20,15 +20,48 @@ def robust_zscore(values: np.ndarray) -> np.ndarray:
 
 
 def compute_zscores(df: pd.DataFrame, value_cols: list) -> pd.DataFrame:
-    """각 값 컬럼별 전체 Robust Z-score 계산."""
-    result = pd.DataFrame(index=df.index, dtype=float)
+    """
+    전체 Robust Z-score 계산.
+    같은 base column(_N suffix)은 하나의 풀로 합산해 Z-score 계산.
+    예: 조단백질_축우사료 + 조단백질_축우사료_2 → 동일 풀 사용.
+    """
+    from utils.config import get_base_col
+
+    # base_col → [col, ...] 그룹핑
+    groups: dict[str, list[str]] = {}
     for col in value_cols:
-        vals = pd.to_numeric(df[col], errors="coerce")
-        valid = vals.notna()
-        z = pd.Series(np.nan, index=df.index)
-        if valid.sum() > 5:
-            z.loc[valid[valid].index] = robust_zscore(vals[valid].values)
-        result[col] = z
+        base = get_base_col(col)
+        groups.setdefault(base, []).append(col)
+
+    result = pd.DataFrame(index=df.index, dtype=float)
+
+    for base, cols in groups.items():
+        # 풀링: 모든 suffix 컬럼 값을 하나로 모아 Z-score 계산
+        pool_vals: list[float] = []
+        pool_meta: list[tuple] = []  # (row_idx, col)
+
+        for col in cols:
+            vals = pd.to_numeric(df[col], errors="coerce")
+            for idx in df.index[vals.notna()]:
+                pool_vals.append(float(vals[idx]))
+                pool_meta.append((idx, col))
+
+        z_scores = (
+            robust_zscore(np.array(pool_vals)).tolist()
+            if len(pool_vals) > 5
+            else [np.nan] * len(pool_vals)
+        )
+
+        # 컬럼별 Series 초기화 후 채우기
+        col_series: dict[str, pd.Series] = {
+            col: pd.Series(np.nan, index=df.index) for col in cols
+        }
+        for (idx, col), z in zip(pool_meta, z_scores):
+            col_series[col][idx] = z
+
+        for col in cols:
+            result[col] = col_series[col]
+
     return result
 
 

@@ -11,6 +11,7 @@ from utils.config import (
     get_nir_groups, get_all_value_columns, get_group_order,
     get_info_fields, get_method_options, get_questions,
     is_value_col, get_component_from_col, get_sample_from_col,
+    get_col_suffix, get_base_col,
     get_participant_map,
     DEFAULT_CONFIG, CONFIG_COLS,
 )
@@ -216,7 +217,8 @@ with tab3:
         z_all    = compute_zscores(df, main_cols)
         z_method = {
             col: compute_zscores_by_method(
-                df, col, f"{get_component_from_col(col, SAMPLES)}_방법"
+                df, col,
+                f"{get_component_from_col(col, SAMPLES)}_방법{get_col_suffix(col)}"
             )
             for col in main_cols
         }
@@ -238,8 +240,9 @@ with tab3:
             stats = {}
             for col in main_cols:
                 comp = get_component_from_col(col, SAMPLES)
-                mc   = f"{comp}_방법" if comp else None
-                method = inst_method_dict.get(comp, "").strip() if comp else ""
+                sfx  = get_col_suffix(col)
+                mc   = f"{comp}_방법{sfx}" if comp else None
+                method = inst_method_dict.get(f"{comp}{sfx}", "").strip() if comp else ""
                 if mc and mc in df.columns and method:
                     mask = df[mc].fillna("").astype(str).str.strip() == method
                     vals = df.loc[mask, col].dropna()
@@ -302,10 +305,11 @@ with tab3:
                 inst_method = {}
                 for col in main_cols:
                     comp = get_component_from_col(col, SAMPLES)
+                    sfx  = get_col_suffix(col)
                     if comp:
-                        mc = f"{comp}_방법"
+                        mc = f"{comp}_방법{sfx}"
                         if mc in df.columns:
-                            inst_method[comp] = str(row.get(mc, "") or "")
+                            inst_method[f"{comp}{sfx}"] = str(row.get(mc, "") or "")
                 method_group_stats = _calc_method_group_stats(inst_method)
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
@@ -355,10 +359,11 @@ with tab3:
                 inst_method = {}
                 for col in main_cols:
                     comp = get_component_from_col(col, SAMPLES)
+                    sfx  = get_col_suffix(col)
                     if comp:
-                        mc = f"{comp}_방법"
+                        mc = f"{comp}_방법{sfx}"
                         if mc in df.columns:
-                            inst_method[comp] = str(row.get(mc, "") or "")
+                            inst_method[f"{comp}{sfx}"] = str(row.get(mc, "") or "")
                 method_group_stats = _calc_method_group_stats(inst_method)
                 pdf_overall = generate_pdf_overall(
                     email_to, inst, row_data, zscore_row,
