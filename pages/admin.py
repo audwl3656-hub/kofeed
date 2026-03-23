@@ -613,6 +613,47 @@ with tab4:
 
     st.divider()
 
+    # ── 용매 옵션 ─────────────────────────────────────────────
+    st.markdown("### 용매 옵션")
+    st.caption(
+        "용매 드롭다운에 표시될 선택지를 관리합니다.\n\n"
+        "**적용 성분**: 비워두면 모든 성분에 공통 적용. "
+        "성분명을 입력하면 해당 성분에만 표시됩니다."
+    )
+    _raw_solvent = cfg_edit[cfg_edit["type"] == "solvent_option"][CONFIG_COLS].reset_index(drop=True)
+    if _raw_solvent.empty:
+        solvent_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
+            {"group": str, "name": str, "order": int, "enabled": bool}
+        )
+    else:
+        solvent_df = pd.DataFrame({
+            "group":   _raw_solvent["group"].astype(str).replace("nan", ""),
+            "name":    _raw_solvent["name"].astype(str).replace("nan", ""),
+            "order":   pd.to_numeric(_raw_solvent["order"], errors="coerce").fillna(1).astype(int),
+            "enabled": _raw_solvent["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
+        })
+    edited_solvents = st.data_editor(
+        solvent_df,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "group":   st.column_config.TextColumn("적용 성분", help="비워두면 전체 공통"),
+            "name":    st.column_config.TextColumn("용매명 *"),
+            "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
+            "enabled": st.column_config.CheckboxColumn("활성화"),
+        },
+        key="edit_solvents",
+        hide_index=True,
+    )
+    edited_solvents["type"]         = "solvent_option"
+    edited_solvents["samples"]      = ""
+    edited_solvents["use_equip"]    = ""
+    edited_solvents["use_solvent"]  = ""
+    edited_solvents["free_decimal"] = ""
+    edited_solvents = edited_solvents[CONFIG_COLS]
+
+    st.divider()
+
     # ── 추가 질문 ─────────────────────────────────────────────
     st.markdown("### 추가 질문")
     st.caption(
@@ -701,17 +742,18 @@ with tab4:
             edited_groups       = edited_groups[edited_groups["name"].astype(str).str.strip() != ""]
             edited_comps        = edited_comps[edited_comps["name"].astype(str).str.strip() != ""]
             edited_methods      = edited_methods[edited_methods["name"].astype(str).str.strip() != ""]
+            edited_solvents     = edited_solvents[edited_solvents["name"].astype(str).str.strip() != ""]
             edited_questions    = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
             edited_participants = edited_participants[edited_participants["name"].astype(str).str.strip() != ""]
 
             # use_equip / use_solvent / free_decimal 컬럼이 없는 타입은 빈 문자열로 채움
-            for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_questions]:
+            for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_solvents, edited_questions]:
                 for _col in ("use_equip", "use_solvent", "free_decimal"):
                     if _col not in _df.columns:
                         _df[_col] = ""
             new_cfg = pd.concat(
                 [edited_info, edited_samples, edited_groups,
-                 edited_comps, edited_methods, edited_questions, edited_participants],
+                 edited_comps, edited_methods, edited_solvents, edited_questions, edited_participants],
                 ignore_index=True,
             )[CONFIG_COLS]
 

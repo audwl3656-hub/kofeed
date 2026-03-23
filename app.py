@@ -6,7 +6,7 @@ from utils.sheets import submit_data, get_submitted_by_institution
 from utils.report import generate_submission_pdf
 from utils.config import (
     get_config, get_samples, get_component_groups,
-    get_info_fields, get_method_options, get_questions,
+    get_info_fields, get_method_options, get_solvent_options, get_questions,
     get_participant_map,
 )
 from utils.email_sender import send_confirmation
@@ -117,7 +117,8 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
         free_dec    = item.get("free_decimal", False)
         fmt         = "%.4f" if free_dec else "%.2f"
         step        = 0.0001 if free_dec else 0.01
-        method_list = [""] + get_method_options(cfg, comp=comp)
+        method_list  = [""] + get_method_options(cfg, comp=comp)
+        solvent_list = [""] + get_solvent_options(cfg, comp=comp)
 
         # 이 성분에 추가된 방법 행 수 (0 = 추가 없음, 기본 1행만)
         extra_key   = f"{prefix}{comp}_extra"
@@ -149,9 +150,10 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
                     data[f"{comp}_기기{suffix}"] = ""
             with cols[3]:
                 if use_solvent:
-                    data[f"{comp}_용매{suffix}"] = st.text_input(
-                        "용매", key=f"{prefix}{comp}_solvent{suffix}",
-                        label_visibility="collapsed", placeholder="용매",
+                    data[f"{comp}_용매{suffix}"] = st.selectbox(
+                        "용매", solvent_list,
+                        key=f"{prefix}{comp}_solvent{suffix}",
+                        label_visibility="collapsed",
                     )
                 else:
                     st.markdown("<div style='color:#ccc;text-align:center'>—</div>", unsafe_allow_html=True)
@@ -310,14 +312,17 @@ if submitted:
             extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
             suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
             for sfx in suffixes:
-                method_val = st.session_state.get(f"{group_name}_{comp}_method{sfx}", "") or ""
+                method_val  = st.session_state.get(f"{group_name}_{comp}_method{sfx}", "") or ""
+                solvent_val = st.session_state.get(f"{group_name}_{comp}_solvent{sfx}", "") or ""
                 any_value = any(
                     st.session_state.get(f"{group_name}_{comp}_{s}{sfx}") is not None
                     for s in item["samples"]
                 )
+                label = comp if sfx == "" else f"{comp}(추가{sfx})"
                 if any_value and not method_val:
-                    label = comp if sfx == "" else f"{comp}(추가{sfx})"
                     errors.append(f"[{label}] 값을 입력한 경우 방법을 선택해야 합니다.")
+                if any_value and item.get("use_solvent", True) and not solvent_val:
+                    errors.append(f"[{label}] 값을 입력한 경우 용매를 선택해야 합니다.")
 
     if errors:
         for e in errors:

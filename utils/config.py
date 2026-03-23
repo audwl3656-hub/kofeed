@@ -23,6 +23,12 @@ _DEFAULT_ROWS = [
     ("method_option", "", "식약처 고시법", "", 2, True, True, True, False),
     ("method_option", "", "KS 방법",       "", 3, True, True, True, False),
     ("method_option", "", "자체 분석법",   "", 4, True, True, True, False),
+    # 용매 옵션 (드롭다운 선택지)
+    ("solvent_option", "", "에탄올",       "", 1, True, True, True, False),
+    ("solvent_option", "", "헥산",         "", 2, True, True, True, False),
+    ("solvent_option", "", "석유에테르",   "", 3, True, True, True, False),
+    ("solvent_option", "", "아세톤",       "", 4, True, True, True, False),
+    ("solvent_option", "", "해당없음",     "", 5, True, True, True, False),
     # 기관 정보 필드 — group=placeholder, samples=flags(required/email)
     ("info_field", "○○ 연구소",        "기관명",   "required",       1, True, True, True, False),
     ("info_field", "홍길동",            "담당자명", "required",       2, True, True, True, False),
@@ -139,6 +145,25 @@ def get_method_options(cfg: pd.DataFrame = None, comp: str = None) -> list[str]:
         cfg = get_config()
     rows = (
         cfg[(cfg["type"] == "method_option") & (cfg["enabled"])]
+        .sort_values("order")
+    )
+    if comp:
+        comp_rows = rows[rows["group"].astype(str).str.strip() == comp]
+        if not comp_rows.empty:
+            return [str(v) for v in comp_rows["name"].tolist() if v is not None and str(v).strip() not in ("", "nan")]
+    global_rows = rows[rows["group"].astype(str).str.strip() == ""]
+    return [str(v) for v in global_rows["name"].tolist() if v is not None and str(v).strip() not in ("", "nan")]
+
+
+def get_solvent_options(cfg: pd.DataFrame = None, comp: str = None) -> list[str]:
+    """
+    용매 드롭다운 선택지 목록.
+    방법 옵션과 동일한 방식: comp 지정 시 성분 전용 → 공통 순으로 반환.
+    """
+    if cfg is None:
+        cfg = get_config()
+    rows = (
+        cfg[(cfg["type"] == "solvent_option") & (cfg["enabled"])]
         .sort_values("order")
     )
     if comp:
