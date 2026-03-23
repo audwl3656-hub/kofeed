@@ -333,6 +333,7 @@ def get_component_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
             "use_equip":    bool(row.get("use_equip",    True)),
             "use_solvent":  bool(row.get("use_solvent",  True)),
             "free_decimal": bool(row.get("free_decimal", False)),
+            "allow_multi":  bool(row.get("allow_multi",  False)),
         })
     return groups
 
