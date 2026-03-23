@@ -502,6 +502,7 @@ with tab4:
     edited_groups["use_equip"] = ""
     edited_groups["use_solvent"] = ""
     edited_groups["free_decimal"] = ""
+    edited_groups["allow_multi"]  = ""
     edited_groups = edited_groups[CONFIG_COLS]
 
     st.divider()
@@ -618,6 +619,7 @@ with tab4:
     edited_methods["use_equip"]    = ""
     edited_methods["use_solvent"]  = ""
     edited_methods["free_decimal"] = ""
+    edited_methods["allow_multi"]  = ""
     edited_methods = edited_methods[CONFIG_COLS]
 
     st.divider()
@@ -659,6 +661,7 @@ with tab4:
     edited_solvents["use_equip"]    = ""
     edited_solvents["use_solvent"]  = ""
     edited_solvents["free_decimal"] = ""
+    edited_solvents["allow_multi"]  = ""
     edited_solvents = edited_solvents[CONFIG_COLS]
 
     st.divider()
@@ -738,6 +741,7 @@ with tab4:
     edited_participants["use_equip"]    = ""
     edited_participants["use_solvent"]  = ""
     edited_participants["free_decimal"] = ""
+    edited_participants["allow_multi"]  = ""
     edited_participants = edited_participants[CONFIG_COLS]
 
     st.divider()
