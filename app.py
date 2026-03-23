@@ -178,19 +178,20 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
         for idx in range(extra_count):
             _render_row(f"_{idx + 2}")
 
-        # + / - 버튼
-        btn_cols = st.columns([8, 1, 1])
-        with btn_cols[1]:
-            if st.button("＋", key=f"add_{prefix}{comp}", help=f"{comp} 방법 추가",
-                         use_container_width=True):
-                st.session_state[extra_key] = extra_count + 1
-                st.rerun()
-        with btn_cols[2]:
-            if extra_count > 0:
-                if st.button("－", key=f"del_{prefix}{comp}", help="마지막 행 삭제",
+        # + / - 버튼 (allow_multi 설정이 True인 성분만 표시)
+        if item.get("allow_multi", False):
+            btn_cols = st.columns([8, 1, 1])
+            with btn_cols[1]:
+                if st.button("＋", key=f"add_{prefix}{comp}", help=f"{comp} 방법 추가",
                              use_container_width=True):
-                    st.session_state[extra_key] = extra_count - 1
+                    st.session_state[extra_key] = extra_count + 1
                     st.rerun()
+            with btn_cols[2]:
+                if extra_count > 0:
+                    if st.button("－", key=f"del_{prefix}{comp}", help="마지막 행 삭제",
+                                 use_container_width=True):
+                        st.session_state[extra_key] = extra_count - 1
+                        st.rerun()
 
     return data
 

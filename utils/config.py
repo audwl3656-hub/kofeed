@@ -14,62 +14,62 @@ SCOPE = [
 ]
 
 # ── 컬럼 정의 ─────────────────────────────────────────────────
-CONFIG_COLS = ["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent", "free_decimal"]
+CONFIG_COLS = ["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent", "free_decimal", "allow_multi"]
 
 # ── 기본 설정값 ───────────────────────────────────────────────
 _DEFAULT_ROWS = [
     # 방법 옵션 (드롭다운 선택지)
-    ("method_option", "", "AOAC 방법",     "", 1, True, True, True, False),
-    ("method_option", "", "식약처 고시법", "", 2, True, True, True, False),
-    ("method_option", "", "KS 방법",       "", 3, True, True, True, False),
-    ("method_option", "", "자체 분석법",   "", 4, True, True, True, False),
+    ("method_option", "", "AOAC 방법",     "", 1, True, True, True, False, False),
+    ("method_option", "", "식약처 고시법", "", 2, True, True, True, False, False),
+    ("method_option", "", "KS 방법",       "", 3, True, True, True, False, False),
+    ("method_option", "", "자체 분석법",   "", 4, True, True, True, False, False),
     # 용매 옵션 (드롭다운 선택지)
-    ("solvent_option", "", "에탄올",       "", 1, True, True, True, False),
-    ("solvent_option", "", "헥산",         "", 2, True, True, True, False),
-    ("solvent_option", "", "석유에테르",   "", 3, True, True, True, False),
-    ("solvent_option", "", "아세톤",       "", 4, True, True, True, False),
-    ("solvent_option", "", "해당없음",     "", 5, True, True, True, False),
+    ("solvent_option", "", "에탄올",       "", 1, True, True, True, False, False),
+    ("solvent_option", "", "헥산",         "", 2, True, True, True, False, False),
+    ("solvent_option", "", "석유에테르",   "", 3, True, True, True, False, False),
+    ("solvent_option", "", "아세톤",       "", 4, True, True, True, False, False),
+    ("solvent_option", "", "해당없음",     "", 5, True, True, True, False, False),
     # 기관 정보 필드 — group=placeholder, samples=flags(required/email)
-    ("info_field", "○○ 연구소",        "기관명",   "required",       1, True, True, True, False),
-    ("info_field", "홍길동",            "담당자명", "required",       2, True, True, True, False),
-    ("info_field", "lab@example.com",  "이메일",   "required,email", 3, True, True, True, False),
-    ("info_field", "010-0000-0000",    "전화",     "",               4, True, True, True, False),
+    ("info_field", "○○ 연구소",        "기관명",   "required",       1, True, True, True, False, False),
+    ("info_field", "홍길동",            "담당자명", "required",       2, True, True, True, False, False),
+    ("info_field", "lab@example.com",  "이메일",   "required,email", 3, True, True, True, False, False),
+    ("info_field", "010-0000-0000",    "전화",     "",               4, True, True, True, False, False),
     # 사료 종류
-    ("sample", "", "축우사료",  "", 1, True, True, True, False),
-    ("sample", "", "양계사료",  "", 2, True, True, True, False),
-    ("sample", "", "고양이사료","", 3, True, True, True, False),
+    ("sample", "", "축우사료",  "", 1, True, True, True, False, False),
+    ("sample", "", "양계사료",  "", 2, True, True, True, False, False),
+    ("sample", "", "고양이사료","", 3, True, True, True, False, False),
     # 섹션(그룹) — samples 필드: "nir" = NIR 테이블에도 포함
-    ("group", "", "일반성분", "nir", 1, True, True, True, False),
-    ("group", "", "ADF/NDF",  "nir", 2, True, True, True, False),
-    ("group", "", "아미노산", "",    3, True, True, True, False),
+    ("group", "", "일반성분", "nir", 1, True, True, True, False, False),
+    ("group", "", "ADF/NDF",  "nir", 2, True, True, True, False, False),
+    ("group", "", "아미노산", "",    3, True, True, True, False, False),
     # 일반성분 (use_equip=True, use_solvent=True)
-    ("component", "일반성분", "수분",    "all", 1, True, True, True, False),
-    ("component", "일반성분", "조단백질","all", 2, True, True, True, False),
-    ("component", "일반성분", "조지방",  "all", 3, True, True, True, False),
-    ("component", "일반성분", "조섬유",  "all", 4, True, True, True, False),
-    ("component", "일반성분", "조회분",  "all", 5, True, True, True, False),
-    ("component", "일반성분", "NFE",     "all", 6, True, True, True, False),
+    ("component", "일반성분", "수분",    "all", 1, True, True, True, False, False),
+    ("component", "일반성분", "조단백질","all", 2, True, True, True, False, False),
+    ("component", "일반성분", "조지방",  "all", 3, True, True, True, False, False),
+    ("component", "일반성분", "조섬유",  "all", 4, True, True, True, False, False),
+    ("component", "일반성분", "조회분",  "all", 5, True, True, True, False, False),
+    ("component", "일반성분", "NFE",     "all", 6, True, True, True, False, False),
     # ADF/NDF
-    ("component", "ADF/NDF", "ADF", "축우사료", 1, True, True, True, False),
-    ("component", "ADF/NDF", "NDF", "축우사료", 2, True, True, True, False),
+    ("component", "ADF/NDF", "ADF", "축우사료", 1, True, True, True, False, False),
+    ("component", "ADF/NDF", "NDF", "축우사료", 2, True, True, True, False, False),
     # 아미노산
-    ("component", "아미노산", "ASP",  "all", 1, True, True, True, False),
-    ("component", "아미노산", "THR",  "all", 2, True, True, True, False),
-    ("component", "아미노산", "SER",  "all", 3, True, True, True, False),
-    ("component", "아미노산", "GLU",  "all", 4, True, True, True, False),
-    ("component", "아미노산", "GLY",  "all", 5, True, True, True, False),
-    ("component", "아미노산", "ALA",  "all", 6, True, True, True, False),
-    ("component", "아미노산", "VAL",  "all", 7, True, True, True, False),
-    ("component", "아미노산", "ISOL", "all", 8, True, True, True, False),
-    ("component", "아미노산", "LEU",  "all", 9, True, True, True, False),
-    ("component", "아미노산", "TYR",  "all", 10, True, True, True, False),
-    ("component", "아미노산", "PHE",  "all", 11, True, True, True, False),
-    ("component", "아미노산", "LYS",  "all", 12, True, True, True, False),
-    ("component", "아미노산", "HIS",  "all", 13, True, True, True, False),
-    ("component", "아미노산", "ARG",  "all", 14, True, True, True, False),
-    ("component", "아미노산", "PRO",  "all", 15, True, True, True, False),
-    ("component", "아미노산", "MET",  "all", 16, True, True, True, False),
-    ("component", "아미노산", "CYS",  "all", 17, True, True, True, False),
+    ("component", "아미노산", "ASP",  "all", 1, True, True, True, False, False),
+    ("component", "아미노산", "THR",  "all", 2, True, True, True, False, False),
+    ("component", "아미노산", "SER",  "all", 3, True, True, True, False, False),
+    ("component", "아미노산", "GLU",  "all", 4, True, True, True, False, False),
+    ("component", "아미노산", "GLY",  "all", 5, True, True, True, False, False),
+    ("component", "아미노산", "ALA",  "all", 6, True, True, True, False, False),
+    ("component", "아미노산", "VAL",  "all", 7, True, True, True, False, False),
+    ("component", "아미노산", "ISOL", "all", 8, True, True, True, False, False),
+    ("component", "아미노산", "LEU",  "all", 9, True, True, True, False, False),
+    ("component", "아미노산", "TYR",  "all", 10, True, True, True, False, False),
+    ("component", "아미노산", "PHE",  "all", 11, True, True, True, False, False),
+    ("component", "아미노산", "LYS",  "all", 12, True, True, True, False, False),
+    ("component", "아미노산", "HIS",  "all", 13, True, True, True, False, False),
+    ("component", "아미노산", "ARG",  "all", 14, True, True, True, False, False),
+    ("component", "아미노산", "PRO",  "all", 15, True, True, True, False, False),
+    ("component", "아미노산", "MET",  "all", 16, True, True, True, False, False),
+    ("component", "아미노산", "CYS",  "all", 17, True, True, True, False, False),
 ]
 
 DEFAULT_CONFIG = pd.DataFrame(_DEFAULT_ROWS, columns=CONFIG_COLS)
@@ -120,6 +120,12 @@ def get_config() -> pd.DataFrame:
         else:
             raw = df["free_decimal"].astype(str).str.strip().str.lower()
             df["free_decimal"] = raw.isin(["true", "1", "yes"])
+        # allow_multi: 기존 시트에 없으면 False
+        if "allow_multi" not in df.columns:
+            df["allow_multi"] = False
+        else:
+            raw = df["allow_multi"].astype(str).str.strip().str.lower()
+            df["allow_multi"] = raw.isin(["true", "1", "yes"])
         return df
     except Exception:
         return DEFAULT_CONFIG.copy()

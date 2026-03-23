@@ -525,6 +525,11 @@ with tab4:
     else:
         raw = comp_df["free_decimal"].astype(str).str.strip().str.lower()
         comp_df["free_decimal"] = raw.isin(["true", "1", "yes"])
+    if "allow_multi" not in comp_df.columns:
+        comp_df["allow_multi"] = False
+    else:
+        raw = comp_df["allow_multi"].astype(str).str.strip().str.lower()
+        comp_df["allow_multi"] = raw.isin(["true", "1", "yes"])
     if not comp_df.empty:
         comp_df["order"]   = pd.to_numeric(comp_df["order"], errors="coerce").fillna(1).astype(int)
         comp_df["enabled"] = comp_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
@@ -536,7 +541,7 @@ with tab4:
     ]
 
     edited_comps = st.data_editor(
-        comp_df[["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent", "free_decimal"]],
+        comp_df[["type", "group", "name", "samples", "order", "enabled", "use_equip", "use_solvent", "free_decimal", "allow_multi"]],
         num_rows="dynamic",
         use_container_width=True,
         column_config={
@@ -554,6 +559,10 @@ with tab4:
             "free_decimal": st.column_config.CheckboxColumn(
                 "소수점 자유",
                 help="체크 시 소수점 제한 없음(4자리). 기본은 소수점 2자리.",
+            ),
+            "allow_multi": st.column_config.CheckboxColumn(
+                "방법 추가 허용",
+                help="체크 시 제출 폼에서 + 버튼으로 방법을 추가할 수 있습니다.",
             ),
         },
         key="edit_comps",
@@ -746,9 +755,9 @@ with tab4:
             edited_questions    = edited_questions[edited_questions["name"].astype(str).str.strip() != ""]
             edited_participants = edited_participants[edited_participants["name"].astype(str).str.strip() != ""]
 
-            # use_equip / use_solvent / free_decimal 컬럼이 없는 타입은 빈 문자열로 채움
-            for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_solvents, edited_questions]:
-                for _col in ("use_equip", "use_solvent", "free_decimal"):
+            # use_equip / use_solvent / free_decimal / allow_multi 컬럼이 없는 타입은 빈 문자열로 채움
+            for _df in [edited_info, edited_samples, edited_groups, edited_methods, edited_solvents, edited_questions, edited_participants]:
+                for _col in ("use_equip", "use_solvent", "free_decimal", "allow_multi"):
                     if _col not in _df.columns:
                         _df[_col] = ""
             new_cfg = pd.concat(
