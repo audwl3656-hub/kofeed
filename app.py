@@ -110,66 +110,86 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
                 unsafe_allow_html=True)
 
     for item in items:
-        comp    = item["name"]
-        samples = item["samples"]
+        comp        = item["name"]
+        samples     = item["samples"]
         use_equip   = item.get("use_equip", True)
         use_solvent = item.get("use_solvent", True)
-        cols    = st.columns(col_ratios)
-        cols[0].markdown(f"**{comp}**")
-
+        free_dec    = item.get("free_decimal", False)
+        fmt         = "%.4f" if free_dec else "%.2f"
+        step        = 0.0001 if free_dec else 0.01
         method_list = [""] + get_method_options(cfg, comp=comp)
-        with cols[1]:
-            sel = st.selectbox(
-                "방법", method_list,
-                key=f"{prefix}{comp}_method",
-                label_visibility="collapsed",
+
+        # 이 성분에 추가된 방법 행 수 (0 = 추가 없음, 기본 1행만)
+        extra_key   = f"{prefix}{comp}_extra"
+        extra_count = st.session_state.get(extra_key, 0)
+
+        def _render_row(suffix: str):
+            """suffix="" → 기존 행, suffix="_2","_3"... → 추가 행"""
+            cols = st.columns(col_ratios)
+            cols[0].markdown(
+                f"**{comp}**" if suffix == "" else
+                f"<span style='color:#888;font-size:0.85em;padding-left:12px'>↳ {comp}</span>",
+                unsafe_allow_html=True,
             )
-            data[f"{comp}_방법"] = sel
-
-        with cols[2]:
-            if use_equip:
-                data[f"{comp}_기기"] = st.text_input(
-                    "기기", key=f"{prefix}{comp}_equip",
-                    label_visibility="collapsed", placeholder="기기명",
+            with cols[1]:
+                sel = st.selectbox(
+                    "방법", method_list,
+                    key=f"{prefix}{comp}_method{suffix}",
+                    label_visibility="collapsed",
                 )
-            else:
-                st.markdown(
-                    "<div style='color:#ccc;text-align:center'>—</div>",
-                    unsafe_allow_html=True,
-                )
-                data[f"{comp}_기기"] = ""
-
-        with cols[3]:
-            if use_solvent:
-                data[f"{comp}_용매"] = st.text_input(
-                    "용매", key=f"{prefix}{comp}_solvent",
-                    label_visibility="collapsed", placeholder="용매",
-                )
-            else:
-                st.markdown(
-                    "<div style='color:#ccc;text-align:center'>—</div>",
-                    unsafe_allow_html=True,
-                )
-                data[f"{comp}_용매"] = ""
-
-        free_dec = item.get("free_decimal", False)
-        fmt  = "%.4f" if free_dec else "%.2f"
-        step = 0.0001 if free_dec else 0.01
-        for i, s in enumerate(all_sample_set):
-            with cols[4 + i]:
-                if s in samples:
-                    data[f"{comp}_{s}"] = st.number_input(
-                        s, key=f"{prefix}{comp}_{s}",
-                        value=None, min_value=0.0,
-                        step=step, format=fmt,
-                        placeholder="0.00",
-                        label_visibility="collapsed",
+                data[f"{comp}_방법{suffix}"] = sel
+            with cols[2]:
+                if use_equip:
+                    data[f"{comp}_기기{suffix}"] = st.text_input(
+                        "기기", key=f"{prefix}{comp}_equip{suffix}",
+                        label_visibility="collapsed", placeholder="기기명",
                     )
                 else:
-                    st.markdown(
-                        "<div style='color:#ccc;text-align:center'>—</div>",
-                        unsafe_allow_html=True,
+                    st.markdown("<div style='color:#ccc;text-align:center'>—</div>", unsafe_allow_html=True)
+                    data[f"{comp}_기기{suffix}"] = ""
+            with cols[3]:
+                if use_solvent:
+                    data[f"{comp}_용매{suffix}"] = st.text_input(
+                        "용매", key=f"{prefix}{comp}_solvent{suffix}",
+                        label_visibility="collapsed", placeholder="용매",
                     )
+                else:
+                    st.markdown("<div style='color:#ccc;text-align:center'>—</div>", unsafe_allow_html=True)
+                    data[f"{comp}_용매{suffix}"] = ""
+            for i, s in enumerate(all_sample_set):
+                with cols[4 + i]:
+                    if s in samples:
+                        data[f"{comp}_{s}{suffix}"] = st.number_input(
+                            s, key=f"{prefix}{comp}_{s}{suffix}",
+                            value=None, min_value=0.0,
+                            step=step, format=fmt,
+                            placeholder="0.00",
+                            label_visibility="collapsed",
+                        )
+                    else:
+                        st.markdown("<div style='color:#ccc;text-align:center'>—</div>", unsafe_allow_html=True)
+
+        # 기본 행 (suffix="" → 기존 키 그대로)
+        _render_row("")
+
+        # 추가 행들 (suffix="_2", "_3", ...)
+        for idx in range(extra_count):
+            _render_row(f"_{idx + 2}")
+
+        # + / - 버튼
+        btn_cols = st.columns([8, 1, 1])
+        with btn_cols[1]:
+            if st.button("＋", key=f"add_{prefix}{comp}", help=f"{comp} 방법 추가",
+                         use_container_width=True):
+                st.session_state[extra_key] = extra_count + 1
+                st.rerun()
+        with btn_cols[2]:
+            if extra_count > 0:
+                if st.button("－", key=f"del_{prefix}{comp}", help="마지막 행 삭제",
+                             use_container_width=True):
+                    st.session_state[extra_key] = extra_count - 1
+                    st.rerun()
+
     return data
 
 
@@ -252,16 +272,19 @@ if submitted:
     for group_name, items in GROUPS.items():
         for item in items:
             comp = item["name"]
-            for s in item["samples"]:
-                ss_val = st.session_state.get(f"{group_name}_{comp}_{s}")
-                if ss_val is not None:
-                    all_data[f"{comp}_{s}"] = ss_val
-            if (v := st.session_state.get(f"{group_name}_{comp}_method")) is not None:
-                all_data[f"{comp}_방법"] = v
-            if (v := st.session_state.get(f"{group_name}_{comp}_equip")) is not None:
-                all_data[f"{comp}_기기"] = v
-            if (v := st.session_state.get(f"{group_name}_{comp}_solvent")) is not None:
-                all_data[f"{comp}_용매"] = v
+            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
+            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
+            for sfx in suffixes:
+                for s in item["samples"]:
+                    ss_val = st.session_state.get(f"{group_name}_{comp}_{s}{sfx}")
+                    if ss_val is not None:
+                        all_data[f"{comp}_{s}{sfx}"] = ss_val
+                if (v := st.session_state.get(f"{group_name}_{comp}_method{sfx}")) is not None:
+                    all_data[f"{comp}_방법{sfx}"] = v
+                if (v := st.session_state.get(f"{group_name}_{comp}_equip{sfx}")) is not None:
+                    all_data[f"{comp}_기기{sfx}"] = v
+                if (v := st.session_state.get(f"{group_name}_{comp}_solvent{sfx}")) is not None:
+                    all_data[f"{comp}_용매{sfx}"] = v
     # 기관 정보 검증
     for field in INFO_FIELDS:
         val = info_values.get(field["name"], "").strip()
@@ -284,16 +307,17 @@ if submitted:
     for group_name, group_items in GROUPS.items():
         for item in group_items:
             comp = item["name"]
-            method_val = (
-                st.session_state.get(f"{group_name}_{comp}_method", "")
-                or all_data.get(f"{comp}_방법", "")
-            )
-            any_value = any(
-                st.session_state.get(f"{group_name}_{comp}_{s}") is not None
-                for s in item["samples"]
-            )
-            if any_value and not method_val:
-                errors.append(f"[{comp}] 값을 입력한 경우 방법을 선택해야 합니다.")
+            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
+            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
+            for sfx in suffixes:
+                method_val = st.session_state.get(f"{group_name}_{comp}_method{sfx}", "") or ""
+                any_value = any(
+                    st.session_state.get(f"{group_name}_{comp}_{s}{sfx}") is not None
+                    for s in item["samples"]
+                )
+                if any_value and not method_val:
+                    label = comp if sfx == "" else f"{comp}(추가{sfx})"
+                    errors.append(f"[{label}] 값을 입력한 경우 방법을 선택해야 합니다.")
 
     if errors:
         for e in errors:
