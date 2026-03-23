@@ -443,7 +443,7 @@ def get_history() -> pd.DataFrame:
 
 def append_history_rows(rows: list[dict]):
     """
-    history 시트에 여러 행 추가.
+    history 시트에 여러 행 추가 (배치 1회 API 호출).
     row = {"year": 2024, "feed": "축우사료", "institution": "CJ", "조단백": 18.2, ...}
     새 성분 컬럼이 생기면 시트 헤더를 자동으로 확장합니다.
     """
@@ -456,7 +456,7 @@ def append_history_rows(rows: list[dict]):
         # 시트가 비어 있으면 헤더 + 데이터 한 번에 쓰기
         headers = list(rows[0].keys())
         data = [headers] + [[r.get(h, "") for h in headers] for r in rows]
-        ws.update(data)
+        ws.update("A1", data)
     else:
         headers = list(existing[0].keys())
 
@@ -469,21 +469,28 @@ def append_history_rows(rows: list[dict]):
 
         if all_new_keys:
             headers = headers + all_new_keys
-            ws.update("A1", [headers])  # 헤더 행 업데이트
+            ws.update("A1", [headers])
 
-        for row in rows:
-            new_row = [row.get(h, "") for h in headers]
-            ws.append_row(new_row)
+        # 배치 추가 (API 1회 호출)
+        all_new_rows = [[r.get(h, "") for h in headers] for r in rows]
+        ws.append_rows(all_new_rows, value_input_option="USER_ENTERED")
 
     get_history.clear()
 
 
 def delete_history_rows(year: int, feed: str):
-    """history 시트에서 특정 연도+사료의 모든 기관 행 삭제."""
+    """history 시트에서 특정 연도+사료의 모든 기관 행 삭제 (clear+rewrite로 API 최소화)."""
     ws = _get_or_create_history_sheet()
-    records = ws.get_all_records()
-    to_delete = [i + 2 for i, r in enumerate(records)
-                 if str(r.get("year")) == str(year) and str(r.get("feed")) == str(feed)]
-    for row_num in reversed(to_delete):
-        ws.delete_rows(row_num)
+    existing = ws.get_all_records()
+    if not existing:
+        return
+    headers = list(existing[0].keys())
+    # 삭제 대상 제외 후 나머지 유지
+    kept = [r for r in existing
+            if not (str(r.get("year", "")) == str(year)
+                    and str(r.get("feed", "")) == str(feed))]
+    # 시트 전체 재작성 (clear + update = API 2회)
+    ws.clear()
+    data = [headers] + [[r.get(h, "") for h in headers] for r in kept]
+    ws.update("A1", data)
     get_history.clear()

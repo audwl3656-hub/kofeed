@@ -113,7 +113,10 @@ def _build_sample_section(
         except Exception:
             cv_str = "-"
 
-        method = (inst_method or {}).get(comp, "")
+        # suffix-aware method lookup (e.g. col="조단백질_축우사료_2" → sfx="_2")
+        sample_in_col = get_sample_from_col(col, samples) or ""
+        sfx = col[len(f"{comp}_{sample_in_col}"):] if sample_in_col else ""
+        method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(comp, "")
         rows.append([
             comp, method, fmt(val),
             fmt(stats.get("median", "")),
@@ -624,13 +627,31 @@ def generate_pdf_summary(
 
     inst_w = 45
 
+    def _get_zv(z_src, row_idx, col):
+        try:
+            if isinstance(z_src, _pd.DataFrame):
+                return z_src.at[row_idx, col] if col in z_src.columns else np.nan
+            ser = z_src.get(col)
+            return ser.at[row_idx] if ser is not None else np.nan
+        except Exception:
+            return np.nan
+
     def _build_zscore_section(sec_title, z_src):
         elems = [Paragraph(sec_title, section_style)]
         for num, comp in enumerate(seen_comps, 1):
-            # 이 성분에서 Z-score 데이터가 있는 사료만 사용
+            # 이 성분의 모든 suffix 탐색 ("", "_2", "_3", ...)
+            sfx_list = [""]
+            for n in range(2, 10):
+                if any(f"{comp}_{s}_{n}" in non_nir_set for s in samples):
+                    sfx_list.append(f"_{n}")
+                else:
+                    break
+
+            # suffix별로 Z-score 데이터 있는 사료 합산
             valid_samples = [s for s in samples
-                             if f"{comp}_{s}" in non_nir_set
-                             and _z_has_data(f"{comp}_{s}", z_src)]
+                             if any(f"{comp}_{s}{sfx}" in non_nir_set
+                                    and _z_has_data(f"{comp}_{s}{sfx}", z_src)
+                                    for sfx in sfx_list)]
             if not valid_samples:
                 continue
 
@@ -640,19 +661,25 @@ def generate_pdf_summary(
             elems.append(Paragraph(f"{num}) {comp}", comp_style))
             z_rows = [["참가코드"] + valid_samples]
             for inst, row_idx in zip(inst_names, idx_list):
-                row = [inst]
-                for s in valid_samples:
-                    col = f"{comp}_{s}"
-                    try:
-                        if isinstance(z_src, _pd.DataFrame):
-                            zv = z_src.at[row_idx, col] if col in z_src.columns else np.nan
-                        else:
-                            ser = z_src.get(col)
-                            zv = ser.at[row_idx] if ser is not None else np.nan
-                    except Exception:
-                        zv = np.nan
-                    row.append(z_cell(zv))
-                z_rows.append(row)
+                for sfx in sfx_list:
+                    # 이 기관에 해당 suffix 데이터가 하나라도 있어야 행 추가
+                    row_vals = []
+                    has_any = False
+                    for s in valid_samples:
+                        col = f"{comp}_{s}{sfx}"
+                        zv = _get_zv(z_src, row_idx, col) if col in non_nir_set else np.nan
+                        try:
+                            if not np.isnan(float(zv)):
+                                has_any = True
+                        except Exception:
+                            pass
+                        row_vals.append(z_cell(zv))
+                    if not has_any:
+                        continue
+                    sfx_num = sfx.lstrip("_")  # "" or "2"
+                    inst_label = inst if sfx == "" else f"{inst}_{sfx_num}"
+                    z_rows.append([inst_label] + row_vals)
+
             zt = Table(z_rows, colWidths=cw_z, repeatRows=1)
             zt.setStyle(_make_table_style())
             elems.append(zt)
@@ -737,12 +764,22 @@ def generate_submission_pdf(
         header = ["성분", "방법", "기기명", "용매"] + grp_samples
         tbl_rows = [header]
         for item in items:
-            comp    = item["name"]
-            method  = str(row.get(f"{comp}_방법", "") or "")
-            equip   = str(row.get(f"{comp}_기기",  "") or "")
-            solvent = str(row.get(f"{comp}_용매",  "") or "")
-            vals    = [_fmt(row.get(f"{comp}_{s}")) for s in grp_samples]
-            tbl_rows.append([comp, method, equip, solvent] + vals)
+            comp = item["name"]
+            # 기본 행 + 추가 방법 행(_2, _3, ...) 모두 출력
+            suffixes = [""]
+            for n in range(2, 10):
+                sfx = f"_{n}"
+                if any(row.get(f"{comp}_{s}{sfx}") not in (None, "", "nan") for s in grp_samples):
+                    suffixes.append(sfx)
+                else:
+                    break
+            for sfx in suffixes:
+                method  = str(row.get(f"{comp}_방법{sfx}", "") or "")
+                equip   = str(row.get(f"{comp}_기기{sfx}",  "") or "")
+                solvent = str(row.get(f"{comp}_용매{sfx}",  "") or "")
+                vals    = [_fmt(row.get(f"{comp}_{s}{sfx}")) for s in grp_samples]
+                comp_label = comp if sfx == "" else f"  ↳ {comp}"
+                tbl_rows.append([comp_label, method, equip, solvent] + vals)
 
         elements.append(Paragraph(group_name, sec_sty))
 

@@ -856,8 +856,9 @@ with tab5:
             if not inst_name:
                 continue
             for sample in SAMPLES:
-                sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
-                if not sample_cols:
+                sample_cols     = [c for c in main_cols if c.endswith(f"_{sample}")]
+                nir_sample_cols = [c for c in nir_cols  if c.endswith(f"_{sample}")]
+                if not sample_cols and not nir_sample_cols:
                     continue
                 row_dict = {"year": int(save_year), "feed": sample, "institution": inst_name}
                 has_val = False
@@ -866,6 +867,14 @@ with tab5:
                     if comp:
                         val = pd.to_numeric(row.get(col, None), errors="coerce")
                         row_dict[comp] = round(float(val), 4) if not pd.isna(val) else None
+                        if not pd.isna(val):
+                            has_val = True
+                for col in nir_sample_cols:
+                    comp = get_component_from_col(col, SAMPLES)
+                    if comp:
+                        nir_key = f"{comp}(NIR)"
+                        val = pd.to_numeric(row.get(col, None), errors="coerce")
+                        row_dict[nir_key] = round(float(val), 4) if not pd.isna(val) else None
                         if not pd.isna(val):
                             has_val = True
                 if has_val:

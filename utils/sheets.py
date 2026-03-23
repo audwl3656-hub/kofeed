@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -51,12 +52,21 @@ def submit_data(row: dict):
             sheet.update("A1", [existing_headers + new_keys])
     headers = sheet.row_values(1)
     sheet.append_row([_fmt(row.get(h)) for h in headers])
+    get_all_data.clear()
 
 
+@st.cache_data(ttl=60)
 def get_all_data() -> pd.DataFrame:
     sheet = _get_sheet()
-    records = sheet.get_all_records()
-    return pd.DataFrame(records)
+    for attempt in range(3):
+        try:
+            records = sheet.get_all_records()
+            return pd.DataFrame(records)
+        except gspread.exceptions.APIError as e:
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+    return pd.DataFrame()
 
 
 def get_submitted_by_institution(institution_name: str, inst_field: str = "기관명") -> pd.DataFrame | None:
