@@ -1,7 +1,7 @@
 import io
 from datetime import datetime
 import numpy as np
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape as _landscape
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import (
@@ -417,6 +417,12 @@ def generate_pdf_summary(
     pw, ph = A4
     fw, fh = pw - lm - rm, ph - tm - bm
 
+    # 가로 페이지 (landscape) 설정
+    pw_land, ph_land = _landscape(A4)
+    fw_land = pw_land - lm - rm
+    fh_land = ph_land - tm - bm
+    avail_land_mm = fw_land / mm   # ~267mm
+
     cover_title = "한국사료협회 비교분석 결과"
 
     def _cover_bg(canvas, doc):
@@ -429,6 +435,13 @@ def generate_pdf_summary(
         canvas.drawRightString(pw - rm, bm - 8*mm, f"- {doc.page} -")
         canvas.restoreState()
 
+    def _land_page(canvas, doc):
+        canvas.saveState()
+        canvas.setFont(KO, 8)
+        canvas.setFillColor(colors.HexColor("#94a3b8"))
+        canvas.drawRightString(pw_land - rm, bm - 8*mm, f"- {doc.page} -")
+        canvas.restoreState()
+
     doc = _SummaryDoc(
         buf, pagesize=A4,
         leftMargin=lm, rightMargin=rm, topMargin=tm, bottomMargin=bm,
@@ -439,6 +452,8 @@ def generate_pdf_summary(
             onPage=_cover_bg),
         PageTemplate(id='Content', frames=[Frame(lm, bm, fw, fh, id='normal')],
             onPage=_content_page),
+        PageTemplate(id='Landscape', frames=[Frame(lm, bm, fw_land, fh_land, id='land')],
+            onPage=_land_page, pagesize=_landscape(A4)),
     ])
 
     elements = []
@@ -500,7 +515,7 @@ def generate_pdf_summary(
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 10),
         ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#ffffff")),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#ffffff")]),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#000000")]),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
@@ -566,15 +581,17 @@ def generate_pdf_summary(
     elements.append(Paragraph(", ".join(_inst_real), info_style))
     elements.append(PageBreak())
 
-    # ─── 2. 비교분석 결과 ───
+    # ─── 2. 비교분석 결과 (가로 페이지 시작) ───
+    elements.append(NextPageTemplate('Landscape'))
+    elements.append(PageBreak())
     elements.append(Paragraph("2. 비교분석 결과", h1_style))
 
     # ━━ 가. 분석결과와 통계 ━━
     elements.append(Paragraph("가. 분석결과와 통계", h2_style))
 
-    comp_w_stat = 18
-    method_w_stat = 30
-    remain_stat = avail_mm - comp_w_stat - method_w_stat
+    comp_w_stat = 20
+    method_w_stat = 35
+    remain_stat = avail_land_mm - comp_w_stat - method_w_stat
     n_feeds_stat = max(len(valid_stat_samples), 1)
     per_feed_stat = remain_stat / n_feeds_stat
     n_col = 4
@@ -666,14 +683,17 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#ffffff")]),
+        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#000000")]),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds
     for ri in whole_rows:
         tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#ffffff"))]
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
-    elements.append(Spacer(1, 6*mm))
+
+    # 가로 페이지 종료 → 세로 페이지로 복귀
+    elements.append(NextPageTemplate('Content'))
+    elements.append(PageBreak())
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
     elements.append(Paragraph("나. 분석결과 요약", h2_style))
