@@ -30,7 +30,9 @@ function zText(z) {
 function Sparkline({ values, color, w = 80, h = 30 }) {
   const clean = values.filter(v => v !== null && v !== undefined && !isNaN(v));
   if (clean.length < 2) return <span style={{fontSize:10, color:"#94a3b8"}}>–</span>;
-  const min = Math.min(...clean), max = Math.max(...clean);
+  // z=0을 항상 포함한 범위로 스케일 설정
+  const dataMin = Math.min(...clean), dataMax = Math.max(...clean);
+  const min = Math.min(dataMin, 0), max = Math.max(dataMax, 0);
   const range = max - min || 0.001;
   const pad = 4;
   const xs = values.map((_, i) => pad + (i / (values.length - 1)) * (w - pad * 2));
@@ -40,6 +42,8 @@ function Sparkline({ values, color, w = 80, h = 30 }) {
   const diff = clean[clean.length-1] - clean[0];
   const endColor = Math.abs(diff) < 0.05 ? "#94a3b8" : diff > 0 ? "#ef4444" : "#3b82f6";
   const uid = `sp${color.replace("#","")}${w}${h}${values.join("")}`;
+  // z=0 위치 (항상 범위 내에 있음)
+  const y0 = h - pad - ((0 - min) / range) * (h - pad * 2);
   return (
     <svg width={w} height={h} style={{ display:"block", overflow:"visible" }}>
       <defs>
@@ -48,7 +52,9 @@ function Sparkline({ values, color, w = 80, h = 30 }) {
           <stop offset="100%" stopColor={color} stopOpacity="0.02"/>
         </linearGradient>
       </defs>
-      <line x1={pad} x2={w-pad} y1={h/2} y2={h/2} stroke="#e5e7eb" strokeWidth="0.7" strokeDasharray="2,2"/>
+      {/* z=0 기준선 */}
+      <line x1={pad} x2={w-pad} y1={y0} y2={y0} stroke="#94a3b8" strokeWidth="1.2" strokeDasharray="3,2"/>
+      <text x={w-pad+2} y={y0+3.5} fontSize="7" fill="#94a3b8">0</text>
       <path d={areaPath} fill={`url(#g${uid})`}/>
       <path d={linePath} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
       {xs.map((x, i) => values[i] !== null && (
