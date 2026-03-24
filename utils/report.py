@@ -625,7 +625,7 @@ def generate_pdf_summary(
         method_col = f"{comp}_방법"
         methods: list = []
         if method_col in df.columns:
-            methods = sorted(df[method_col].dropna().astype(str).unique().tolist())
+            methods = sorted(m for m in df[method_col].dropna().astype(str).unique() if m.strip())
 
         comp_rows_data = []
         for meth in methods:
