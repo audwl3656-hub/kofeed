@@ -215,17 +215,25 @@ with tab3:
             )
             for col in main_cols
         }
+        # 전체 Z-score용 통계: 동일 base col(_2, _3 포함) 풀링하여 계산
+        _base_pool: dict = {}
+        for col in main_cols:
+            base = get_base_col(col)
+            vals = pd.to_numeric(df[col], errors="coerce").dropna()
+            _base_pool.setdefault(base, []).extend(vals.tolist())
+
         group_stats = {}
         for col in main_cols:
-            vals = df[col].dropna()
-            if vals.empty:
+            base = get_base_col(col)
+            pool = np.array(_base_pool.get(base, []))
+            if len(pool) == 0:
                 continue
-            med  = float(np.median(vals))
-            mad  = float(np.median(np.abs(vals - med)))
-            mean = float(vals.mean())
-            std  = float(vals.std())
-            cv   = (std / mean * 100) if mean != 0 else np.nan
-            group_stats[col] = {"median": med, "mad": mad, "n": len(vals),
+            med  = float(np.median(pool))
+            mad  = float(np.median(np.abs(pool - med)))
+            mean = float(np.mean(pool))
+            std  = float(np.std(pool, ddof=1)) if len(pool) > 1 else float("nan")
+            cv   = (std / mean * 100) if mean != 0 and not np.isnan(std) else float("nan")
+            group_stats[col] = {"median": med, "mad": mad, "n": len(pool),
                                 "mean": mean, "std": std, "cv": cv}
 
         def _calc_method_group_stats(inst_method_dict):
@@ -312,7 +320,7 @@ with tab3:
                     })
                 st.dataframe(pd.DataFrame(summary), use_container_width=True)
 
-                row_data   = {col: row.get(col, "") for col in main_cols}
+                row_data   = row.to_dict()
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
                 inst_method = {}
@@ -366,7 +374,7 @@ with tab3:
                 inst     = row.get(inst_field, "")
                 if not email_to:
                     continue
-                row_data   = {col: row.get(col, "") for col in main_cols}
+                row_data   = row.to_dict()
                 zscore_row = {col: z_all.loc[idx, col] for col in main_cols}
                 z_m_row    = {col: z_method[col].loc[idx] for col in main_cols}
                 inst_method = {}

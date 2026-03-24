@@ -118,7 +118,7 @@ def _build_sample_section(
         # suffix-aware method lookup (e.g. col="조단백질_축우사료_2" → sfx="_2")
         sample_in_col = get_sample_from_col(col, samples) or ""
         sfx = col[len(f"{comp}_{sample_in_col}"):] if sample_in_col else ""
-        method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(comp, "")
+        method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "")
         rows.append([
             comp, method, fmt(val),
             fmt(stats.get("median", "")),
