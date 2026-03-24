@@ -503,8 +503,8 @@ def generate_pdf_summary(
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 8),
-        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#ffffff")),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#ffffff")]),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
@@ -817,15 +817,6 @@ def generate_pdf_summary(
             return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_p)
         return z_str
 
-    def _z_has_data(col, z_src):
-        try:
-            if isinstance(z_src, _pd.DataFrame):
-                return z_src[col].notna().any() if col in z_src.columns else False
-            ser = z_src.get(col)
-            return ser.notna().any() if ser is not None else False
-        except Exception:
-            return False
-
     def _get_zv(z_src, row_idx, col):
         try:
             if isinstance(z_src, _pd.DataFrame):
@@ -849,7 +840,6 @@ def generate_pdf_summary(
                     break
             valid_samples = [s for s in samples
                              if any(f"{comp}_{s}{sfx}" in non_nir_set
-                                    and _z_has_data(f"{comp}_{s}{sfx}", z_src)
                                     for sfx in sfx_list)]
             if not valid_samples:
                 continue
