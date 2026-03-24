@@ -8,7 +8,7 @@ KST = timezone(timedelta(hours=9))
 from utils.sheets import get_all_data, BASE_FIELDS, submit_data
 from utils.config import (
     get_config, save_config, get_samples, get_component_groups,
-    get_nir_groups, get_all_value_columns, get_group_order,
+    get_all_value_columns, get_group_order,
     get_info_fields, get_method_options, get_questions,
     is_value_col, get_component_from_col, get_sample_from_col,
     get_col_suffix, get_base_col,
@@ -68,12 +68,12 @@ with st.spinner("데이터 불러오는 중..."):
         st.stop()
 
 # 값 컬럼 분류
-value_cols = [c for c in df.columns if c not in META_COLS and is_value_col(c, SAMPLES)]
-nir_cols   = [c for c in value_cols if c.startswith("NIR_")]
-main_cols  = [c for c in value_cols if not c.startswith("NIR_")]
+value_cols = [c for c in df.columns if c not in META_COLS and is_value_col(c, SAMPLES)
+              and not c.startswith("NIR_")]
+main_cols  = value_cols
 
 # 섹션/성분 설정 순서대로 정렬
-_ordered = [c for c in get_all_value_columns(cfg) if not c.startswith("NIR_")]
+_ordered = get_all_value_columns(cfg)
 _main_set = set(main_cols)
 main_cols = [c for c in _ordered if c in _main_set] + [c for c in main_cols if c not in set(_ordered)]
 
@@ -118,17 +118,11 @@ with tab2:
         GROUPS  = get_component_groups(cfg)
         all_comps = [item["name"] for items in GROUPS.values() for item in items]
 
-        def cols_for_comp(comp, include_nir=False):
-            prefix = "NIR_" if include_nir else ""
-            return [c for c in value_cols if get_component_from_col(c, SAMPLES) == comp
-                    and (c.startswith("NIR_") == include_nir)]
-
-        # 분석 소스 선택
-        src = st.radio("데이터 소스", ["일반 분석값", "NIR 측정값"], horizontal=True)
-        use_nir = src == "NIR 측정값"
+        def cols_for_comp(comp):
+            return [c for c in value_cols if get_component_from_col(c, SAMPLES) == comp]
 
         sel_comp = st.selectbox("성분 선택", all_comps)
-        comp_cols = cols_for_comp(sel_comp, include_nir=use_nir)
+        comp_cols = cols_for_comp(sel_comp)
 
         if not comp_cols:
             st.info("해당 성분의 데이터가 없습니다.")
@@ -180,31 +174,30 @@ with tab2:
                 use_container_width=True,
             )
 
-            # 방법별 Z-score (NIR 제외)
-            if not use_nir:
-                mc = f"{sel_comp}_방법"
-                if mc in df.columns:
-                    st.markdown(f"#### {sel_comp} — 방법별 Z-score")
-                    method_counts = df[mc].value_counts().reset_index()
-                    method_counts.columns = ["방법", "기관 수"]
-                    st.dataframe(method_counts, use_container_width=True)
+            # 방법별 Z-score
+            mc = f"{sel_comp}_방법"
+            if mc in df.columns:
+                st.markdown(f"#### {sel_comp} — 방법별 Z-score")
+                method_counts = df[mc].value_counts().reset_index()
+                method_counts.columns = ["방법", "기관 수"]
+                st.dataframe(method_counts, use_container_width=True)
 
-                    disp_m = pd.DataFrame({
-                        "기관명": df[inst_col].values if inst_col in df.columns else "",
-                        "방법":   df[mc].values,
-                    })
-                    zm_cols = []
-                    for col in comp_cols:
-                        s = get_sample_from_col(col, SAMPLES) or col
-                        zm = compute_zscores_by_method(df, col, mc)
-                        disp_m[f"{s}_Z방법별"] = zm.round(3).values
-                        zm_cols.append(f"{s}_Z방법별")
+                disp_m = pd.DataFrame({
+                    "기관명": df[inst_col].values if inst_col in df.columns else "",
+                    "방법":   df[mc].values,
+                })
+                zm_cols = []
+                for col in comp_cols:
+                    s = get_sample_from_col(col, SAMPLES) or col
+                    zm = compute_zscores_by_method(df, col, mc)
+                    disp_m[f"{s}_Z방법별"] = zm.round(3).values
+                    zm_cols.append(f"{s}_Z방법별")
 
-                    st.dataframe(
-                        disp_m.style.applymap(color_z, subset=zm_cols),
-                        use_container_width=True,
-                    )
-                    st.caption("방법별 Z-score: 동일 방법 사용 기관 3개 미만이면 N/A")
+                st.dataframe(
+                    disp_m.style.applymap(color_z, subset=zm_cols),
+                    use_container_width=True,
+                )
+                st.caption("방법별 Z-score: 동일 방법 사용 기관 3개 미만이면 N/A")
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -491,17 +484,14 @@ with tab4:
     if not group_df.empty:
         group_df["order"]   = pd.to_numeric(group_df["order"], errors="coerce").fillna(1).astype(int)
         group_df["enabled"] = group_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
-    group_df["NIR포함"] = group_df["samples"].astype(str).str.lower().str.contains("nir").fillna(False)
-
     edited_groups_ui = st.data_editor(
-        group_df[["name", "order", "enabled", "NIR포함"]],
+        group_df[["name", "order", "enabled"]],
         num_rows="dynamic",
         use_container_width=True,
         column_config={
             "name":    st.column_config.TextColumn("섹션명 *"),
             "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
             "enabled": st.column_config.CheckboxColumn("활성화"),
-            "NIR포함": st.column_config.CheckboxColumn("NIR 포함"),
         },
         key="edit_groups",
         hide_index=True,
@@ -518,7 +508,7 @@ with tab4:
     edited_groups = edited_groups_ui.copy()
     edited_groups["type"] = "group"
     edited_groups["group"] = ""
-    edited_groups["samples"] = edited_groups["NIR포함"].apply(lambda x: "nir" if x else "")
+    edited_groups["samples"] = ""
     edited_groups["use_equip"] = ""
     edited_groups["use_solvent"] = ""
     edited_groups["free_decimal"] = ""
@@ -876,9 +866,8 @@ with tab5:
             if not inst_name:
                 continue
             for sample in SAMPLES:
-                sample_cols     = [c for c in main_cols if c.endswith(f"_{sample}")]
-                nir_sample_cols = [c for c in nir_cols  if c.endswith(f"_{sample}")]
-                if not sample_cols and not nir_sample_cols:
+                sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
+                if not sample_cols:
                     continue
                 row_dict = {"year": int(save_year), "feed": sample, "institution": inst_name}
                 has_val = False
@@ -887,14 +876,6 @@ with tab5:
                     if comp:
                         val = pd.to_numeric(row.get(col, None), errors="coerce")
                         row_dict[comp] = round(float(val), 4) if not pd.isna(val) else None
-                        if not pd.isna(val):
-                            has_val = True
-                for col in nir_sample_cols:
-                    comp = get_component_from_col(col, SAMPLES)
-                    if comp:
-                        nir_key = f"{comp}(NIR)"
-                        val = pd.to_numeric(row.get(col, None), errors="coerce")
-                        row_dict[nir_key] = round(float(val), 4) if not pd.isna(val) else None
                         if not pd.isna(val):
                             has_val = True
                 if has_val:

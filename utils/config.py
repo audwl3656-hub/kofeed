@@ -38,9 +38,9 @@ _DEFAULT_ROWS = [
     ("sample", "", "축우사료",  "", 1, True, True, True, False, False),
     ("sample", "", "양계사료",  "", 2, True, True, True, False, False),
     ("sample", "", "고양이사료","", 3, True, True, True, False, False),
-    # 섹션(그룹) — samples 필드: "nir" = NIR 테이블에도 포함
-    ("group", "", "일반성분", "nir", 1, True, True, True, False, False),
-    ("group", "", "ADF/NDF",  "nir", 2, True, True, True, False, False),
+    # 섹션(그룹)
+    ("group", "", "일반성분", "", 1, True, True, True, False, False),
+    ("group", "", "ADF/NDF",  "", 2, True, True, True, False, False),
     ("group", "", "아미노산", "",    3, True, True, True, False, False),
     # 일반성분 (use_equip=True, use_solvent=True)
     ("component", "일반성분", "수분",    "all", 1, True, True, True, False, False),
@@ -339,28 +339,18 @@ def get_component_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
 
 
 def get_nir_groups(cfg: pd.DataFrame = None) -> dict[str, list[dict]]:
-    """NIR 측정 대상 그룹 (group 행의 nir 플래그 기준)"""
-    if cfg is None:
-        cfg = get_config()
-    group_order = get_group_order(cfg)
-    nir_group_names = {g["name"] for g in group_order if g["nir"] and g["enabled"]}
-    groups = get_component_groups(cfg)
-    return {g: items for g, items in groups.items() if g in nir_group_names}
+    """NIR 그룹 (사용 안 함 — 항상 빈 dict 반환)"""
+    return {}
 
 
 def get_all_value_columns(cfg: pd.DataFrame = None) -> list[str]:
     """제출 폼에서 생성되는 모든 값 컬럼명 목록"""
     groups = get_component_groups(cfg)
-    nir    = get_nir_groups(cfg)
     cols = []
     for items in groups.values():
         for item in items:
             for s in item["samples"]:
                 cols.append(f"{item['name']}_{s}")
-    for items in nir.values():
-        for item in items:
-            for s in item["samples"]:
-                cols.append(f"NIR_{item['name']}_{s}")
     return cols
 
 
