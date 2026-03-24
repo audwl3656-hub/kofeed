@@ -697,7 +697,7 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#000000")]),
+        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds
     for ri in whole_rows:
