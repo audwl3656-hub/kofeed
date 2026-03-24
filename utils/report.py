@@ -328,12 +328,12 @@ def _draw_summary_cover(canvas, doc, main_title: str, subtitle: str, date_str: s
     canvas.setFillColor(colors.black)
     if subtitle:
         canvas.setFont(KO, 22)
-        canvas.drawCentredString(w / 2, mid_y + 6 * mm, main_title)
+        canvas.drawCentredString(w / 2, mid_y + 10 * mm, main_title)
         canvas.setFont(KO, 15)
-        canvas.drawCentredString(w / 2, mid_y - 6 * mm, subtitle)
+        canvas.drawCentredString(w / 2, mid_y + 4 * mm, subtitle)
     else:
         canvas.setFont(KO, 22)
-        canvas.drawCentredString(w / 2, mid_y - 2 * mm, main_title)
+        canvas.drawCentredString(w / 2, mid_y + 8 * mm, main_title)
 
     # Date (blue, below bottom bar)
     canvas.setFont(KO, 13)
@@ -421,7 +421,7 @@ def generate_pdf_summary(
     pw, ph = A4
     fw, fh = pw - lm - rm, ph - tm - bm
 
-    cover_title = "회원사 비교분석 결과"
+    cover_title = "한국사료협회 비교분석 결과"
 
     def _cover_bg(canvas, doc):
         _draw_summary_cover(canvas, doc, cover_title, subtitle, date_display, org_name)
