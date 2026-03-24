@@ -959,7 +959,13 @@ def generate_submission_pdf(
                 if s not in grp_samples:
                     grp_samples.append(s)
 
-        header = ["성분", "방법", "기기명", "용매"] + grp_samples
+        _cell_sty = ParagraphStyle("sub_cell", fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER)
+        _cell_hdr = ParagraphStyle("sub_hdr",  fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER,
+                                   textColor=colors.white)
+        def _pc(txt, hdr=False):
+            return Paragraph(str(txt), _cell_hdr if hdr else _cell_sty)
+
+        header = [_pc(c, hdr=True) for c in ["성분", "방법", "기기명", "용매"] + grp_samples]
         tbl_rows = [header]
         for item in items:
             comp = item["name"]
@@ -979,7 +985,8 @@ def generate_submission_pdf(
                 # 제출값이 하나도 없는 행은 제외
                 if all(v == "" for v in vals):
                     continue
-                tbl_rows.append([comp, method, equip, solvent] + vals)
+                tbl_rows.append([_pc(comp), _pc(method), _pc(equip), _pc(solvent)]
+                                 + [_pc(v) for v in vals])
 
         if len(tbl_rows) <= 1:  # 헤더만 있으면 제출 데이터 없는 그룹 → 제외
             continue
@@ -991,9 +998,7 @@ def generate_submission_pdf(
         t = Table(tbl_rows, colWidths=fixed_w + sample_w, repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
-            ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
             ("FONTNAME",      (0, 0), (-1, -1), KO),
-            ("FONTSIZE",      (0, 0), (-1, -1), 10),
             ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
