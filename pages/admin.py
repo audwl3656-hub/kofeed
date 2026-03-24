@@ -265,11 +265,20 @@ with tab3:
 
         # ── 전체 요약 보고서
         st.markdown("#### 전체 요약 보고서")
+        _col1, _col2 = st.columns(2)
+        with _col1:
+            _rpt_subtitle = st.text_input("보고서 부제 (예: 2025년 2차)", value="", key="rpt_subtitle",
+                                          placeholder="예: 2025년 2차")
+        with _col2:
+            _rpt_period   = st.text_input("시험 기간 (예: 2025년 10월 ~ 11월)", value="", key="rpt_period",
+                                          placeholder="예: 2025년 10월 ~ 11월")
         summary_pdf = generate_pdf_summary(
             df=df, z_all=z_all, z_method=z_method,
             group_stats=group_stats, value_cols=main_cols,
             inst_field=inst_field, generated_at=generated_at, samples=SAMPLES,
             participant_map=get_participant_map(cfg),
+            subtitle=_rpt_subtitle,
+            period=_rpt_period,
         )
         st.download_button(
             "전체 요약 PDF 다운로드",
