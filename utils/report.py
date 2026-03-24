@@ -622,19 +622,27 @@ def generate_pdf_summary(
     whole_rows: set = set()
 
     for comp in seen_comps:
-        method_col = f"{comp}_방법"
-        methods: list = []
-        if method_col in df.columns:
-            methods = sorted(m for m in df[method_col].dropna().astype(str).unique() if m.strip())
+        # suffix 별 (방법 컬럼, 값 컬럼 suffix) 수집: "_방법", "_방법_2", "_방법_3" ...
+        method_entries = []  # (mc, sfx, method_name)
+        for n in range(1, 10):
+            sfx = "" if n == 1 else f"_{n}"
+            mc  = f"{comp}_방법{sfx}"
+            if mc not in df.columns:
+                if n > 1:
+                    break
+                continue
+            for m in df[mc].dropna().astype(str).unique():
+                if m.strip():
+                    method_entries.append((mc, sfx, m.strip()))
 
         comp_rows_data = []
-        for meth in methods:
+        for mc, sfx, meth in method_entries:
             row = [_p(""), _p(meth)]
             for s in valid_stat_samples:
-                col = f"{comp}_{s}"
+                col = f"{comp}_{s}{sfx}"
                 if col not in df.columns:
                     row += [_p("")]*n_col; continue
-                mask = (df[method_col].astype(str) == meth)
+                mask = (df[mc].fillna("").astype(str).str.strip() == meth)
                 vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
                 if len(vals) == 0:
                     row += [_p("")]*n_col; continue
@@ -646,14 +654,20 @@ def generate_pdf_summary(
                         _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
             comp_rows_data.append(row)
 
+        # 전체 행: 모든 suffix 컬럼 값을 풀링
         whole_row = [_p(""), _p(f"{comp} 전체")]
         for s in valid_stat_samples:
-            col = f"{comp}_{s}"
-            if col not in df.columns:
+            all_vals: list = []
+            for n in range(1, 10):
+                sfx = "" if n == 1 else f"_{n}"
+                col = f"{comp}_{s}{sfx}"
+                if col not in df.columns:
+                    if n > 1: break
+                    continue
+                all_vals.extend(pd.to_numeric(df[col], errors="coerce").dropna().tolist())
+            if not all_vals:
                 whole_row += [_p("")]*n_col; continue
-            vals = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(vals) == 0:
-                whole_row += [_p("")]*n_col; continue
+            vals = pd.Series(all_vals)
             mean_ = vals.mean()
             std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
             cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
