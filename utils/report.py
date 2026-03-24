@@ -14,7 +14,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.graphics.shapes import Drawing, Rect, Line
+from reportlab.graphics.shapes import Drawing, Rect, Line, Group
 from reportlab.graphics.shapes import String as GStr
 
 from utils.config import get_component_from_col, get_sample_from_col
@@ -688,12 +688,13 @@ def generate_pdf_summary(
         for s in valid_stat_samples:
             col = f"{comp}_{s}"
             sd = group_stats.get(col, {})
+            if not sd:
+                continue
             try:
-                cv_f = float(sd.get("cv", ""))
-                if not np.isnan(cv_f):
-                    cv_data.setdefault(comp, {})[s] = cv_f
+                cv_f = float(sd.get("cv", float("nan")))
             except Exception:
-                pass
+                cv_f = float("nan")
+            cv_data.setdefault(comp, {})[s] = cv_f
 
     if cv_data:
         _PALETTE_CV = ["#2563eb","#d97706","#16a34a","#dc2626","#7c3aed","#0891b2","#be185d"]
@@ -703,33 +704,34 @@ def generate_pdf_summary(
         feed_color = {s: _PALETTE_CV[i % len(_PALETTE_CV)] for i, s in enumerate(feeds_with_data)}
 
         chart_w_cv = avail_mm * mm
-        ml_cv, mr_cv, mt_cv, mb_cv = 62, 8, 10, 22   # pt margins
+        ml_cv, mr_cv, mt_cv, mb_cv = 28, 10, 12, 52   # pt margins (mb large for rotated labels)
         plot_w_cv = chart_w_cv - ml_cv - mr_cv
+        plot_h_cv = 110  # fixed plot height (pt)
 
-        all_cv_vals = [v for d in cv_data.values() for v in d.values()]
+        all_cv_vals = [v for d in cv_data.values() for v in d.values()
+                       if not (isinstance(v, float) and np.isnan(v))]
         max_cv_val  = max(all_cv_vals) * 1.15 if all_cv_vals else 10.0
         max_cv_val  = max(max_cv_val, 5.0)
 
         n_comps_cv = len(comps_with_data)
         n_feeds_cv = len(feeds_with_data)
-        bar_h_cv   = 6.5    # pt per single feed bar
-        group_h_cv = bar_h_cv * n_feeds_cv + 4   # pt per component group
-        plot_h_cv  = group_h_cv * n_comps_cv + 2
+        group_w    = plot_w_cv / max(n_comps_cv, 1)
+        bar_w_cv   = (group_w - 3) / max(n_feeds_cv, 1)  # 3pt gap between groups
 
         total_h_cv = mt_cv + plot_h_cv + mb_cv
         d_cv = Drawing(chart_w_cv, total_h_cv)
         base_x = ml_cv
         base_y = mb_cv
 
-        # X 눈금선 + 레이블
+        # Y 눈금선 + 레이블 (가로 그리드)
         n_ticks_cv = 5
         for ti in range(n_ticks_cv + 1):
             tv = max_cv_val * ti / n_ticks_cv
-            tx = base_x + (tv / max_cv_val) * plot_w_cv
-            d_cv.add(Line(tx, base_y, tx, base_y + plot_h_cv,
+            ty = base_y + (tv / max_cv_val) * plot_h_cv
+            d_cv.add(Line(base_x, ty, base_x + plot_w_cv, ty,
                           strokeColor=colors.HexColor("#e5e7eb"), strokeWidth=0.4))
-            d_cv.add(GStr(tx, base_y - 10, f"{tv:.0f}",
-                          fontSize=5.5, fontName=KO, textAnchor="middle",
+            d_cv.add(GStr(base_x - 3, ty - 2.5, f"{tv:.0f}",
+                          fontSize=5.5, fontName=KO, textAnchor="end",
                           fillColor=colors.HexColor("#666666")))
 
         # 축선
@@ -738,33 +740,39 @@ def generate_pdf_summary(
         d_cv.add(Line(base_x, base_y, base_x + plot_w_cv, base_y,
                       strokeColor=colors.HexColor("#999"), strokeWidth=0.7))
 
-        # 막대 + Y축 레이블 (성분명)
+        # 세로 막대 + X축 레이블 (성분명, -45도 회전)
+        import math
+        _cos, _sin = math.cos(math.radians(-45)), math.sin(math.radians(-45))
         for ci, comp in enumerate(comps_with_data):
-            gy = base_y + ci * group_h_cv + 2
+            gx = base_x + ci * group_w + 1.5  # 1.5pt left padding within group
             for fi, feed in enumerate(feeds_with_data):
                 cv_val = cv_data.get(comp, {}).get(feed)
-                if cv_val is None:
+                if cv_val is None or (isinstance(cv_val, float) and np.isnan(cv_val)):
                     continue
-                bw = (cv_val / max_cv_val) * plot_w_cv
-                by2 = gy + fi * bar_h_cv
-                d_cv.add(Rect(base_x, by2, bw, bar_h_cv - 0.8,
+                bx = gx + fi * bar_w_cv
+                bh = (cv_val / max_cv_val) * plot_h_cv
+                d_cv.add(Rect(bx, base_y, max(bar_w_cv - 0.8, 1), bh,
                               fillColor=colors.HexColor(feed_color[feed]),
                               strokeColor=None))
+            # -45도 회전 레이블
             label = comp if len(comp) <= 9 else comp[:8] + "…"
-            mid_g = base_y + ci * group_h_cv + group_h_cv / 2 - 2
-            d_cv.add(GStr(ml_cv - 3, mid_g, label, fontSize=5.5, fontName=KO,
-                          textAnchor="end", fillColor=colors.black))
+            lx = base_x + ci * group_w + group_w / 2
+            ly = base_y - 4
+            g = Group()
+            g.transform = (_cos, _sin, -_sin, _cos, lx, ly)
+            g.add(GStr(0, 0, label, fontSize=5.5, fontName=KO,
+                       textAnchor="end", fillColor=colors.black))
+            d_cv.add(g)
 
-        # 범례 (차트 내부 우상단)
-        legend_box_w = 65
-        legend_x = base_x + plot_w_cv - legend_box_w - 2
-        legend_y  = base_y + plot_h_cv - 4
+        # 범례 (차트 우상단)
+        legend_x = base_x + plot_w_cv - 2
+        legend_y  = base_y + plot_h_cv + mt_cv - 6
         for fi, feed in enumerate(feeds_with_data):
-            ly = legend_y - fi * 11
-            d_cv.add(Rect(legend_x, ly, 8, 6,
+            ly = legend_y - fi * 10
+            d_cv.add(Rect(legend_x - 70, ly, 7, 5.5,
                           fillColor=colors.HexColor(feed_color[feed]),
                           strokeColor=None))
-            d_cv.add(GStr(legend_x + 10, ly + 1, feed, fontSize=6.5, fontName=KO,
+            d_cv.add(GStr(legend_x - 62, ly + 0.5, feed, fontSize=6, fontName=KO,
                           textAnchor="start", fillColor=colors.black))
 
         elements.append(d_cv)
@@ -777,7 +785,10 @@ def generate_pdf_summary(
             row_cv = [feed]
             for comp in comps_with_data:
                 cv_val = cv_data.get(comp, {}).get(feed)
-                row_cv.append(f"{cv_val:.2f}" if cv_val is not None else "")
+                if cv_val is not None and not (isinstance(cv_val, float) and np.isnan(cv_val)):
+                    row_cv.append(f"{cv_val:.2f}")
+                else:
+                    row_cv.append("")
             tbl_rows_cv.append(row_cv)
         n_cols_cv  = len(tbl_hdr)
         feed_col_w = 30 * mm
