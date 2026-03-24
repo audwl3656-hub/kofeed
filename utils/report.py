@@ -499,7 +499,7 @@ def generate_pdf_summary(
         ])
     ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
     ov_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#2c3e50")),
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#97c6f5")),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 8),
@@ -534,7 +534,7 @@ def generate_pdf_summary(
     ], colWidths=[55*mm, 100*mm, 25*mm])
     f_tbl.setStyle(TableStyle([
         ("FONTNAME",      (0,0), (-1,-1), KO),
-        ("FONTSIZE",      (0,0), (-1,-1), 8.5),
+        ("FONTSIZE",      (0,0), (-1,-1), 11),
         ("ALIGN",         (0,0), (-1,-1), "CENTER"),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ("LINEBELOW",     (1,0), (1,0),   0.8, colors.black),  # 분수선
