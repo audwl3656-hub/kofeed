@@ -295,60 +295,55 @@ class _SummaryDoc(BaseDocTemplate):
 
 
 def _draw_summary_cover(canvas, doc, main_title: str, subtitle: str, date_str: str, org_str: str):
-    """Cover page drawing: colored bars + title box + date/org."""
+    """Cover page: blue(75%) + green(25%) side-by-side bars top & bottom, title between."""
     w, h = A4
     canvas.saveState()
 
-    # White background
     canvas.setFillColorRGB(1, 1, 1)
     canvas.rect(0, 0, w, h, fill=1, stroke=0)
 
-    # Box dimensions (centered)
-    bx = 55 * mm
-    bw = w - 110 * mm
-    by = h * 0.42
-    bh = 65 * mm
+    # Title area dimensions
+    bx   = 40 * mm
+    bw   = w - 80 * mm
+    bar_h = 8 * mm
+    title_h = 45 * mm          # height between top/bottom bar pairs
+    box_top = h * 0.60         # top of top-bar
+    box_mid_top = box_top - bar_h
+    box_mid_bot = box_mid_top - title_h
 
-    # Blue bar at top
-    canvas.setFillColor(colors.HexColor("#1e3a8a"))
-    canvas.rect(bx, by + bh - 9 * mm, bw, 9 * mm, fill=1, stroke=0)
+    blue_w  = bw * 0.75
+    green_w = bw * 0.25
 
-    # Orange stripe
-    canvas.setFillColor(colors.HexColor("#d97706"))
-    canvas.rect(bx, by + bh - 12 * mm, bw, 3 * mm, fill=1, stroke=0)
+    def _draw_bar_pair(y):
+        canvas.setFillColor(colors.HexColor("#4472C4"))
+        canvas.rect(bx, y, blue_w, bar_h, fill=1, stroke=0)
+        canvas.setFillColor(colors.HexColor("#70AD47"))
+        canvas.rect(bx + blue_w, y, green_w, bar_h, fill=1, stroke=0)
 
-    # Green stripe
-    canvas.setFillColor(colors.HexColor("#16a34a"))
-    canvas.rect(bx, by + bh - 14 * mm, bw, 2 * mm, fill=1, stroke=0)
+    _draw_bar_pair(box_mid_top)   # 위쪽 막대 쌍
+    _draw_bar_pair(box_mid_bot)   # 아래쪽 막대 쌍
 
-    # Title text area with red dashed border
-    ta_y = by
-    ta_h = bh - 14 * mm
-    canvas.setDash(4, 3)
-    canvas.setStrokeColor(colors.HexColor("#ef4444"))
-    canvas.setLineWidth(1.2)
-    canvas.rect(bx, ta_y, bw, ta_h, fill=0, stroke=1)
-    canvas.setDash()
-
-    mid_y = ta_y + ta_h / 2
+    # Title text (between bars)
+    mid_y = box_mid_bot + title_h / 2
     canvas.setFillColor(colors.black)
-    canvas.setFont(KO, 22)
     if subtitle:
-        canvas.drawCentredString(w / 2, mid_y + 7 * mm, main_title)
+        canvas.setFont(KO, 22)
+        canvas.drawCentredString(w / 2, mid_y + 6 * mm, main_title)
         canvas.setFont(KO, 15)
-        canvas.drawCentredString(w / 2, mid_y - 5 * mm, subtitle)
+        canvas.drawCentredString(w / 2, mid_y - 6 * mm, subtitle)
     else:
+        canvas.setFont(KO, 22)
         canvas.drawCentredString(w / 2, mid_y - 2 * mm, main_title)
 
-    # Date (blue)
+    # Date (blue, below bottom bar)
     canvas.setFont(KO, 13)
     canvas.setFillColor(colors.HexColor("#2563eb"))
-    canvas.drawCentredString(w / 2, by - 20 * mm, date_str)
+    canvas.drawCentredString(w / 2, box_mid_bot - 22 * mm, date_str)
 
     # Organization
     canvas.setFont(KO, 13)
     canvas.setFillColor(colors.black)
-    canvas.drawCentredString(w / 2, by - 34 * mm, org_str)
+    canvas.drawCentredString(w / 2, box_mid_bot - 36 * mm, org_str)
 
     canvas.restoreState()
 
@@ -365,7 +360,10 @@ def generate_pdf_summary(
     participant_map: dict = None,
     subtitle: str = "",
     org_name: str = "한국사료협회 사료기술연구소",
-    period: str = "",
+    period_배부: str = "",
+    period_회신: str = "",
+    period_보고서: str = "",
+    sample_note: str = "",
 ) -> bytes:
     """전체 요약 보고서: 표지 + 목차 + 개요 + 통계요약 + CV차트 + Z-score 표."""
     import pandas as pd
@@ -393,11 +391,8 @@ def generate_pdf_summary(
     try:
         _dt = datetime.strptime(generated_at[:10], "%Y-%m-%d")
         date_display = _dt.strftime("%Y.  %m.  %d.")
-        _year = _dt.year
-        _half = "상반기" if _dt.month <= 6 else "하반기"
     except Exception:
         date_display = generated_at[:10] if generated_at else ""
-        _year, _half = datetime.now().year, ""
 
     # ── 데이터 준비 ──
     avail_mm = 180
@@ -474,29 +469,105 @@ def generate_pdf_summary(
     # ─── 1. 비교분석 개요 ───
     elements.append(Paragraph("1. 비교분석 개요", h1_style))
 
-    _period_str = period or f"{_year}년"
+    # 가. 기간
     elements.append(Paragraph("가. 기간", h2_style))
-    elements.append(Paragraph(f"비교분석 시험 기간: {_period_str}", info_style))
-    elements.append(Spacer(1, 2*mm))
+    elements.append(Paragraph(f"1) 시료 배부 : {period_배부}", info_style))
+    elements.append(Paragraph(f"2) 분석 및 결과회신 : {period_회신}", info_style))
+    elements.append(Paragraph(f"3) 결과 통계처리 및 보고서 작성 : {period_보고서}", info_style))
+    elements.append(Spacer(1, 3*mm))
 
-    elements.append(Paragraph("나. 사료 및 분석항목", h2_style))
-    elements.append(Paragraph(f"대상 사료: {', '.join(samples)}", info_style))
-    elements.append(Paragraph(f"분석 항목 ({len(seen_comps)}종): {', '.join(seen_comps)}", info_style))
-    elements.append(Spacer(1, 2*mm))
+    # 나. 시료 및 분석항목 (표 형식)
+    elements.append(Paragraph("나. 시료 및 분석항목", h2_style))
+    # 사료별 성분 매핑
+    sample_to_comps: dict = {}
+    for comp in seen_comps:
+        for col in comp_to_cols.get(comp, []):
+            s = get_sample_from_col(col, samples)
+            if s and s in samples:
+                sample_to_comps.setdefault(s, [])
+                if comp not in sample_to_comps[s]:
+                    sample_to_comps[s].append(comp)
+    cell_ov = ParagraphStyle("cov", fontName=KO, fontSize=8, leading=11)
+    ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분석항목</b>", cell_ov)]]
+    for i, s in enumerate(samples):
+        comps_s = sample_to_comps.get(s, [])
+        if not comps_s:
+            continue
+        ov_rows.append([
+            Paragraph(f"{s}(샘플{i+1})", cell_ov),
+            Paragraph(", ".join(comps_s), cell_ov),
+        ])
+    ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
+    ov_tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#2c3e50")),
+        ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+        ("FONTNAME",      (0, 0), (-1, -1), KO),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("TOPPADDING",    (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+    ]))
+    elements.append(ov_tbl)
+    if sample_note:
+        elements.append(Paragraph(f"* {sample_note}", note_style))
+    elements.append(Spacer(1, 3*mm))
 
+    # 다. 통계처리방법
     elements.append(Paragraph("다. 통계처리방법", h2_style))
     elements.append(Paragraph(
-        "이상치에 강건한 Robust Z-score (로버스트 Z-점수) 방법을 적용하였습니다.", info_style))
+        "1) 평균(x̄), 표준편차(σ), 변이계수(CV) 등을 산출함.", info_style))
     elements.append(Paragraph(
-        "Z = (제출값 − 중앙값) / (1.4826 × MAD),  MAD = 중앙절대편차", note_style))
-    elements.append(Paragraph(
-        "|Z| ≤ 2.0: 적합  |  2.0 < |Z| ≤ 3.0: 경고  |  |Z| > 3.0: 부적합", note_style))
+        "2) 시험소 간 비교숙련도 시험용 Robust Z-score, Outlier : KS Q ISO 13528(통계적방법)에 따라 다음과 같이 계산하여 해석함.",
+        info_style))
     elements.append(Spacer(1, 2*mm))
+    # 수식 표 (분수 형태)
+    formula_cell = ParagraphStyle("fc", fontName=KO, fontSize=8.5, alignment=TA_CENTER, leading=12)
+    f_tbl = Table([
+        [Paragraph("Robust Z-score  =", formula_cell),
+         Paragraph("결과값(Result) − 중위수(Median)", formula_cell),
+         Paragraph("", formula_cell)],
+        [Paragraph("", formula_cell),
+         Paragraph("정규화된 사분위범위(Normalized IQR)", formula_cell),
+         Paragraph("", formula_cell)],
+    ], colWidths=[55*mm, 100*mm, 25*mm])
+    f_tbl.setStyle(TableStyle([
+        ("FONTNAME",      (0,0), (-1,-1), KO),
+        ("FONTSIZE",      (0,0), (-1,-1), 8.5),
+        ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("LINEBELOW",     (1,0), (1,0),   0.8, colors.black),  # 분수선
+        ("SPAN",          (0,0), (0,1)),  # "Robust Z-score =" 세로 병합
+        ("TOPPADDING",    (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+    ]))
+    elements.append(f_tbl)
+    elements.append(Spacer(1, 2*mm))
+    elements.append(Paragraph("- Median : 결과를 크기순으로 나열했을 때 중간값", note_style))
+    elements.append(Paragraph("- Normalized IQR : 제3사분위수(Q3)에서 제1사분위수(Q1)를 뺀 값 × 0.7413", note_style))
+    elements.append(Spacer(1, 2*mm))
+    crit_data = [
+        ["|Z| ≤ 2", ": 만족(Satisfactory)"],
+        ["2 < |Z| < 3", ": 의심(Doubt)"],
+        ["3 ≤ |Z|", ": 불만족(Outlier)"],
+    ]
+    crit_tbl = Table(crit_data, colWidths=[35*mm, 60*mm], hAlign="CENTER")
+    crit_tbl.setStyle(TableStyle([
+        ("FONTNAME",  (0,0), (-1,-1), KO),
+        ("FONTSIZE",  (0,0), (-1,-1), 8.5),
+        ("ALIGN",     (0,0), (-1,-1), "CENTER"),
+        ("TOPPADDING",(0,0), (-1,-1), 1),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 1),
+    ]))
+    elements.append(crit_tbl)
+    elements.append(Spacer(1, 3*mm))
 
-    elements.append(Paragraph("라. 참가회사", h2_style))
+    # 라. 참가회원사 (실제 기관명 사용)
+    elements.append(Paragraph("라. 참가회원사", h2_style))
     elements.append(Paragraph(f"참가 기관 수: {len(df)}개", info_style))
-    _inst_list = sorted(set(inst_names))
-    elements.append(Paragraph(f"참가 기관: {', '.join(_inst_list)}", info_style))
+    _inst_real = sorted(set(raw_inst_names))
+    elements.append(Paragraph(", ".join(_inst_real), info_style))
     elements.append(PageBreak())
 
     # ─── 2. 비교분석 결과 ───

@@ -265,20 +265,22 @@ with tab3:
 
         # ── 전체 요약 보고서
         st.markdown("#### 전체 요약 보고서")
-        _col1, _col2 = st.columns(2)
-        with _col1:
-            _rpt_subtitle = st.text_input("보고서 부제 (예: 2025년 2차)", value="", key="rpt_subtitle",
-                                          placeholder="예: 2025년 2차")
-        with _col2:
-            _rpt_period   = st.text_input("시험 기간 (예: 2025년 10월 ~ 11월)", value="", key="rpt_period",
-                                          placeholder="예: 2025년 10월 ~ 11월")
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            _rpt_subtitle = st.text_input("보고서 부제", placeholder="예: 2025년 2차", key="rpt_subtitle")
+            _rpt_p1 = st.text_input("① 시료 배부 기간", placeholder="예: 2025년 10월 7일 ~ 10월 10일", key="rpt_p1")
+        with _c2:
+            _rpt_p2 = st.text_input("② 분석 및 결과회신 기간", placeholder="예: 2025년 10월 10일 ~ 10월 31일", key="rpt_p2")
+            _rpt_p3 = st.text_input("③ 결과처리 및 보고서 작성 기간", placeholder="예: 2025년 11월 1일 ~ 11월 6일", key="rpt_p3")
+        _rpt_note = st.text_input("시료 주석 (선택)", placeholder="예: 시료분쇄 : 1.0 mm 입자", key="rpt_note")
         summary_pdf = generate_pdf_summary(
             df=df, z_all=z_all, z_method=z_method,
             group_stats=group_stats, value_cols=main_cols,
             inst_field=inst_field, generated_at=generated_at, samples=SAMPLES,
             participant_map=get_participant_map(cfg),
             subtitle=_rpt_subtitle,
-            period=_rpt_period,
+            period_배부=_rpt_p1, period_회신=_rpt_p2, period_보고서=_rpt_p3,
+            sample_note=_rpt_note,
         )
         st.download_button(
             "전체 요약 PDF 다운로드",
