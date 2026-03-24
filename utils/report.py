@@ -6,9 +6,10 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, BaseDocTemplate, PageTemplate, Frame,
-    TableOfContents, NextPageTemplate, PageBreak,
+    NextPageTemplate, PageBreak,
     Table, TableStyle, Paragraph, Spacer, HRFlowable,
 )
+from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
