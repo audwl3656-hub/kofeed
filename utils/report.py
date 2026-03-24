@@ -976,9 +976,13 @@ def generate_submission_pdf(
                 equip   = str(row.get(f"{comp}_기기{sfx}",  "") or "")
                 solvent = str(row.get(f"{comp}_용매{sfx}",  "") or "")
                 vals    = [_fmt(row.get(f"{comp}_{s}{sfx}")) for s in grp_samples]
-                comp_label = comp if sfx == "" else f"  ↳ {comp}"
-                tbl_rows.append([comp_label, method, equip, solvent] + vals)
+                # 제출값이 하나도 없는 행은 제외
+                if all(v == "" for v in vals):
+                    continue
+                tbl_rows.append([comp, method, equip, solvent] + vals)
 
+        if len(tbl_rows) <= 1:  # 헤더만 있으면 제출 데이터 없는 그룹 → 제외
+            continue
         elements.append(Paragraph(group_name, sec_sty))
 
         fixed_w    = [28*mm, 28*mm, 25*mm, 20*mm]
