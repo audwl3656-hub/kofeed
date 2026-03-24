@@ -36,7 +36,7 @@ def _make_table_style() -> TableStyle:
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
         ("FONTNAME",   (0, 0), (-1, -1), KO),
-        ("FONTSIZE",   (0, 0), (-1, -1), 8),
+        ("FONTSIZE",   (0, 0), (-1, -1), 10),
         ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
@@ -59,7 +59,7 @@ def _build_sample_section(
 ) -> list:
     elements = []
     section_style = ParagraphStyle(
-        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3, spaceBefore=6,
+        "sec", parent=styles["Heading2"], fontSize=13, spaceAfter=3, spaceBefore=6,
         fontName=KO,
     )
     elements.append(Paragraph(sample_name, section_style))
@@ -71,7 +71,7 @@ def _build_sample_section(
         except Exception:
             return "-"
 
-    z_cell_style = ParagraphStyle("zcell", fontName=KO, fontSize=8, alignment=TA_CENTER)
+    z_cell_style = ParagraphStyle("zcell", fontName=KO, fontSize=10, alignment=TA_CENTER)
 
     if report_type == "overall":
         header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
@@ -159,12 +159,12 @@ def _generate_zscore_pdf(
     )
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        "title2", parent=styles["Title"], fontSize=16, spaceAfter=4,
+        "title2", parent=styles["Title"], fontSize=18, spaceAfter=4,
         alignment=TA_CENTER, fontName=KO,
     )
-    info_style = ParagraphStyle("info2", parent=styles["Normal"], fontSize=10,
+    info_style = ParagraphStyle("info2", parent=styles["Normal"], fontSize=12,
                                 spaceAfter=2, fontName=KO)
-    note_style = ParagraphStyle("note2", parent=styles["Normal"], fontSize=8,
+    note_style = ParagraphStyle("note2", parent=styles["Normal"], fontSize=10,
                                 textColor=colors.grey, leftIndent=4, fontName=KO)
 
     elements = []
@@ -373,12 +373,12 @@ def generate_pdf_summary(
     styles = getSampleStyleSheet()
 
     # ── 스타일 ──
-    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=13, spaceBefore=10, spaceAfter=4,  leading=16, keepWithNext=1)
-    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=11, spaceBefore=6,  spaceAfter=3,  leading=14, keepWithNext=1)
-    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=9,  spaceBefore=4,  spaceAfter=2,  leading=12, keepWithNext=1, leftIndent=6)
-    info_style = ParagraphStyle("is",    fontName=KO, fontSize=9,  spaceAfter=2,   leading=13)
-    comp_style = ParagraphStyle("cs",    fontName=KO, fontSize=9,  spaceAfter=2,   spaceBefore=4, leading=12)
-    note_style = ParagraphStyle("ns",    fontName=KO, fontSize=7,  spaceAfter=1,   textColor=colors.grey, leftIndent=4)
+    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=15, spaceBefore=10, spaceAfter=4,  leading=18, keepWithNext=1)
+    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=13, spaceBefore=6,  spaceAfter=3,  leading=16, keepWithNext=1)
+    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=11, spaceBefore=4,  spaceAfter=2,  leading=14, keepWithNext=1, leftIndent=6)
+    info_style = ParagraphStyle("is",    fontName=KO, fontSize=11, spaceAfter=2,   leading=15)
+    comp_style = ParagraphStyle("cs",    fontName=KO, fontSize=11, spaceAfter=2,   spaceBefore=4, leading=14)
+    note_style = ParagraphStyle("ns",    fontName=KO, fontSize=9,  spaceAfter=1,   textColor=colors.grey, leftIndent=4)
 
     def fmt(v, d=2):
         try:
@@ -452,13 +452,13 @@ def generate_pdf_summary(
     elements.append(PageBreak())
 
     # ─── 목차 ───
-    toc_title_sty = ParagraphStyle("toc_title", fontName=KO, fontSize=16,
+    toc_title_sty = ParagraphStyle("toc_title", fontName=KO, fontSize=18,
                                     alignment=TA_CENTER, spaceAfter=14)
     toc = TableOfContents()
     toc.levelStyles = [
-        ParagraphStyle('TOCLv1', fontName=KO, fontSize=11, leftIndent=0,  spaceAfter=3, leading=14),
-        ParagraphStyle('TOCLv2', fontName=KO, fontSize=10, leftIndent=14, spaceAfter=2, leading=13),
-        ParagraphStyle('TOCLv3', fontName=KO, fontSize=9,  leftIndent=28, spaceAfter=1, leading=12),
+        ParagraphStyle('TOCLv1', fontName=KO, fontSize=13, leftIndent=0,  spaceAfter=3, leading=16),
+        ParagraphStyle('TOCLv2', fontName=KO, fontSize=12, leftIndent=14, spaceAfter=2, leading=15),
+        ParagraphStyle('TOCLv3', fontName=KO, fontSize=11, leftIndent=28, spaceAfter=1, leading=14),
     ]
     toc.dotsMinLevel = 0
     elements.append(Paragraph("[ 목  차 ]", toc_title_sty))
@@ -487,7 +487,7 @@ def generate_pdf_summary(
                 sample_to_comps.setdefault(s, [])
                 if comp not in sample_to_comps[s]:
                     sample_to_comps[s].append(comp)
-    cell_ov = ParagraphStyle("cov", fontName=KO, fontSize=8, leading=11)
+    cell_ov = ParagraphStyle("cov", fontName=KO, fontSize=10, leading=13)
     ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분석항목</b>", cell_ov)]]
     for i, s in enumerate(samples):
         comps_s = sample_to_comps.get(s, [])
@@ -502,7 +502,7 @@ def generate_pdf_summary(
         ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#97c6f5")),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("FONTSIZE",      (0, 0), (-1, -1), 10),
         ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#ffffff")),
         ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#ffffff")]),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
@@ -523,7 +523,7 @@ def generate_pdf_summary(
         info_style))
     elements.append(Spacer(1, 2*mm))
     # 수식 표 (분수 형태)
-    formula_cell = ParagraphStyle("fc", fontName=KO, fontSize=8.5, alignment=TA_CENTER, leading=12)
+    formula_cell = ParagraphStyle("fc", fontName=KO, fontSize=10.5, alignment=TA_CENTER, leading=14)
     f_tbl = Table([
         [Paragraph("Robust Z-score  =", formula_cell),
          Paragraph("결과값(Result) − 중위수(Median)", formula_cell),
@@ -534,7 +534,7 @@ def generate_pdf_summary(
     ], colWidths=[55*mm, 100*mm, 25*mm])
     f_tbl.setStyle(TableStyle([
         ("FONTNAME",      (0,0), (-1,-1), KO),
-        ("FONTSIZE",      (0,0), (-1,-1), 11),
+        ("FONTSIZE",      (0,0), (-1,-1), 13),
         ("ALIGN",         (0,0), (-1,-1), "CENTER"),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ("LINEBELOW",     (1,0), (1,0),   0.8, colors.black),  # 분수선
@@ -555,7 +555,7 @@ def generate_pdf_summary(
     crit_tbl = Table(crit_data, colWidths=[35*mm, 60*mm], hAlign="CENTER")
     crit_tbl.setStyle(TableStyle([
         ("FONTNAME",  (0,0), (-1,-1), KO),
-        ("FONTSIZE",  (0,0), (-1,-1), 8.5),
+        ("FONTSIZE",  (0,0), (-1,-1), 10.5),
         ("ALIGN",     (0,0), (-1,-1), "CENTER"),
         ("TOPPADDING",(0,0), (-1,-1), 1),
         ("BOTTOMPADDING",(0,0), (-1,-1), 1),
@@ -586,7 +586,7 @@ def generate_pdf_summary(
     cw_stat = ([comp_w_stat*mm, method_w_stat*mm]
                + [sub_w*mm] * n_col * len(valid_stat_samples))
 
-    cell_s = ParagraphStyle("csp", fontName=KO, fontSize=7, leading=9, alignment=TA_CENTER)
+    cell_s = ParagraphStyle("csp", fontName=KO, fontSize=9, leading=11, alignment=TA_CENTER)
     def _p(txt):
         return Paragraph(str(txt), cell_s)
 
@@ -662,7 +662,7 @@ def generate_pdf_summary(
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#2c3e50")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 7),
+        ("FONTSIZE",      (0, 0), (-1, -1), 9),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#dee2e6")),
@@ -731,7 +731,7 @@ def generate_pdf_summary(
             d_cv.add(Line(base_x, ty, base_x + plot_w_cv, ty,
                           strokeColor=colors.HexColor("#e5e7eb"), strokeWidth=0.4))
             d_cv.add(GStr(base_x - 3, ty - 2.5, f"{tv:.0f}",
-                          fontSize=5.5, fontName=KO, textAnchor="end",
+                          fontSize=7.5, fontName=KO, textAnchor="end",
                           fillColor=colors.HexColor("#666666")))
 
         # 축선
@@ -760,7 +760,7 @@ def generate_pdf_summary(
             ly = base_y - 4
             g = Group()
             g.transform = (_cos, _sin, -_sin, _cos, lx, ly)
-            g.add(GStr(0, 0, label, fontSize=5.5, fontName=KO,
+            g.add(GStr(0, 0, label, fontSize=7.5, fontName=KO,
                        textAnchor="end", fillColor=colors.black))
             d_cv.add(g)
 
@@ -772,7 +772,7 @@ def generate_pdf_summary(
             d_cv.add(Rect(legend_x - 70, ly, 7, 5.5,
                           fillColor=colors.HexColor(feed_color[feed]),
                           strokeColor=None))
-            d_cv.add(GStr(legend_x - 62, ly + 0.5, feed, fontSize=6, fontName=KO,
+            d_cv.add(GStr(legend_x - 62, ly + 0.5, feed, fontSize=8, fontName=KO,
                           textAnchor="start", fillColor=colors.black))
 
         elements.append(d_cv)
@@ -796,7 +796,7 @@ def generate_pdf_summary(
         tbl_cv = Table(tbl_rows_cv, colWidths=[feed_col_w] + [comp_col_w] * (n_cols_cv - 1))
         tbl_cv_style = TableStyle([
             ("FONTNAME",      (0,0), (-1,-1), KO),
-            ("FONTSIZE",      (0,0), (-1,-1), 7),
+            ("FONTSIZE",      (0,0), (-1,-1), 9),
             ("ALIGN",         (1,0), (-1,-1), "CENTER"),
             ("ALIGN",         (0,0), (0,-1),  "LEFT"),
             ("BACKGROUND",    (0,0), (-1,0),  colors.HexColor("#dbeafe")),
@@ -814,7 +814,7 @@ def generate_pdf_summary(
     elements.append(Spacer(1, 8*mm))
 
     # ━━ Z-score 공통 ━━
-    z_cell_p = ParagraphStyle("zcp", fontName=KO, fontSize=8, alignment=TA_CENTER)
+    z_cell_p = ParagraphStyle("zcp", fontName=KO, fontSize=10, alignment=TA_CENTER)
 
     def z_cell(z_val):
         try:
@@ -918,13 +918,13 @@ def generate_submission_pdf(
     )
     styles    = getSampleStyleSheet()
     title_sty = ParagraphStyle(
-        "title", parent=styles["Title"], fontSize=16, spaceAfter=4,
+        "title", parent=styles["Title"], fontSize=18, spaceAfter=4,
         alignment=TA_CENTER, fontName=KO,
     )
-    info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=10,
+    info_sty = ParagraphStyle("info", parent=styles["Normal"], fontSize=12,
                               spaceAfter=2, fontName=KO)
     sec_sty  = ParagraphStyle(
-        "sec", parent=styles["Heading2"], fontSize=11, spaceAfter=3,
+        "sec", parent=styles["Heading2"], fontSize=13, spaceAfter=3,
         spaceBefore=6, fontName=KO,
     )
 
@@ -989,7 +989,7 @@ def generate_submission_pdf(
             ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
             ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
             ("FONTNAME",      (0, 0), (-1, -1), KO),
-            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("FONTSIZE",      (0, 0), (-1, -1), 10),
             ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
@@ -1012,7 +1012,7 @@ def generate_submission_pdf(
             ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
             ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
             ("FONTNAME",      (0, 0), (-1, -1), KO),
-            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("FONTSIZE",      (0, 0), (-1, -1), 10),
             ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
             ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
