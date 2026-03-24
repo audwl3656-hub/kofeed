@@ -876,6 +876,8 @@ def generate_pdf_summary(
                     sfx_num = sfx.lstrip("_")
                     inst_label = inst if sfx == "" else f"{inst}_{sfx_num}"
                     z_rows.append([inst_label] + row_vals)
+            if len(z_rows) <= 1:  # 헤더만 있으면 Z-score 데이터 없음 → 성분 제외
+                continue
             zt = Table(z_rows, colWidths=cw_z, repeatRows=1)
             zt.setStyle(_make_table_style())
             elems.append(zt)
