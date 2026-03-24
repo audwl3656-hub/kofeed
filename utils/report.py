@@ -495,7 +495,7 @@ def generate_pdf_summary(
         ])
     ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
     ov_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#97c6f5")),
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#729dc9")),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 10),
@@ -655,22 +655,22 @@ def generate_pdf_summary(
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
     tbl_style_cmds = [
-        ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#2c3e50")),
+        ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#729dc9")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 9),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#dee2e6")),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#ffffff")),
         ("TOPPADDING",    (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#ffffff")]),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds
     for ri in whole_rows:
-        tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#e8edf2"))]
+        tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#ffffff"))]
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
     elements.append(Spacer(1, 6*mm))
