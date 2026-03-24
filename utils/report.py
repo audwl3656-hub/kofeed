@@ -675,7 +675,7 @@ def generate_pdf_summary(
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#729dc9")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 9),
+        ("FONTSIZE",      (0, 0), (-1, -1), 10),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ("GRID",          (0, 0), (-1, -1), 0.4, colors.black),
@@ -812,7 +812,7 @@ def generate_pdf_summary(
         tbl_cv = Table(tbl_rows_cv, colWidths=[feed_col_w] + [comp_col_w] * (n_cols_cv - 1))
         tbl_cv_style = TableStyle([
             ("FONTNAME",      (0,0), (-1,-1), KO),
-            ("FONTSIZE",      (0,0), (-1,-1), 9),
+            ("FONTSIZE",      (0,0), (-1,-1), 10),
             ("ALIGN",         (1,0), (-1,-1), "CENTER"),
             ("ALIGN",         (0,0), (0,-1),  "LEFT"),
             ("BACKGROUND",    (0,0), (-1,0),  colors.HexColor("#dbeafe")),
