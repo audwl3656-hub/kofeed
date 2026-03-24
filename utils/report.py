@@ -510,12 +510,12 @@ def generate_pdf_summary(
         ])
     ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
     ov_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#729dc9")),
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#4d4d4d")),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 10),
         ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#ffffff")),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#000000")]),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#FFFFFF")]),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
@@ -678,7 +678,7 @@ def generate_pdf_summary(
         ("FONTSIZE",      (0, 0), (-1, -1), 9),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#ffffff")),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.black),
         ("TOPPADDING",    (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
