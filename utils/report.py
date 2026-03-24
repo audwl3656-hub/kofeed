@@ -336,14 +336,14 @@ def _draw_summary_cover(canvas, doc, main_title: str, subtitle: str, date_str: s
         canvas.drawCentredString(w / 2, mid_y - 2 * mm, main_title)
 
     # Date (blue, below bottom bar)
-    canvas.setFont(KO, 13)
-    canvas.setFillColor(colors.HexColor("#2563eb"))
-    canvas.drawCentredString(w / 2, box_mid_bot - 22 * mm, date_str)
+    canvas.setFont(KO, 15)
+    canvas.setFillColor(colors.black)
+    canvas.drawCentredString(w / 2, box_mid_bot - 45 * mm, date_str)
 
     # Organization
-    canvas.setFont(KO, 13)
+    canvas.setFont(KO, 20)
     canvas.setFillColor(colors.black)
-    canvas.drawCentredString(w / 2, box_mid_bot - 36 * mm, org_str)
+    canvas.drawCentredString(w / 2, box_mid_bot - 60 * mm, org_str)
 
     canvas.restoreState()
 
