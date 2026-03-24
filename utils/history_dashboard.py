@@ -36,14 +36,40 @@ function Sparkline({ values, color, w = 80, h = 30 }) {
   const range = max - min || 0.001;
   const pad = 4;
   const xs = values.map((_, i) => pad + (i / (values.length - 1)) * (w - pad * 2));
-  const ys = values.map(v => v === null ? h / 2 : h - pad - ((v - min) / range) * (h - pad * 2));
-  const linePath = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
-  const areaPath = `${linePath} L${xs[xs.length-1]},${h-pad} L${xs[0]},${h-pad} Z`;
+  // null은 null 유지 (h/2로 대체하지 않음)
+  const ys = values.map(v => (v === null || v === undefined) ? null : h - pad - ((v - min) / range) * (h - pad * 2));
+
+  // null을 건너뛰며 경로 생성 (null 구간에서 M으로 이동)
+  let linePath = "";
+  let gapped = true;
+  xs.forEach((x, i) => {
+    if (ys[i] === null) { gapped = true; return; }
+    linePath += `${gapped ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)} `;
+    gapped = false;
+  });
+
+  // 연속 구간별 area path
+  let areaPath = "";
+  let segStart = -1;
+  for (let i = 0; i <= values.length; i++) {
+    const valid = i < values.length && ys[i] !== null;
+    if (valid && segStart === -1) { segStart = i; }
+    else if (!valid && segStart !== -1) {
+      if (i - segStart >= 2) {
+        const sx = xs.slice(segStart, i), sy = ys.slice(segStart, i);
+        const seg = sx.map((x, j) => `${j===0?"M":"L"}${x.toFixed(1)},${sy[j].toFixed(1)}`).join(" ");
+        areaPath += `${seg} L${sx[sx.length-1]},${h-pad} L${sx[0]},${h-pad} Z `;
+      }
+      segStart = -1;
+    }
+  }
+
   const diff = clean[clean.length-1] - clean[0];
   const endColor = Math.abs(diff) < 0.05 ? "#94a3b8" : diff > 0 ? "#ef4444" : "#3b82f6";
   const uid = `sp${color.replace("#","")}${w}${h}${values.join("")}`;
-  // z=0 위치 (항상 범위 내에 있음)
   const y0 = h - pad - ((0 - min) / range) * (h - pad * 2);
+  // 마지막 non-null 인덱스
+  const lastIdx = values.reduce((acc, v, i) => (v !== null && v !== undefined) ? i : acc, -1);
   return (
     <svg width={w} height={h} style={{ display:"block", overflow:"visible" }}>
       <defs>
@@ -57,9 +83,9 @@ function Sparkline({ values, color, w = 80, h = 30 }) {
       <text x={w-pad+2} y={y0+3.5} fontSize="7" fill="#94a3b8">0</text>
       <path d={areaPath} fill={`url(#g${uid})`}/>
       <path d={linePath} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
-      {xs.map((x, i) => values[i] !== null && (
-        <circle key={i} cx={x} cy={ys[i]} r={i === values.length-1 ? 3.2 : 2.2}
-          fill={i === values.length-1 ? endColor : color} stroke="#fff" strokeWidth="1.2"/>
+      {xs.map((x, i) => ys[i] !== null && (
+        <circle key={i} cx={x} cy={ys[i]} r={i === lastIdx ? 3.2 : 2.2}
+          fill={i === lastIdx ? endColor : color} stroke="#fff" strokeWidth="1.2"/>
       ))}
     </svg>
   );
