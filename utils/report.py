@@ -307,7 +307,7 @@ def _draw_summary_cover(canvas, doc, main_title: str, subtitle: str, date_str: s
     bw   = w - 80 * mm
     bar_h = 8 * mm
     title_h = 45 * mm          # height between top/bottom bar pairs
-    box_top = h * 0.60         # top of top-bar
+    box_top = h * 0.80         # top of top-bar
     box_mid_top = box_top - bar_h
     box_mid_bot = box_mid_top - title_h
 
@@ -328,12 +328,12 @@ def _draw_summary_cover(canvas, doc, main_title: str, subtitle: str, date_str: s
     canvas.setFillColor(colors.black)
     if subtitle:
         canvas.setFont(KO, 22)
-        canvas.drawCentredString(w / 2, mid_y + 10 * mm, main_title)
+        canvas.drawCentredString(w / 2, mid_y + 6 * mm, main_title)
         canvas.setFont(KO, 15)
-        canvas.drawCentredString(w / 2, mid_y + 4 * mm, subtitle)
+        canvas.drawCentredString(w / 2, mid_y - 6 * mm, subtitle)
     else:
         canvas.setFont(KO, 22)
-        canvas.drawCentredString(w / 2, mid_y + 8 * mm, main_title)
+        canvas.drawCentredString(w / 2, mid_y - 2 * mm, main_title)
 
     # Date (blue, below bottom bar)
     canvas.setFont(KO, 13)
