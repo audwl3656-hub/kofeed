@@ -284,7 +284,7 @@ with tab3:
                     participant_map=get_participant_map(cfg),
                     subtitle=_rpt_subtitle,
                     period_배부=_rpt_p1, period_회신=_rpt_p2, period_보고서=_rpt_p3,
-                    sample_note=_rpt_note,
+                    sample_note=_rpt_note, cfg=cfg,
                 )
             st.success("보고서 생성 완료! 아래에서 다운로드하거나 전체 발송에 사용하세요.")
 

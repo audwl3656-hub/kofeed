@@ -17,7 +17,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.shapes import Drawing, Rect, Line, Group
 from reportlab.graphics.shapes import String as GStr
 
-from utils.config import get_component_from_col, get_sample_from_col
+from utils.config import get_component_from_col, get_sample_from_col, get_method_options
 
 # 한글 TTF 폰트 등록 (Streamlit Cloud: packages.txt에 fonts-nanum 필요)
 try:
@@ -361,6 +361,7 @@ def generate_pdf_summary(
     period_회신: str = "",
     period_보고서: str = "",
     sample_note: str = "",
+    cfg=None,
 ) -> bytes:
     """전체 요약 보고서: 표지 + 목차 + 개요 + 통계요약 + CV차트 + Z-score 표."""
     import pandas as pd
@@ -980,7 +981,13 @@ def generate_pdf_summary(
                 try: return (0, int(row[1].text))
                 except Exception: return (1, str(row[1].text))
 
-            for meth, mrows in method_to_rows.items():
+            ordered_methods = get_method_options(cfg, comp=comp) if cfg else []
+            def _meth_order(item):
+                m = item[0]
+                try: return ordered_methods.index(m)
+                except ValueError: return len(ordered_methods)
+
+            for meth, mrows in sorted(method_to_rows.items(), key=_meth_order):
                 mrows.sort(key=_lab_sort_key)
                 mrows[0][0] = _cp(meth)
                 mstart = len(z_rows)
