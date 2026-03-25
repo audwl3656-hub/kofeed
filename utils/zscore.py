@@ -4,19 +4,20 @@ import pandas as pd
 
 def robust_zscore(values: np.ndarray) -> np.ndarray:
     """
-    Robust Z-score (AAFCO 방식)
-    Z = (x - median) / (1.4826 * MAD)
-    MAD=0인 경우 표준편차 기반 Z-score로 폴백.
+    Robust Z-score (KS Q ISO 13528)
+    Z = (x - Median) / ((Q3 - Q1) × 0.7413)
+    IQR=0인 경우 표준편차 기반 Z-score로 폴백.
     """
     values = np.array(values, dtype=float)
     median = np.median(values)
-    mad = np.median(np.abs(values - median))
-    if mad == 0:
+    q1, q3 = np.percentile(values, [25, 75])
+    niqr = (q3 - q1) * 0.7413
+    if niqr == 0:
         std = np.std(values)
         if std == 0:
             return np.zeros_like(values)
         return (values - np.mean(values)) / std
-    return (values - median) / (1.4826 * mad)
+    return (values - median) / niqr
 
 
 def compute_zscores(df: pd.DataFrame, value_cols: list) -> pd.DataFrame:
