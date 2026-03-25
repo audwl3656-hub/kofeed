@@ -976,7 +976,12 @@ def generate_pdf_summary(
                         [_cp(""), _cp(lab_label)] + row_vals
                     )
 
+            def _lab_sort_key(row):
+                try: return (0, int(row[1].text))
+                except Exception: return (1, str(row[1].text))
+
             for meth, mrows in method_to_rows.items():
+                mrows.sort(key=_lab_sort_key)
                 mrows[0][0] = _cp(meth)
                 mstart = len(z_rows)
                 z_rows.extend(mrows)
