@@ -981,7 +981,7 @@ def generate_pdf_summary(
                 try: return (0, int(row[1].text))
                 except Exception: return (1, str(row[1].text))
 
-            ordered_methods = get_method_options(cfg, comp=comp) if cfg else []
+            ordered_methods = get_method_options(cfg, comp=comp) if cfg is not None else []
             def _meth_order(item):
                 m = item[0]
                 try: return ordered_methods.index(m)
