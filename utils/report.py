@@ -896,7 +896,7 @@ def generate_pdf_summary(
                 if np.isnan(z_f): return _cp("-")
             except Exception:
                 return _cp("-")
-            z_str = f"+{z_f:.2f}" if z_f > 0 else f"{z_f:.2f}"
+            z_str = f"{z_f:.2f}"
             if abs(z_f) > 3:
                 return Paragraph(f"<b><u>{z_str}</u></b>", red_s)
             elif abs(z_f) > 2:

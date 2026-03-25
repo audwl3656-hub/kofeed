@@ -147,7 +147,7 @@ function FeedView({ feed, items, years, myData, groupData, feedColor }) {
                           border: alert ? `1.5px solid ${zText(z)}55` : "1.5px solid transparent",
                           borderRadius:7, padding:"5px 10px", minWidth:90 }}>
                           <span style={{ fontSize:14, fontWeight:800, color:zText(z), lineHeight:1.1 }}>
-                            {z > 0 ? "+" : ""}{z.toFixed(2)}
+                            {z.toFixed(2)}
                           </span>
                           <span style={{ fontSize:10, color:"#94a3b8", marginTop:1 }}>
                             {raw !== null ? raw.toFixed(2) : "–"}
@@ -243,7 +243,7 @@ function Briefing({ myData, feeds, items, years }) {
                   background: isHigh ? "#fff1f2" : "#fff",
                   border:`1px solid ${isHigh ? "#fca5a5" : "#fecaca"}`, color:"#374151" }}>
                   <strong style={{ color:tc }}>{a.feed} · {a.item}</strong>
-                  {" "}Z={a.z > 0 ? "+" : ""}{a.z.toFixed(2)}
+                  {" "}Z={a.z.toFixed(2)}
                   {isHigh && <span style={{ color:"#dc2626", fontWeight:700, marginLeft:4 }}>🔴 재검사</span>}
                 </div>
               );
@@ -262,8 +262,8 @@ function Briefing({ myData, feeds, items, years }) {
               <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
                 background:"#fff", border:"1px solid #bbf7d0", color:"#374151" }}>
                 <strong style={{ color:"#166534" }}>{a.feed} · {a.item}</strong>
-                {" "}Z: <span style={{ color:"#6b7280" }}>{a.prevZ > 0 ? "+" : ""}{a.prevZ.toFixed(2)}</span>
-                {" → "}<span style={{ color:"#166534", fontWeight:700 }}>{a.latestZ > 0 ? "+" : ""}{a.latestZ.toFixed(2)}</span>
+                {" "}Z: <span style={{ color:"#6b7280" }}>{a.prevZ.toFixed(2)}</span>
+                {" → "}<span style={{ color:"#166534", fontWeight:700 }}>{a.latestZ.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -482,7 +482,7 @@ def _z_td(z: float | None, raw: float | None, med: float | None) -> str:
     else:
         bg, color, border = "#f8fafc", "#374151", "none"
 
-    z_str = f"+{z:.2f}" if z > 0 else f"{z:.2f}"
+    z_str = f"{z:.2f}"
     raw_str = f"{raw:.2f}" if raw is not None else "–"
     med_str = f"그룹중앙 {med:.2f}" if med is not None else ""
     warn = " ⚠" if abs_z > 2 else ""
