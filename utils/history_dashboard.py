@@ -345,13 +345,14 @@ def _robust_z(value: float, values: list[float]) -> float | None:
     if len(arr) < 2:
         return None
     median = float(np.median(arr))
-    mad = float(np.median(np.abs(arr - median)))
-    if mad == 0:
+    q1, q3 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
+    niqr = (q3 - q1) * 0.7413
+    if niqr == 0:
         std = float(np.std(arr))
         if std == 0:
             return 0.0
-        return round((value - np.mean(arr)) / std, 3)
-    return round((value - median) / (1.4826 * mad), 3)
+        return round((value - float(np.mean(arr))) / std, 3)
+    return round((value - median) / niqr, 3)
 
 
 def _ordered_item_cols(history_df: pd.DataFrame) -> list[str]:

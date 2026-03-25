@@ -229,11 +229,12 @@ with tab3:
             if len(pool) == 0:
                 continue
             med  = float(np.median(pool))
-            mad  = float(np.median(np.abs(pool - med)))
+            q1, q3 = float(np.percentile(pool, 25)), float(np.percentile(pool, 75))
+            niqr = (q3 - q1) * 0.7413
             mean = float(np.mean(pool))
             std  = float(np.std(pool, ddof=1)) if len(pool) > 1 else float("nan")
             cv   = (std / mean * 100) if mean != 0 and not np.isnan(std) else float("nan")
-            group_stats[col] = {"median": med, "mad": mad, "n": len(pool),
+            group_stats[col] = {"median": med, "niqr": niqr, "n": len(pool),
                                 "mean": mean, "std": std, "cv": cv}
 
         def _calc_method_group_stats(inst_method_dict):
