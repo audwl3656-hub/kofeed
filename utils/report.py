@@ -510,11 +510,11 @@ def generate_pdf_summary(
         ])
     ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
     ov_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#4d4d4d")),
+        ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#83aaff")),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
         ("FONTSIZE",      (0, 0), (-1, -1), 10),
-        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#ffffff")),
+        ("GRID",          (0, 0), (-1, -1), 0.5, colors.HexColor("#000000")),
         ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#FFFFFF")]),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -620,10 +620,23 @@ def generate_pdf_summary(
         span_cmds.append(("SPAN", (c0, 0), (c0 + n_col - 1, 0)))
 
     whole_rows: set = set()
+    dead_style_cmds: list = []
+
+    # 데이터가 전혀 없는 (성분, 사료) 조합 사전 탐지 → 대각선 처리용
+    def _is_dead(comp, s):
+        for n in range(1, 10):
+            sfx = "" if n == 1 else f"_{n}"
+            if f"{comp}_{s}{sfx}" in non_nir_set:
+                return False
+        return True
+
+    dead_cell_s = ParagraphStyle("dcp", fontName=KO, fontSize=11, alignment=TA_CENTER,
+                                 textColor=colors.HexColor("#bbbbbb"))
+
+    row_cursor = len(stat_rows)  # 헤더 2행 다음부터
 
     for comp in seen_comps:
-        # suffix 별 (방법 컬럼, 값 컬럼 suffix) 수집: "_방법", "_방법_2", "_방법_3" ...
-        method_entries = []  # (mc, sfx, method_name)
+        method_entries = []
         for n in range(1, 10):
             sfx = "" if n == 1 else f"_{n}"
             mc  = f"{comp}_방법{sfx}"
@@ -636,14 +649,34 @@ def generate_pdf_summary(
                     method_entries.append((mc, sfx, m.strip()))
 
         comp_rows_data = []
-        for mc, sfx, meth in method_entries:
-            row = [_p(""), _p(meth)]
-            for s in valid_stat_samples:
+
+        def _fill_sample_cells(row, sfx, mc=None, meth=None):
+            for si, s in enumerate(valid_stat_samples):
+                c0 = 2 + si * n_col
+                abs_row = row_cursor + len(comp_rows_data)
+                if _is_dead(comp, s):
+                    row += [Paragraph("╱", dead_cell_s), _p(""), _p(""), _p("")]
+                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
+                    dead_style_cmds.append(("BACKGROUND", (c0, abs_row), (c0+3, abs_row),
+                                            colors.HexColor("#e8e8e8")))
+                    continue
                 col = f"{comp}_{s}{sfx}"
                 if col not in df.columns:
                     row += [_p("")]*n_col; continue
-                mask = (df[mc].fillna("").astype(str).str.strip() == meth)
-                vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+                if mc and meth:
+                    mask = (df[mc].fillna("").astype(str).str.strip() == meth)
+                    vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+                else:
+                    # 전체 행: 모든 suffix 풀링
+                    all_vals = []
+                    for n2 in range(1, 10):
+                        sx2 = "" if n2 == 1 else f"_{n2}"
+                        c2  = f"{comp}_{s}{sx2}"
+                        if c2 not in df.columns:
+                            if n2 > 1: break
+                            continue
+                        all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
+                    vals = pd.Series(all_vals)
                 if len(vals) == 0:
                     row += [_p("")]*n_col; continue
                 mean_ = vals.mean()
@@ -652,28 +685,15 @@ def generate_pdf_summary(
                 row += [_p(len(vals)), _p(fmt(mean_)),
                         _p(fmt(std_) if not np.isnan(std_) else "-"),
                         _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
+
+        for mc, sfx, meth in method_entries:
+            row = [_p(""), _p(meth)]
+            _fill_sample_cells(row, sfx, mc, meth)
             comp_rows_data.append(row)
 
-        # 전체 행: 모든 suffix 컬럼 값을 풀링
+        # 전체 행
         whole_row = [_p(""), _p(f"{comp} 전체")]
-        for s in valid_stat_samples:
-            all_vals: list = []
-            for n in range(1, 10):
-                sfx = "" if n == 1 else f"_{n}"
-                col = f"{comp}_{s}{sfx}"
-                if col not in df.columns:
-                    if n > 1: break
-                    continue
-                all_vals.extend(pd.to_numeric(df[col], errors="coerce").dropna().tolist())
-            if not all_vals:
-                whole_row += [_p("")]*n_col; continue
-            vals = pd.Series(all_vals)
-            mean_ = vals.mean()
-            std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
-            cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
-            whole_row += [_p(len(vals)), _p(fmt(mean_)),
-                          _p(fmt(std_) if not np.isnan(std_) else "-"),
-                          _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
+        _fill_sample_cells(whole_row, "")
         comp_rows_data.append(whole_row)
 
         if comp_rows_data:
@@ -682,6 +702,7 @@ def generate_pdf_summary(
         if len(comp_rows_data) > 1:
             span_cmds.append(("SPAN", (0, base_idx), (0, base_idx + len(comp_rows_data) - 1)))
         whole_rows.add(base_idx + len(comp_rows_data) - 1)
+        row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
@@ -699,7 +720,7 @@ def generate_pdf_summary(
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
         ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
-    ] + span_cmds
+    ] + span_cmds + dead_style_cmds
     for ri in whole_rows:
         tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#ffffff"))]
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
@@ -843,20 +864,6 @@ def generate_pdf_summary(
 
     elements.append(Spacer(1, 8*mm))
 
-    # ━━ Z-score 공통 ━━
-    z_cell_p = ParagraphStyle("zcp", fontName=KO, fontSize=10, alignment=TA_CENTER)
-
-    def z_cell(z_val):
-        try:
-            z_f = float(z_val)
-            if np.isnan(z_f):
-                return "N/A"
-            z_str = f"{z_f:.2f}"
-        except Exception:
-            return "N/A"
-        if abs(z_f) > 3:
-            return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_p)
-        return z_str
 
     def _get_zv(z_src, row_idx, col):
         try:
@@ -867,11 +874,34 @@ def generate_pdf_summary(
         except Exception:
             return np.nan
 
-    inst_w = 45
-
     def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix):
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
+
+        hdr_s  = ParagraphStyle("zh", fontName=KO, fontSize=8, alignment=TA_CENTER,
+                                 textColor=colors.white, leading=10)
+        cell_s2 = ParagraphStyle("zc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
+        red_s   = ParagraphStyle("zr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+                                 textColor=colors.HexColor("#dc2626"))
+        org_s   = ParagraphStyle("zo", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+                                 textColor=colors.HexColor("#d97706"))
+
+        def _hp(txt): return Paragraph(str(txt), hdr_s)
+        def _cp(txt): return Paragraph(str(txt), cell_s2)
+
+        def _zc(z_val):
+            try:
+                z_f = float(z_val)
+                if np.isnan(z_f): return _cp("-")
+            except Exception:
+                return _cp("-")
+            z_str = f"+{z_f:.2f}" if z_f > 0 else f"{z_f:.2f}"
+            if abs(z_f) > 3:
+                return Paragraph(f"<b><u>{z_str}</u></b>", red_s)
+            elif abs(z_f) > 2:
+                return Paragraph(f"<b>{z_str}</b>", org_s)
+            return _cp(z_str)
+
         for num, comp in enumerate(seen_comps, 1):
             sfx_list = [""]
             for n in range(2, 10):
@@ -879,37 +909,101 @@ def generate_pdf_summary(
                     sfx_list.append(f"_{n}")
                 else:
                     break
+
             valid_samples = [s for s in samples
-                             if any(f"{comp}_{s}{sfx}" in non_nir_set
-                                    for sfx in sfx_list)]
+                             if any(f"{comp}_{s}{sfx}" in non_nir_set for sfx in sfx_list)]
             if not valid_samples:
                 continue
-            samp_w = (avail_mm - inst_w) / len(valid_samples)
-            cw_z = [inst_w*mm] + [samp_w*mm] * len(valid_samples)
-            elems.append(Paragraph(f"{num}) {comp}", h3_style))
-            z_rows = [["참가코드"] + valid_samples]
-            for inst, row_idx in zip(inst_names, idx_list):
-                for sfx in sfx_list:
+
+            # 컬럼 폭: 분석방법 | Lab | (결과, Z-score) × n_samples
+            meth_w = 30
+            lab_w  = 14
+            n_samp = len(valid_samples)
+            per_s  = (avail_mm - meth_w - lab_w) / n_samp
+            res_w  = per_s * 0.42
+            z_w    = per_s * 0.58
+            cw_z   = [meth_w*mm, lab_w*mm] + [res_w*mm, z_w*mm] * n_samp
+
+            # 헤더 1행: 분석방법 | Lab | 사료명(중간값) [2열 span] ...
+            hdr1 = [_hp("분석방법"), _hp("Lab")]
+            for s in valid_samples:
+                col0 = f"{comp}_{s}"
+                gs   = group_stats.get(col0, {})
+                try:
+                    med = float(gs.get("median", float("nan")))
+                    med_str = f"{med:.2f}" if not np.isnan(med) else "-"
+                except Exception:
+                    med_str = "-"
+                hdr1 += [_hp(f"{s}  (중간값: {med_str})"), _hp("")]
+
+            # 헤더 2행: '' | '' | 결과 | Z-score | ...
+            hdr2 = [_hp(""), _hp("")]
+            for _ in valid_samples:
+                hdr2 += [_hp("결과"), _hp("Z-score")]
+
+            z_rows   = [hdr1, hdr2]
+            span_z   = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+            for si in range(n_samp):
+                span_z.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
+
+            # 방법별 그룹핑: {method_name: [(inst_label, row_vals), ...]}
+            method_to_rows: dict = {}
+            for sfx in sfx_list:
+                mc = f"{comp}_방법{sfx}"
+                for inst, row_idx in zip(inst_names, idx_list):
+                    meth = str(df.at[row_idx, mc] if mc in df.columns else "").strip()
+                    if not meth:
+                        meth = "(방법 미기재)"
                     row_vals = []
-                    has_any = False
+                    has_any  = False
                     for s in valid_samples:
                         col = f"{comp}_{s}{sfx}"
-                        zv = _get_zv(z_src, row_idx, col) if col in non_nir_set else np.nan
+                        if col not in non_nir_set:
+                            row_vals += [_cp("-"), _cp("-")]; continue
+                        raw = df.at[row_idx, col] if col in df.columns else ""
                         try:
-                            if not np.isnan(float(zv)):
-                                has_any = True
+                            rv = float(raw)
+                            res_str = f"{rv:.2f}" if not np.isnan(rv) else "-"
+                            if not np.isnan(rv): has_any = True
                         except Exception:
-                            pass
-                        row_vals.append(z_cell(zv))
+                            res_str = "-"
+                        zv = _get_zv(z_src, row_idx, col)
+                        row_vals += [_cp(res_str), _zc(zv)]
                     if not has_any:
                         continue
-                    sfx_num = sfx.lstrip("_")
-                    inst_label = inst if sfx == "" else f"{inst}_{sfx_num}"
-                    z_rows.append([inst_label] + row_vals)
-            if len(z_rows) <= 1:  # 헤더만 있으면 Z-score 데이터 없음 → 성분 제외
+                    lab_label = inst if sfx == "" else f"{inst}{sfx}"
+                    method_to_rows.setdefault(meth, []).append(
+                        [_cp(""), _cp(lab_label)] + row_vals
+                    )
+
+            for meth, mrows in method_to_rows.items():
+                mrows[0][0] = _cp(meth)
+                mstart = len(z_rows)
+                z_rows.extend(mrows)
+                if len(mrows) > 1:
+                    span_z.append(("SPAN", (0, mstart), (0, mstart + len(mrows) - 1)))
+
+            if len(z_rows) <= 2:
                 continue
-            zt = Table(z_rows, colWidths=cw_z, repeatRows=1)
-            zt.setStyle(_make_table_style())
+
+            elems.append(Paragraph(f"{num}) {comp}", h3_style))
+            zt = Table(z_rows, colWidths=cw_z, repeatRows=2)
+            zt.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
+                ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
+                ("FONTNAME",      (0, 0), (-1, -1), KO),
+                ("FONTSIZE",      (0, 0), (-1, -1), 8),
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+                ("TOPPADDING",    (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+                ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
+                ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
+                ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
+            ] + span_z))
             elems.append(zt)
             elems.append(Spacer(1, 4*mm))
         return elems
