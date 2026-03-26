@@ -1069,7 +1069,7 @@ def generate_pdf_summary(
         return elems
 
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all, "다")
-    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=3, split_at=5)
+    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
 
     # 판정 기준
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
