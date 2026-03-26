@@ -19,15 +19,22 @@ from reportlab.graphics.shapes import String as GStr
 
 from utils.config import get_component_from_col, get_sample_from_col, get_method_options
 
-# 한글 TTF 폰트 등록 (Streamlit Cloud: packages.txt에 fonts-nanum 필요)
-try:
-    pdfmetrics.registerFont(TTFont(
-        "NanumGothic",
-        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-    ))
-    KO = "NanumGothic"
-except Exception:
-    KO = "Helvetica"  # 한글 깨질 수 있음 (로컬 환경 폴백)
+# 한글 TTF 폰트 등록
+import os as _os
+_FONT_CANDIDATES = [
+    # 로컬/배포: 리포 내 fonts 폴더
+    _os.path.join(_os.path.dirname(__file__), "..", "fonts", "KoPub Batang Medium.ttf"),
+    # Streamlit Cloud fallback
+    "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+]
+KO = "Helvetica"
+for _fp in _FONT_CANDIDATES:
+    try:
+        pdfmetrics.registerFont(TTFont("KoPubBatangM", _fp))
+        KO = "KoPubBatangM"
+        break
+    except Exception:
+        continue
 
 
 
