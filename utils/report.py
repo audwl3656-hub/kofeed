@@ -486,7 +486,7 @@ def generate_pdf_summary(
     elements.append(Paragraph(f"1) 시료 배부 : {period_배부}", info_style))
     elements.append(Paragraph(f"2) 분석 및 결과회신 : {period_회신}", info_style))
     elements.append(Paragraph(f"3) 결과 통계처리 및 보고서 작성 : {period_보고서}", info_style))
-    elements.append(Spacer(1, 3*mm))
+    elements.append(Spacer(1, 8*mm))
 
     # 나. 시료 및 분석항목 (표 형식)
     elements.append(Paragraph("나. 시료 및 분석항목", h2_style))
@@ -524,7 +524,7 @@ def generate_pdf_summary(
     elements.append(ov_tbl)
     if sample_note:
         elements.append(Paragraph(f"* {sample_note}", note_style))
-    elements.append(Spacer(1, 3*mm))
+    elements.append(Spacer(1, 8*mm))
 
     # 다. 통계처리방법
     elements.append(Paragraph("다. 통계처리방법", h2_style))
@@ -573,14 +573,12 @@ def generate_pdf_summary(
         ("BOTTOMPADDING",(0,0), (-1,-1), 1),
     ]))
     elements.append(crit_tbl)
-    elements.append(Spacer(1, 3*mm))
+    elements.append(Spacer(1, 8*mm))
 
     # 라. 참가회원사 (실제 기관명 사용)
     elements.append(Paragraph("라. 참가회원사", h2_style))
-    elements.append(Paragraph(f"참가 기관 수: {len(df)}개", info_style))
     _inst_real = sorted(set(raw_inst_names))
     elements.append(Paragraph(", ".join(_inst_real), info_style))
-    elements.append(PageBreak())
 
     # ─── 2. 비교분석 결과 (가로 페이지 시작) ───
     elements.append(NextPageTemplate('Landscape'))
