@@ -372,9 +372,9 @@ def generate_pdf_summary(
     styles = getSampleStyleSheet()
 
     # ── 스타일 ──
-    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=15, spaceBefore=10, spaceAfter=4,  leading=18, keepWithNext=1)
-    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=13, spaceBefore=6,  spaceAfter=3,  leading=16, keepWithNext=1)
-    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=11, spaceBefore=4,  spaceAfter=2,  leading=14, keepWithNext=1, leftIndent=6)
+    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=15, spaceBefore=10, spaceAfter=8,  leading=18, keepWithNext=1)
+    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=13, spaceBefore=6,  spaceAfter=6,  leading=16, keepWithNext=1)
+    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=11, spaceBefore=4,  spaceAfter=4,  leading=14, keepWithNext=1, leftIndent=6)
     info_style = ParagraphStyle("is",    fontName=KO, fontSize=11, spaceAfter=2,   leading=15)
     comp_style = ParagraphStyle("cs",    fontName=KO, fontSize=11, spaceAfter=2,   spaceBefore=4, leading=14)
     note_style = ParagraphStyle("ns",    fontName=KO, fontSize=9,  spaceAfter=1,   textColor=colors.grey, leftIndent=4)
@@ -738,7 +738,6 @@ def generate_pdf_summary(
             if line:
                 elements.append(Paragraph(line, info_style))
         elements.append(Spacer(1, 4*mm))
-    elements.append(Paragraph("각 성분별 변이계수(CV%)", info_style))
 
     cv_data: dict = {}
     for comp in seen_comps:
