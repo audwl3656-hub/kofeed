@@ -275,6 +275,11 @@ with tab3:
             _rpt_p2 = st.text_input("② 분석 및 결과회신 기간", placeholder="예: 2025년 10월 10일 ~ 10월 31일", key="rpt_p2")
             _rpt_p3 = st.text_input("③ 결과처리 및 보고서 작성 기간", placeholder="예: 2025년 11월 1일 ~ 11월 6일", key="rpt_p3")
         _rpt_note = st.text_input("시료 주석 (선택)", placeholder="예: 시료분쇄 : 1.0 mm 입자", key="rpt_note")
+        _rpt_summary = st.text_area(
+            "나. 분석결과 요약 내용 (줄바꿈으로 구분)",
+            placeholder="- 전반적으로 분석 결과가 양호하였음.\n- 조지방(산분해) 항목에서 일부 기관의 편차가 크게 나타남.",
+            key="rpt_summary", height=120,
+        )
 
         if st.button("보고서 생성", key="gen_summary"):
             with st.spinner("보고서 생성 중..."):
@@ -285,7 +290,7 @@ with tab3:
                     participant_map=get_participant_map(cfg),
                     subtitle=_rpt_subtitle,
                     period_배부=_rpt_p1, period_회신=_rpt_p2, period_보고서=_rpt_p3,
-                    sample_note=_rpt_note, cfg=cfg,
+                    sample_note=_rpt_note, summary_text=_rpt_summary, cfg=cfg,
                 )
             st.success("보고서 생성 완료! 아래에서 다운로드하거나 전체 발송에 사용하세요.")
 

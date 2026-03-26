@@ -14,7 +14,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.graphics.shapes import Drawing, Rect, Line, Group
+from reportlab.graphics.shapes import Drawing, Rect, Line
 from reportlab.graphics.shapes import String as GStr
 
 from utils.config import get_component_from_col, get_sample_from_col, get_method_options
@@ -361,6 +361,7 @@ def generate_pdf_summary(
     period_회신: str = "",
     period_보고서: str = "",
     sample_note: str = "",
+    summary_text: str = "",
     cfg=None,
 ) -> bytes:
     """전체 요약 보고서: 표지 + 목차 + 개요 + 통계요약 + CV차트 + Z-score 표."""
@@ -731,6 +732,12 @@ def generate_pdf_summary(
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
     elements.append(Paragraph("나. 분석결과 요약", h2_style))
+    if summary_text:
+        for line in summary_text.splitlines():
+            line = line.strip()
+            if line:
+                elements.append(Paragraph(line, info_style))
+        elements.append(Spacer(1, 4*mm))
     elements.append(Paragraph("각 성분별 변이계수(CV%)", info_style))
 
     cv_data: dict = {}
@@ -754,75 +761,77 @@ def generate_pdf_summary(
         feed_color = {s: _PALETTE_CV[i % len(_PALETTE_CV)] for i, s in enumerate(feeds_with_data)}
 
         chart_w_cv = avail_mm * mm
-        ml_cv, mr_cv, mt_cv, mb_cv = 28, 10, 12, 52   # pt margins (mb large for rotated labels)
+        ml_cv, mr_cv, mt_cv, mb_cv = 36, 12, 28, 20
         plot_w_cv = chart_w_cv - ml_cv - mr_cv
-        plot_h_cv = 110  # fixed plot height (pt)
+        plot_h_cv = 120
 
         all_cv_vals = [v for d in cv_data.values() for v in d.values()
                        if not (isinstance(v, float) and np.isnan(v))]
-        max_cv_val  = max(all_cv_vals) * 1.15 if all_cv_vals else 10.0
-        max_cv_val  = max(max_cv_val, 5.0)
+        raw_max = max(all_cv_vals) if all_cv_vals else 10.0
+        # Y축 max를 10 단위로 올림
+        import math as _math
+        n_ticks_cv = 9
+        tick_step = _math.ceil(raw_max * 1.1 / n_ticks_cv / 10) * 10 or 10
+        max_cv_val = tick_step * n_ticks_cv
 
         n_comps_cv = len(comps_with_data)
         n_feeds_cv = len(feeds_with_data)
         group_w    = plot_w_cv / max(n_comps_cv, 1)
-        bar_w_cv   = (group_w - 3) / max(n_feeds_cv, 1)  # 3pt gap between groups
+        bar_w_cv   = (group_w - 4) / max(n_feeds_cv, 1)
 
         total_h_cv = mt_cv + plot_h_cv + mb_cv
         d_cv = Drawing(chart_w_cv, total_h_cv)
         base_x = ml_cv
         base_y = mb_cv
 
-        # Y 눈금선 + 레이블 (가로 그리드)
-        n_ticks_cv = 5
+        # 차트 배경 + 테두리
+        d_cv.add(Rect(base_x, base_y, plot_w_cv, plot_h_cv,
+                      fillColor=colors.white,
+                      strokeColor=colors.HexColor("#aaaaaa"), strokeWidth=0.5))
+
+        # Y 눈금선 + 레이블 (.2f 형식)
         for ti in range(n_ticks_cv + 1):
-            tv = max_cv_val * ti / n_ticks_cv
+            tv = tick_step * ti
             ty = base_y + (tv / max_cv_val) * plot_h_cv
             d_cv.add(Line(base_x, ty, base_x + plot_w_cv, ty,
-                          strokeColor=colors.HexColor("#e5e7eb"), strokeWidth=0.4))
-            d_cv.add(GStr(base_x - 3, ty - 2.5, f"{tv:.0f}",
-                          fontSize=7.5, fontName=KO, textAnchor="end",
-                          fillColor=colors.HexColor("#666666")))
+                          strokeColor=colors.HexColor("#dddddd"), strokeWidth=0.4))
+            d_cv.add(GStr(base_x - 3, ty - 3, f"{tv:.2f}",
+                          fontSize=7, fontName=KO, textAnchor="end",
+                          fillColor=colors.HexColor("#555555")))
 
-        # 축선
-        d_cv.add(Line(base_x, base_y, base_x, base_y + plot_h_cv,
-                      strokeColor=colors.HexColor("#999"), strokeWidth=0.7))
-        d_cv.add(Line(base_x, base_y, base_x + plot_w_cv, base_y,
-                      strokeColor=colors.HexColor("#999"), strokeWidth=0.7))
-
-        # 세로 막대 + X축 레이블 (성분명, -45도 회전)
-        import math
-        _cos, _sin = math.cos(math.radians(-45)), math.sin(math.radians(-45))
+        # 세로 막대 + X축 레이블 (직선)
         for ci, comp in enumerate(comps_with_data):
-            gx = base_x + ci * group_w + 1.5  # 1.5pt left padding within group
+            gx = base_x + ci * group_w + 2
             for fi, feed in enumerate(feeds_with_data):
                 cv_val = cv_data.get(comp, {}).get(feed)
                 if cv_val is None or (isinstance(cv_val, float) and np.isnan(cv_val)):
                     continue
                 bx = gx + fi * bar_w_cv
-                bh = (cv_val / max_cv_val) * plot_h_cv
-                d_cv.add(Rect(bx, base_y, max(bar_w_cv - 0.8, 1), bh,
+                bh = max((cv_val / max_cv_val) * plot_h_cv, 0)
+                d_cv.add(Rect(bx, base_y, max(bar_w_cv - 1, 1), bh,
                               fillColor=colors.HexColor(feed_color[feed]),
                               strokeColor=None))
-            # -45도 회전 레이블
-            label = comp if len(comp) <= 9 else comp[:8] + "…"
+            label = comp if len(comp) <= 8 else comp[:7] + "…"
             lx = base_x + ci * group_w + group_w / 2
-            ly = base_y - 4
-            g = Group()
-            g.transform = (_cos, _sin, -_sin, _cos, lx, ly)
-            g.add(GStr(0, 0, label, fontSize=7.5, fontName=KO,
-                       textAnchor="end", fillColor=colors.black))
-            d_cv.add(g)
+            d_cv.add(GStr(lx, base_y - 12, label,
+                          fontSize=7.5, fontName=KO, textAnchor="middle",
+                          fillColor=colors.black))
 
-        # 범례 (차트 우상단)
-        legend_x = base_x + plot_w_cv - 2
-        legend_y  = base_y + plot_h_cv + mt_cv - 6
+        # 제목
+        d_cv.add(GStr(base_x + plot_w_cv / 2, base_y + plot_h_cv + 14,
+                      "각 성분별 변이계수(CV%)",
+                      fontSize=11, fontName=KO, textAnchor="middle",
+                      fillColor=colors.black))
+
+        # 범례 (차트 좌상단 안쪽)
+        leg_x = base_x + 6
+        leg_y = base_y + plot_h_cv - 10
         for fi, feed in enumerate(feeds_with_data):
-            ly = legend_y - fi * 10
-            d_cv.add(Rect(legend_x - 70, ly, 7, 5.5,
+            ly = leg_y - fi * 11
+            d_cv.add(Rect(leg_x, ly, 8, 6,
                           fillColor=colors.HexColor(feed_color[feed]),
                           strokeColor=None))
-            d_cv.add(GStr(legend_x - 62, ly + 0.5, feed, fontSize=8, fontName=KO,
+            d_cv.add(GStr(leg_x + 10, ly + 0.5, feed, fontSize=7.5, fontName=KO,
                           textAnchor="start", fillColor=colors.black))
 
         elements.append(d_cv)
