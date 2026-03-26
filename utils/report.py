@@ -889,7 +889,7 @@ def generate_pdf_summary(
         except Exception:
             return np.nan
 
-    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix):
+    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0):
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
 
@@ -1001,41 +1001,75 @@ def generate_pdf_summary(
                 try: return ordered_methods.index(m)
                 except ValueError: return len(ordered_methods)
 
-            for meth, mrows in sorted(method_to_rows.items(), key=_meth_order):
-                mrows.sort(key=_lab_sort_key)
-                mrows[0][0] = _cp(meth)
-                mstart = len(z_rows)
-                z_rows.extend(mrows)
-                if len(mrows) > 1:
-                    span_z.append(("SPAN", (0, mstart), (0, mstart + len(mrows) - 1)))
+            # n 부족 방법 제거
+            if min_n > 1:
+                method_to_rows = {m: r for m, r in method_to_rows.items() if len(r) >= min_n}
 
-            if len(z_rows) <= 2:
+            if not method_to_rows:
                 continue
 
+            sorted_methods = sorted(method_to_rows.items(), key=_meth_order)
+            total_data_rows = sum(len(r) for _, r in sorted_methods)
+            do_split = split_at > 0 and total_data_rows > split_at
+
+            def _make_zt(rows, spans):
+                t = Table(rows, colWidths=cw_z, repeatRows=2)
+                t.setStyle(TableStyle([
+                    ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
+                    ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
+                    ("FONTNAME",      (0, 0), (-1, -1), KO),
+                    ("FONTSIZE",      (0, 0), (-1, -1), 8),
+                    ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                    ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+                    ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
+                    ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
+                    ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
+                ] + spans))
+                return t
+
             elems.append(Paragraph(f"{num}) {comp}", h3_style))
-            zt = Table(z_rows, colWidths=cw_z, repeatRows=2)
-            zt.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
-                ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
-                ("FONTNAME",      (0, 0), (-1, -1), KO),
-                ("FONTSIZE",      (0, 0), (-1, -1), 8),
-                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
-                ("TOPPADDING",    (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-                ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
-                ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
-                ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
-            ] + span_z))
-            elems.append(zt)
-            elems.append(Spacer(1, 4*mm))
+
+            if do_split:
+                # 방법별 개별 표
+                meth_sub_style = ParagraphStyle("ms", fontName=KO, fontSize=9,
+                                                spaceBefore=4, spaceAfter=3,
+                                                textColor=colors.HexColor("#1e3a8a"))
+                for meth, mrows in sorted_methods:
+                    mrows.sort(key=_lab_sort_key)
+                    sub_rows  = [hdr1, hdr2]
+                    sub_spans = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+                    for si in range(n_samp):
+                        sub_spans.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
+                    mrows[0][0] = _cp(meth)
+                    sub_rows.extend(mrows)
+                    if len(mrows) > 1:
+                        sub_spans.append(("SPAN", (0, 2), (0, 1 + len(mrows))))
+                    elems.append(Paragraph(f"▶ {meth}", meth_sub_style))
+                    elems.append(_make_zt(sub_rows, sub_spans))
+                    elems.append(Spacer(1, 3*mm))
+            else:
+                # 기존: 하나의 통합 표
+                for meth, mrows in sorted_methods:
+                    mrows.sort(key=_lab_sort_key)
+                    mrows[0][0] = _cp(meth)
+                    mstart = len(z_rows)
+                    z_rows.extend(mrows)
+                    if len(mrows) > 1:
+                        span_z.append(("SPAN", (0, mstart), (0, mstart + len(mrows) - 1)))
+
+                if len(z_rows) <= 2:
+                    continue
+                elems.append(_make_zt(z_rows, span_z))
+                elems.append(Spacer(1, 4*mm))
         return elems
 
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all, "다")
-    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라")
+    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=3, split_at=5)
 
     # 판정 기준
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
