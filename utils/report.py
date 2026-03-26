@@ -372,9 +372,9 @@ def generate_pdf_summary(
     styles = getSampleStyleSheet()
 
     # ── 스타일 ──
-    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=15, spaceBefore=10, spaceAfter=8,  leading=18, keepWithNext=1)
-    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=13, spaceBefore=6,  spaceAfter=6,  leading=16, keepWithNext=1)
-    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=11, spaceBefore=4,  spaceAfter=4,  leading=14, keepWithNext=1, leftIndent=6)
+    h1_style   = ParagraphStyle('_TOC1', fontName=KO, fontSize=15, spaceBefore=10, spaceAfter=10, leading=18, keepWithNext=1)
+    h2_style   = ParagraphStyle('_TOC2', fontName=KO, fontSize=13, spaceBefore=8,  spaceAfter=10, leading=16, keepWithNext=1)
+    h3_style   = ParagraphStyle('_TOC3', fontName=KO, fontSize=11, spaceBefore=6,  spaceAfter=10, leading=14, keepWithNext=1, leftIndent=6)
     info_style = ParagraphStyle("is",    fontName=KO, fontSize=11, spaceAfter=2,   leading=15)
     comp_style = ParagraphStyle("cs",    fontName=KO, fontSize=11, spaceAfter=2,   spaceBefore=4, leading=14)
     note_style = ParagraphStyle("ns",    fontName=KO, fontSize=9,  spaceAfter=1,   textColor=colors.grey, leftIndent=4)
