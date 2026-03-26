@@ -739,12 +739,6 @@ def generate_pdf_summary(
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
     elements.append(Paragraph("나. 분석결과 요약", h2_style))
-    if summary_text:
-        for line in summary_text.splitlines():
-            line = line.strip()
-            if line:
-                elements.append(Paragraph(line, info_style))
-        elements.append(Spacer(1, 4*mm))
 
     cv_data: dict = {}
     for comp in seen_comps:
@@ -875,6 +869,13 @@ def generate_pdf_summary(
             tbl_cv_style.add("TEXTCOLOR", (0, fi+1), (0, fi+1), fc)
         tbl_cv.setStyle(tbl_cv_style)
         elements.append(tbl_cv)
+
+    if summary_text:
+        elements.append(Spacer(1, 4*mm))
+        for line in summary_text.splitlines():
+            line = line.strip()
+            if line:
+                elements.append(Paragraph(line, info_style))
 
     elements.append(Spacer(1, 8*mm))
 
