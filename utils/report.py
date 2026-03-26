@@ -415,7 +415,7 @@ def generate_pdf_summary(
     idx_list = df.index.tolist()
 
     # ── 문서 설정 ──
-    lm, rm, tm, bm = 15*mm, 15*mm, 18*mm, 18*mm
+    lm, rm, tm, bm = 20*mm, 20*mm, 25*mm, 20*mm
     pw, ph = A4
     fw, fh = pw - lm - rm, ph - tm - bm
 
