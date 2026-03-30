@@ -1252,31 +1252,37 @@ def generate_pdf_summary(
                 min_n=min_n,
             )
 
-            # ── 표+그래프 한 페이지 가능 여부 추정 ──
-            # 행당 12pt, 헤더 2행, 성분 제목 30pt, 차트 170pt, 여유 20pt
-            ROW_H = 12
-            CHART_H = 170   # mt_pad(24)+plot_h(88)+mb_pad(38)+spacer(4mm≈11) ≈ 161+여유
-            HEADING_H = 30
+            # ── 표+그래프 한 페이지 가능 여부 추정 (보수적) ──
+            # ROW_H: 패딩 포함 행 높이, CHART_H: Drawing+Spacer 총 높이
+            ROW_H    = 15   # 여유 있게
+            CHART_H  = 190  # mt_pad(24)+plot_h(88)+mb_pad(38)+Spacer(11)+여유
+            OVERHEAD = 60   # 성분 제목 + 섹션 제목 여백
+
             est_tbl_h = (2 + total_data_rows) * ROW_H
-            # split의 경우 sub-heading 추가
             if do_split:
-                est_tbl_h += len(sorted_methods) * 20
+                # 방법별 sub-heading(▶) + 헤더 2행 추가
+                est_tbl_h += len(sorted_methods) * (20 + 2 * ROW_H)
             n_charts = len([e for e in chart_elems if isinstance(e, Drawing)])
             est_chart_h = n_charts * CHART_H
-            fits = (HEADING_H + est_tbl_h + est_chart_h + 20) <= _PAGE_H
 
-            if fits:
-                # 한 페이지에 담기 — KeepTogether 시도
+            # 임계값: 페이지의 70% 이하일 때만 함께
+            fits = (OVERHEAD + est_tbl_h + est_chart_h) <= _PAGE_H * 0.70
+
+            if fits and chart_elems:
+                # KeepTogether: 블록 전체가 한 페이지에 맞을 때
                 block = [comp_heading] + tbl_elems + chart_elems
                 elems.append(KeepTogether(block))
-            else:
-                # 표 / 그래프 별도 페이지
+            elif chart_elems:
+                # 표 페이지 / 그래프 페이지 엄격 분리
                 elems.append(comp_heading)
                 elems.extend(tbl_elems)
-                if chart_elems:
-                    elems.append(PageBreak())
-                    elems.extend(chart_elems)
                 elems.append(PageBreak())
+                elems.extend(chart_elems)
+                elems.append(PageBreak())
+            else:
+                # 그래프 없음 — 표만
+                elems.append(comp_heading)
+                elems.extend(tbl_elems)
 
         return elems
 
