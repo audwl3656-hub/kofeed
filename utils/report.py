@@ -904,11 +904,14 @@ def generate_pdf_summary(
         COL_ZERO = colors.HexColor("#888888")
         COL_TXT  = colors.HexColor("#444444")
 
-        def _sol_abbr(meth):
-            m = str(meth).upper()
-            if "PETROLEUM" in m: return "P"
+        def _sol_abbr(val):
+            m = str(val).upper()
+            if "PETROLEUM" in m or "석유에테르" in val or "석유" in val: return "P"
             if "DIETHYL"   in m: return "DE"
-            if "ETHER"     in m or "에테르" in m: return "E"
+            if "헥산" in val or "HEXAN" in m: return "H"
+            if "에탄올" in val or "ETHANOL" in m: return "EtOH"
+            if "아세톤" in val or "ACETON" in m: return "Ac"
+            if "ETHER" in m or "에테르" in val: return "E"
             return ""
 
         sfx_list = [""]
@@ -950,7 +953,16 @@ def generate_pdf_summary(
                         meth_str = "(방법 미기재)"
                     grp_key = meth_str if group_by_method else "__ALL__"
                     if is_fat:
-                        abbr  = _sol_abbr(meth_str)
+                        # 용매 컬럼에서 직접 읽기, 없으면 방법명에서 추출
+                        sc = f"{comp}_용매{sfx}"
+                        sol_val = ""
+                        if sc in df.columns:
+                            try:
+                                sol_val = str(df.at[row_idx, sc]).strip()
+                                if sol_val == "nan": sol_val = ""
+                            except Exception:
+                                sol_val = ""
+                        abbr = _sol_abbr(sol_val) if sol_val else _sol_abbr(meth_str)
                         label = f"{inst}-{abbr}" if abbr else str(inst)
                     else:
                         label = str(inst)
@@ -980,6 +992,14 @@ def generate_pdf_summary(
                 y_lo    = -y_hi
                 y_span  = y_hi * 2
 
+                # y축 tick step: y_hi <= 5 → 1, 5 < y_hi <= 10 → 2, > 10 → 5
+                if y_hi <= 5:
+                    tick_step = 1
+                elif y_hi <= 10:
+                    tick_step = 2
+                else:
+                    tick_step = 5
+
                 slot_w  = plot_w / n_bars
                 bar_w   = max(slot_w * 0.4, 2.0)
                 lbl_fs  = max(5.0, 7.5 - max(0, n_bars - 20) * 0.1)
@@ -990,14 +1010,20 @@ def generate_pdf_summary(
                            fillColor=colors.white,
                            strokeColor=colors.HexColor("#aaaaaa"), strokeWidth=0.5))
 
-                for tv in range(int(y_lo), int(y_hi) + 1):
+                # tick 범위: y_lo ~ y_hi, step 단위 정수만
+                tick_lo = int(_m.ceil(y_lo / tick_step)) * tick_step
+                tick_hi = int(_m.floor(y_hi / tick_step)) * tick_step
+                tv = tick_lo
+                while tv <= tick_hi + 1e-9:
                     ty = mb_pad + (tv - y_lo) / y_span * plot_h
                     d.add(Line(ml, ty, ml + plot_w, ty,
                                strokeColor=COL_ZERO if tv == 0 else COL_GRID,
                                strokeWidth=0.7 if tv == 0 else 0.3))
-                    d.add(GStr(ml - 3, ty - 3.5, f"{tv:.2f}",
+                    label_val = int(tv) if tv == int(tv) else tv
+                    d.add(GStr(ml - 3, ty - 3.5, str(label_val),
                                fontSize=6.5, fontName=KO, textAnchor="end",
                                fillColor=COL_TXT))
+                    tv = round(tv + tick_step, 9)
 
                 zero_y = mb_pad + (0 - y_lo) / y_span * plot_h
                 for i, (lbl, zv) in enumerate(bars):
