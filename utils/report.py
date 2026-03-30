@@ -1076,7 +1076,7 @@ def generate_pdf_summary(
         chart_w = avail_mm * mm
         ml, mr  = 40, 10          # pt  y축 레이블 / 우측 여백
         mt_pad  = 24              # pt  제목 공간
-        mb_pad  = 38              # pt  x 레이블 + z값 공간
+        mb_pad  = 18              # pt  x 레이블 공간 (z값은 아래 표로 분리)
         plot_w  = chart_w - ml - mr
         plot_h  = 88              # pt
 
@@ -1085,6 +1085,7 @@ def generate_pdf_summary(
         COL_GRID = colors.HexColor("#dddddd")
         COL_ZERO = colors.HexColor("#888888")
         COL_TXT  = colors.HexColor("#444444")
+        COL_CGRD = colors.HexColor("#bbbbbb")  # 표 테두리 회색
 
         def _sol_abbr(meth):
             m = str(meth).upper()
@@ -1169,10 +1170,11 @@ def generate_pdf_summary(
                     y_lo    = -y_hi
                     y_span  = y_hi - y_lo
 
-                    gap   = max(0.8, plot_w * 0.008)
-                    bar_w = max((plot_w - gap * (n_bars + 1)) / n_bars, 3.0)
-                    lbl_fs = max(5.0, 7.5 - max(0, n_bars - 20) * 0.1)
-                    z_fs   = max(4.5, 6.5 - max(0, n_bars - 20) * 0.1)
+                    # 슬롯 기반 균등 배치 → 막대 너비 슬롯의 40% (가운데 정렬)
+                    slot_w  = plot_w / n_bars
+                    bar_w   = max(slot_w * 0.4, 2.0)
+                    lbl_fs  = max(5.0, 7.5 - max(0, n_bars - 20) * 0.1)
+                    z_fs    = max(4.5, 6.5 - max(0, n_bars - 20) * 0.1)
 
                     total_h = mt_pad + plot_h + mb_pad
                     d = Drawing(chart_w, total_h)
@@ -1193,37 +1195,19 @@ def generate_pdf_summary(
                                    fontSize=6.5, fontName=KO, textAnchor="end",
                                    fillColor=COL_TXT))
 
-                    # ±3 기준선 (빨간 점선)
-                    for ref in [3.0, -3.0]:
-                        if y_lo <= ref <= y_hi:
-                            ry = mb_pad + (ref - y_lo) / y_span * plot_h
-                            d.add(Line(ml, ry, ml + plot_w, ry,
-                                       strokeColor=COL_RED, strokeWidth=0.6,
-                                       strokeDashArray=[3, 2]))
-
-                    # 막대
+                    # 막대 + x축 레이블 (슬롯 중심 정렬)
                     zero_y = mb_pad + (0 - y_lo) / y_span * plot_h
                     for i, (lbl, zv) in enumerate(bars):
-                        bx = ml + gap + i * (bar_w + gap)
-                        bc = COL_RED if abs(zv) >= 3 else COL_BLUE
-                        bh = abs(zv) / y_span * plot_h
-                        by = zero_y if zv >= 0 else zero_y - bh
+                        cx  = ml + i * slot_w + slot_w / 2
+                        bx  = cx - bar_w / 2
+                        bc  = COL_RED if abs(zv) >= 3 else COL_BLUE
+                        bh  = abs(zv) / y_span * plot_h
+                        by  = zero_y if zv >= 0 else zero_y - bh
                         d.add(Rect(bx, by, bar_w, max(bh, 0.5),
                                    fillColor=bc, strokeColor=None))
-                        cx = bx + bar_w / 2
-                        # x축 레이블 (lab 코드)
                         d.add(GStr(cx, mb_pad - 11, str(lbl),
                                    fontSize=lbl_fs, fontName=KO, textAnchor="middle",
                                    fillColor=colors.black))
-                        # z-score 값
-                        d.add(GStr(cx, mb_pad - 23, f"{zv:.2f}",
-                                   fontSize=z_fs, fontName=KO, textAnchor="middle",
-                                   fillColor=COL_RED if abs(zv) >= 3 else COL_TXT))
-
-                    # "z score" 레이블 (왼쪽)
-                    d.add(GStr(ml - 3, mb_pad - 23, "z score",
-                               fontSize=6, fontName=KO, textAnchor="end",
-                               fillColor=COL_TXT))
 
                     # 차트 제목
                     d.add(GStr(ml + plot_w / 2, mb_pad + plot_h + 10,
@@ -1231,6 +1215,36 @@ def generate_pdf_summary(
                                fillColor=colors.black))
 
                     elems.append(d)
+
+                    # z-score 표 (차트 바로 아래, 회색 격자선)
+                    z_n_s = ParagraphStyle("zns", fontName=KO, fontSize=z_fs,
+                                           alignment=TA_CENTER, leading=z_fs + 1)
+                    z_r_s = ParagraphStyle("zrs", fontName=KO, fontSize=z_fs,
+                                           alignment=TA_CENTER, leading=z_fs + 1,
+                                           textColor=COL_RED)
+                    z_l_s = ParagraphStyle("zls", fontName=KO, fontSize=z_fs,
+                                           alignment=TA_CENTER, leading=z_fs + 1,
+                                           textColor=COL_TXT)
+
+                    tbl_row = [Paragraph("z score", z_l_s)]
+                    for _, zv in bars:
+                        tbl_row.append(Paragraph(f"{zv:.2f}",
+                                                 z_r_s if abs(zv) >= 3 else z_n_s))
+                    tbl_row.append("")  # 우측 여백 열
+
+                    ztbl = Table([tbl_row], colWidths=[ml] + [slot_w] * n_bars + [mr])
+                    ztbl.setStyle(TableStyle([
+                        ("FONTNAME",      (0, 0), (-1, 0), KO),
+                        ("FONTSIZE",      (0, 0), (-1, 0), z_fs),
+                        ("ALIGN",         (0, 0), (-1, 0), "CENTER"),
+                        ("VALIGN",        (0, 0), (-1, 0), "MIDDLE"),
+                        ("TOPPADDING",    (0, 0), (-1, 0), 2),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+                        ("GRID",          (0, 0), (-1, 0), 0.4, COL_CGRD),
+                        ("BACKGROUND",    (0, 0), (0, 0),  colors.HexColor("#f1f5f9")),
+                    ]))
+
+                    elems.append(ztbl)
                     elems.append(Spacer(1, 5*mm))
 
         return elems
