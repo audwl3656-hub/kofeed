@@ -16,7 +16,7 @@ from utils.config import (
     DEFAULT_CONFIG, CONFIG_COLS,
 )
 from utils.zscore import (
-    compute_zscores, compute_zscores_by_method,
+    compute_zscores, compute_zscores_by_method, compute_zscores_by_method_multi,
     zscore_flag, zscore_color,
 )
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
@@ -208,13 +208,16 @@ with tab3:
         st.warning("최소 3개 기관 데이터가 필요합니다.")
     else:
         z_all    = compute_zscores(df, main_cols)
-        z_method = {
-            col: compute_zscores_by_method(
-                df, col,
-                f"{get_component_from_col(col, SAMPLES)}_방법{get_col_suffix(col)}"
-            )
-            for col in main_cols
-        }
+
+        # 방법별 Z-score: 동일 base 컬럼(_2, _3 포함)을 풀링하여 계산
+        _base_to_vcols: dict = {}
+        for col in main_cols:
+            _base_to_vcols.setdefault(get_base_col(col), []).append(col)
+        z_method: dict = {}
+        for _cols in _base_to_vcols.values():
+            _comp = get_component_from_col(_cols[0], SAMPLES)
+            _mcols = [f"{_comp}_방법{get_col_suffix(c)}" for c in _cols]
+            z_method.update(compute_zscores_by_method_multi(df, _cols, _mcols))
         # 전체 Z-score용 통계: 동일 base col(_2, _3 포함) 풀링하여 계산
         _base_pool: dict = {}
         for col in main_cols:

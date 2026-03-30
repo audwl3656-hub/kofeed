@@ -88,6 +88,57 @@ def compute_zscores_by_method(
     return result
 
 
+def compute_zscores_by_method_multi(
+    df: pd.DataFrame, value_cols: list, method_cols: list
+) -> dict:
+    """
+    여러 suffix 컬럼(예: 조단백질_축우사료, 조단백질_축우사료_2)을
+    하나의 풀로 묶어 방법별 Robust Z-score 계산.
+    value_cols[i]와 method_cols[i]가 쌍을 이룸.
+    동일 방법 사용 기관이 5개 이하이면 NaN.
+    반환: {col: pd.Series}
+    """
+    from collections import defaultdict
+
+    # (row_idx, col, value, method) 수집
+    entries = []
+    for vcol, mcol in zip(value_cols, method_cols):
+        vals = (
+            pd.to_numeric(df[vcol], errors="coerce")
+            if vcol in df.columns
+            else pd.Series(np.nan, index=df.index)
+        )
+        meths = (
+            df[mcol].fillna("").astype(str)
+            if mcol in df.columns
+            else pd.Series("", index=df.index)
+        )
+        for idx in df.index:
+            v = vals[idx]
+            m = str(meths[idx]).strip()
+            if pd.notna(v) and m:
+                entries.append((idx, vcol, float(v), m))
+
+    # 방법별 그룹핑
+    method_groups: dict = defaultdict(list)
+    for idx, vcol, v, m in entries:
+        method_groups[m].append((idx, vcol, v))
+
+    # 결과 Series 초기화
+    result = {col: pd.Series(np.nan, index=df.index, dtype=float) for col in value_cols}
+
+    # 방법별 z-score 계산 후 매핑
+    for method, items in method_groups.items():
+        if len(items) <= 5:
+            continue
+        vals_arr = np.array([v for _, _, v in items])
+        z_arr = robust_zscore(vals_arr)
+        for (idx, vcol, _), z in zip(items, z_arr):
+            result[vcol].at[idx] = z
+
+    return result
+
+
 def zscore_flag(z: float) -> str:
     if np.isnan(z):
         return "N/A"
