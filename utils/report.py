@@ -608,7 +608,8 @@ def generate_pdf_summary(
 
     cell_s = ParagraphStyle("csp", fontName=KO, fontSize=9, leading=11, alignment=TA_CENTER)
     def _p(txt):
-        return Paragraph(str(txt), cell_s)
+        s = str(txt)
+        return Paragraph(s, cell_s) if s.strip() else ""
 
     hdr0 = [_p("성분"), _p("분석법")]
     for s in valid_stat_samples:
@@ -1068,8 +1069,176 @@ def generate_pdf_summary(
                 elems.append(Spacer(1, 4*mm))
         return elems
 
+    def _build_zscore_charts(z_src, group_by_method=False, min_n=1):
+        """Z-score 정렬 막대그래프 생성 (다/라 공용)"""
+        import math as _m
+        elems = []
+        chart_w = avail_mm * mm
+        ml, mr  = 40, 10          # pt  y축 레이블 / 우측 여백
+        mt_pad  = 24              # pt  제목 공간
+        mb_pad  = 38              # pt  x 레이블 + z값 공간
+        plot_w  = chart_w - ml - mr
+        plot_h  = 88              # pt
+
+        COL_BLUE = colors.HexColor("#4472C4")
+        COL_RED  = colors.HexColor("#dc2626")
+        COL_GRID = colors.HexColor("#dddddd")
+        COL_ZERO = colors.HexColor("#888888")
+        COL_TXT  = colors.HexColor("#444444")
+
+        def _sol_abbr(meth):
+            m = str(meth).upper()
+            if "PETROLEUM" in m: return "P"
+            if "DIETHYL"   in m: return "DE"
+            if "ETHER"     in m: return "E"
+            if "에테르"    in m: return "E"
+            return ""
+
+        is_fat = lambda c: "조지방" in str(c)
+
+        for comp in seen_comps:
+            sfx_list = [""]
+            for n in range(2, 10):
+                if any(f"{comp}_{s}_{n}" in non_nir_set for s in samples):
+                    sfx_list.append(f"_{n}")
+                else:
+                    break
+
+            valid_samps = [s for s in samples
+                           if any(f"{comp}_{s}{sfx}" in non_nir_set for sfx in sfx_list)]
+            if not valid_samps:
+                continue
+
+            for s in valid_samps:
+                grouped: dict = {}
+
+                for sfx in sfx_list:
+                    col = f"{comp}_{s}{sfx}"
+                    if col not in non_nir_set:
+                        continue
+                    mc = f"{comp}_방법{sfx}"
+                    for inst, row_idx in zip(inst_names, idx_list):
+                        zv = _get_zv(z_src, row_idx, col)
+                        try:
+                            zv = float(zv)
+                        except Exception:
+                            continue
+                        if np.isnan(zv):
+                            continue
+
+                        meth_str = ""
+                        if mc in df.columns:
+                            try:
+                                meth_str = str(df.at[row_idx, mc]).strip()
+                            except Exception:
+                                pass
+                        if not meth_str or meth_str == "nan":
+                            meth_str = "(방법 미기재)"
+
+                        grp_key = meth_str if group_by_method else "__ALL__"
+
+                        if is_fat(comp):
+                            abbr  = _sol_abbr(meth_str)
+                            label = f"{inst}-{abbr}" if abbr else str(inst)
+                        else:
+                            label = str(inst)
+
+                        grouped.setdefault(grp_key, []).append((label, zv))
+
+                grouped = {k: v for k, v in grouped.items() if len(v) >= min_n}
+                if not grouped:
+                    continue
+
+                ordered_methods = get_method_options(cfg, comp=comp) if cfg is not None else []
+
+                def _gk_order(k, _om=ordered_methods):
+                    try:    return _om.index(k)
+                    except: return len(_om)
+
+                for grp_key, bars in sorted(grouped.items(), key=lambda x: _gk_order(x[0])):
+                    bars.sort(key=lambda x: x[1])
+                    n_bars = len(bars)
+
+                    title = (f"{s}({comp}-{grp_key})"
+                             if group_by_method and grp_key not in ("__ALL__", "(방법 미기재)")
+                             else f"{s}({comp})")
+
+                    z_vals  = [z for _, z in bars]
+                    abs_max = max(abs(min(z_vals)), abs(max(z_vals)), 2.5)
+                    y_hi    = float(_m.ceil(abs_max * 1.15))
+                    y_lo    = -y_hi
+                    y_span  = y_hi - y_lo
+
+                    gap   = max(0.8, plot_w * 0.008)
+                    bar_w = max((plot_w - gap * (n_bars + 1)) / n_bars, 3.0)
+                    lbl_fs = max(5.0, 7.5 - max(0, n_bars - 20) * 0.1)
+                    z_fs   = max(4.5, 6.5 - max(0, n_bars - 20) * 0.1)
+
+                    total_h = mt_pad + plot_h + mb_pad
+                    d = Drawing(chart_w, total_h)
+
+                    # 플롯 배경
+                    d.add(Rect(ml, mb_pad, plot_w, plot_h,
+                               fillColor=colors.white,
+                               strokeColor=colors.HexColor("#aaaaaa"), strokeWidth=0.5))
+
+                    # Y축 눈금 (1 단위)
+                    for tv in range(int(y_lo), int(y_hi) + 1):
+                        ty = mb_pad + (tv - y_lo) / y_span * plot_h
+                        lw = 0.7 if tv == 0 else 0.3
+                        lc = COL_ZERO if tv == 0 else COL_GRID
+                        d.add(Line(ml, ty, ml + plot_w, ty,
+                                   strokeColor=lc, strokeWidth=lw))
+                        d.add(GStr(ml - 3, ty - 3.5, f"{tv:.2f}",
+                                   fontSize=6.5, fontName=KO, textAnchor="end",
+                                   fillColor=COL_TXT))
+
+                    # ±3 기준선 (빨간 점선)
+                    for ref in [3.0, -3.0]:
+                        if y_lo <= ref <= y_hi:
+                            ry = mb_pad + (ref - y_lo) / y_span * plot_h
+                            d.add(Line(ml, ry, ml + plot_w, ry,
+                                       strokeColor=COL_RED, strokeWidth=0.6,
+                                       strokeDashArray=[3, 2]))
+
+                    # 막대
+                    zero_y = mb_pad + (0 - y_lo) / y_span * plot_h
+                    for i, (lbl, zv) in enumerate(bars):
+                        bx = ml + gap + i * (bar_w + gap)
+                        bc = COL_RED if abs(zv) >= 3 else COL_BLUE
+                        bh = abs(zv) / y_span * plot_h
+                        by = zero_y if zv >= 0 else zero_y - bh
+                        d.add(Rect(bx, by, bar_w, max(bh, 0.5),
+                                   fillColor=bc, strokeColor=None))
+                        cx = bx + bar_w / 2
+                        # x축 레이블 (lab 코드)
+                        d.add(GStr(cx, mb_pad - 11, str(lbl),
+                                   fontSize=lbl_fs, fontName=KO, textAnchor="middle",
+                                   fillColor=colors.black))
+                        # z-score 값
+                        d.add(GStr(cx, mb_pad - 23, f"{zv:.2f}",
+                                   fontSize=z_fs, fontName=KO, textAnchor="middle",
+                                   fillColor=COL_RED if abs(zv) >= 3 else COL_TXT))
+
+                    # "z score" 레이블 (왼쪽)
+                    d.add(GStr(ml - 3, mb_pad - 23, "z score",
+                               fontSize=6, fontName=KO, textAnchor="end",
+                               fillColor=COL_TXT))
+
+                    # 차트 제목
+                    d.add(GStr(ml + plot_w / 2, mb_pad + plot_h + 10,
+                               title, fontSize=10, fontName=KO, textAnchor="middle",
+                               fillColor=colors.black))
+
+                    elems.append(d)
+                    elems.append(Spacer(1, 5*mm))
+
+        return elems
+
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all, "다")
+    elements += _build_zscore_charts(z_all, group_by_method=False)
     elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
+    elements += _build_zscore_charts(z_method, group_by_method=True, min_n=5)
 
     # 판정 기준
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
