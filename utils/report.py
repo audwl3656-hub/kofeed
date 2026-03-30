@@ -1266,7 +1266,7 @@ def generate_pdf_summary(
             est_chart_h = n_charts * CHART_H
 
             # 임계값: 페이지의 70% 이하일 때만 함께
-            fits = (OVERHEAD + est_tbl_h + est_chart_h) <= _PAGE_H * 0.70
+            fits = (OVERHEAD + est_tbl_h + est_chart_h) <= _PAGE_H * 0.50
 
             if fits and chart_elems:
                 # KeepTogether: 블록 전체가 한 페이지에 맞을 때
