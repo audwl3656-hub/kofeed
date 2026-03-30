@@ -1038,7 +1038,7 @@ def generate_pdf_summary(
         red_s   = ParagraphStyle("zr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
                                  textColor=colors.HexColor("#dc2626"))
         org_s   = ParagraphStyle("zo", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
-                                 textColor=colors.HexColor("#d97706"))
+                                 textColor=colors.HexColor("#000000"))
 
         def _hp(txt): return Paragraph(str(txt), hdr_s)
         def _cp(txt): return Paragraph(str(txt), cell_s2)
