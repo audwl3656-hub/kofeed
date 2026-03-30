@@ -1107,8 +1107,9 @@ def generate_pdf_summary(
             for si in range(n_samp):
                 span_z.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
 
-            # 방법별 그룹핑
+            # 방법별 그룹핑 + 방법별 raw 값 수집 (중간값 계산용)
             method_to_rows: dict = {}
+            method_raw_vals: dict = {}   # {meth: {s: [float, ...]}}
             for sfx in sfx_list:
                 mc = f"{comp}_방법{sfx}"
                 for inst, row_idx in zip(inst_names, idx_list):
@@ -1125,7 +1126,9 @@ def generate_pdf_summary(
                         try:
                             rv = float(raw)
                             res_str = f"{rv:.2f}" if not np.isnan(rv) else "-"
-                            if not np.isnan(rv): has_any = True
+                            if not np.isnan(rv):
+                                has_any = True
+                                method_raw_vals.setdefault(meth, {}).setdefault(s, []).append(rv)
                         except Exception:
                             res_str = "-"
                         zv = _get_zv(z_src, row_idx, col)
@@ -1182,7 +1185,17 @@ def generate_pdf_summary(
             if do_split:
                 for meth, mrows in sorted_methods:
                     mrows.sort(key=_lab_sort_key)
-                    sub_rows  = [hdr1, hdr2]
+                    # 방법별 중간값 헤더 생성
+                    meth_hdr1 = [_hp("분석방법"), _hp("Lab")]
+                    for s in valid_samples:
+                        m_vals = method_raw_vals.get(meth, {}).get(s, [])
+                        try:
+                            med_m = float(np.median(m_vals)) if m_vals else float("nan")
+                            med_str_m = f"{med_m:.2f}" if not np.isnan(med_m) else "-"
+                        except Exception:
+                            med_str_m = "-"
+                        meth_hdr1 += [_hp(f"{s}  (중간값: {med_str_m})"), _hp("")]
+                    sub_rows  = [meth_hdr1, hdr2]
                     sub_spans = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
                     for si in range(n_samp):
                         sub_spans.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
