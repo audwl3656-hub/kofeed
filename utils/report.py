@@ -894,9 +894,10 @@ def generate_pdf_summary(
         """단일 성분의 z-score 정렬 막대그래프 elements 반환"""
         import math as _m
         chart_elems = []
+        import re as _re
         chart_w = avail_mm * mm
-        ml, mr  = 40, 10
-        mt_pad, mb_pad = 24, 18
+        ml, mr  = 40, 40          # 좌우 동일 여백 → 그래프 중앙 정렬
+        mt_pad, mb_pad = 24, 38  # mb_pad 충분히 확보 (z값 텍스트 공간)
         plot_w  = chart_w - ml - mr
         plot_h  = 88
         COL_BLUE = colors.HexColor("#4472C4")
@@ -904,7 +905,6 @@ def generate_pdf_summary(
         COL_GRID = colors.HexColor("#dddddd")
         COL_ZERO = colors.HexColor("#888888")
         COL_TXT  = colors.HexColor("#444444")
-        COL_CGRD = colors.HexColor("#bbbbbb")
 
         def _sol_abbr(meth):
             m = str(meth).upper()
@@ -969,7 +969,14 @@ def generate_pdf_summary(
                 except: return len(_om)
 
             for grp_key, bars in sorted(grouped.items(), key=lambda x: _gk2(x[0])):
-                bars.sort(key=lambda x: x[1])
+                def _lsort(item):
+                    s = str(item[0]).split('-')[0]
+                    try:
+                        return (0, int(s))
+                    except ValueError:
+                        m2 = _re.match(r'[A-Za-z]+(\d+)', s)
+                        return (0, int(m2.group(1))) if m2 else (1, s)
+                bars.sort(key=_lsort)
                 n_bars = len(bars)
                 title = (f"{s}({comp}-{grp_key})"
                          if group_by_method and grp_key not in ("__ALL__", "(방법 미기재)")
@@ -1011,37 +1018,20 @@ def generate_pdf_summary(
                     d.add(GStr(cx, mb_pad - 11, str(lbl),
                                fontSize=lbl_fs, fontName=KO, textAnchor="middle",
                                fillColor=colors.black))
+                    # z-score 값 텍스트 (그래프 내부)
+                    d.add(GStr(cx, mb_pad - 23, f"{zv:.2f}",
+                               fontSize=z_fs, fontName=KO, textAnchor="middle",
+                               fillColor=COL_RED if abs(zv) >= 3 else COL_TXT))
 
+                # "z score" 레이블 (왼쪽)
+                d.add(GStr(ml - 3, mb_pad - 23, "z score",
+                           fontSize=6, fontName=KO, textAnchor="end",
+                           fillColor=COL_TXT))
                 d.add(GStr(ml + plot_w / 2, mb_pad + plot_h + 10, title,
                            fontSize=10, fontName=KO, textAnchor="middle",
                            fillColor=colors.black))
                 chart_elems.append(d)
-
-                # z-score 표 (회색 격자선)
-                z_n_s = ParagraphStyle("czns", fontName=KO, fontSize=z_fs,
-                                       alignment=TA_CENTER, leading=z_fs + 1)
-                z_r_s = ParagraphStyle("czrs", fontName=KO, fontSize=z_fs,
-                                       alignment=TA_CENTER, leading=z_fs + 1,
-                                       textColor=COL_RED)
-                z_l_s = ParagraphStyle("czls", fontName=KO, fontSize=z_fs,
-                                       alignment=TA_CENTER, leading=z_fs + 1,
-                                       textColor=COL_TXT)
-                tbl_row = [Paragraph("z score", z_l_s)]
-                for _, zv in bars:
-                    tbl_row.append(Paragraph(f"{zv:.2f}", z_r_s if abs(zv) >= 3 else z_n_s))
-                tbl_row.append("")
-                ztbl = Table([tbl_row], colWidths=[ml] + [slot_w] * n_bars + [mr])
-                ztbl.setStyle(TableStyle([
-                    ("FONTNAME",      (0, 0), (-1, 0), KO),
-                    ("FONTSIZE",      (0, 0), (-1, 0), z_fs),
-                    ("ALIGN",         (0, 0), (-1, 0), "CENTER"),
-                    ("VALIGN",        (0, 0), (-1, 0), "MIDDLE"),
-                    ("TOPPADDING",    (0, 0), (-1, 0), 2),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-                    ("GRID",          (0, 0), (-1, 0), 0.4, COL_CGRD),
-                    ("BACKGROUND",    (0, 0), (0, 0),  colors.HexColor("#f1f5f9")),
-                ]))
-                chart_elems.append(ztbl)
+                chart_elems.append(Spacer(1, 4*mm))
 
         return chart_elems
 
