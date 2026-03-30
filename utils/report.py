@@ -6,7 +6,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     SimpleDocTemplate, BaseDocTemplate, PageTemplate, Frame,
-    NextPageTemplate, PageBreak,
+    NextPageTemplate, PageBreak, KeepTogether,
     Table, TableStyle, Paragraph, Spacer, HRFlowable,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
@@ -608,8 +608,7 @@ def generate_pdf_summary(
 
     cell_s = ParagraphStyle("csp", fontName=KO, fontSize=9, leading=11, alignment=TA_CENTER)
     def _p(txt):
-        s = str(txt)
-        return Paragraph(s, cell_s) if s.strip() else ""
+        return Paragraph(str(txt), cell_s)
 
     hdr0 = [_p("성분"), _p("분석법")]
     for s in valid_stat_samples:
@@ -739,6 +738,8 @@ def generate_pdf_summary(
     elements.append(PageBreak())
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
+    elements.append(Paragraph("나. 분석결과 요약", h2_style))
+
     cv_data: dict = {}
     for comp in seen_comps:
         for s in valid_stat_samples:
@@ -869,8 +870,6 @@ def generate_pdf_summary(
         tbl_cv.setStyle(tbl_cv_style)
         elements.append(tbl_cv)
 
-    elements.append(Paragraph("나. 분석결과 요약", h2_style))
-
     if summary_text:
         elements.append(Spacer(1, 4*mm))
         for line in summary_text.splitlines():
@@ -891,13 +890,12 @@ def generate_pdf_summary(
             return np.nan
 
     def _charts_for_comp(comp, z_src, group_by_method=False, min_n=1):
-        """단일 성분의 z-score 정렬 막대그래프 elements 반환"""
-        import math as _m
+        """단일 성분 z-score 막대그래프 (z-score 오름차순) elements 반환"""
+        import math as _m, re as _re
         chart_elems = []
-        import re as _re
         chart_w = avail_mm * mm
-        ml, mr  = 40, 40          # 좌우 동일 여백 → 그래프 중앙 정렬
-        mt_pad, mb_pad = 24, 38  # mb_pad 충분히 확보 (z값 텍스트 공간)
+        ml, mr  = 40, 40
+        mt_pad, mb_pad = 24, 38
         plot_w  = chart_w - ml - mr
         plot_h  = 88
         COL_BLUE = colors.HexColor("#4472C4")
@@ -969,14 +967,8 @@ def generate_pdf_summary(
                 except: return len(_om)
 
             for grp_key, bars in sorted(grouped.items(), key=lambda x: _gk2(x[0])):
-                def _lsort(item):
-                    s = str(item[0]).split('-')[0]
-                    try:
-                        return (0, int(s))
-                    except ValueError:
-                        m2 = _re.match(r'[A-Za-z]+(\d+)', s)
-                        return (0, int(m2.group(1))) if m2 else (1, s)
-                bars.sort(key=_lsort)
+                # 그래프: z-score 오름차순 정렬
+                bars.sort(key=lambda item: item[1])
                 n_bars = len(bars)
                 title = (f"{s}({comp}-{grp_key})"
                          if group_by_method and grp_key not in ("__ALL__", "(방법 미기재)")
@@ -1018,12 +1010,10 @@ def generate_pdf_summary(
                     d.add(GStr(cx, mb_pad - 11, str(lbl),
                                fontSize=lbl_fs, fontName=KO, textAnchor="middle",
                                fillColor=colors.black))
-                    # z-score 값 텍스트 (그래프 내부)
                     d.add(GStr(cx, mb_pad - 23, f"{zv:.2f}",
                                fontSize=z_fs, fontName=KO, textAnchor="middle",
                                fillColor=COL_RED if abs(zv) >= 3 else COL_TXT))
 
-                # "z score" 레이블 (왼쪽)
                 d.add(GStr(ml - 3, mb_pad - 23, "z score",
                            fontSize=6, fontName=KO, textAnchor="end",
                            fillColor=COL_TXT))
@@ -1035,7 +1025,10 @@ def generate_pdf_summary(
 
         return chart_elems
 
-    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0, include_charts=False):
+    # 페이지 본문 높이 (pt) — 표+그래프 함께 들어가는지 판단
+    _PAGE_H = fh
+
+    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0):
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
 
@@ -1063,6 +1056,13 @@ def generate_pdf_summary(
                 return Paragraph(f"<b>{z_str}</b>", org_s)
             return _cp(z_str)
 
+        def _lab_sort_key(row):
+            """표: Lab 오름차순"""
+            import re as _re2
+            txt = str(row[1].text) if hasattr(row[1], "text") else str(row[1])
+            m = _re2.match(r'[A-Za-z]*(\d+)', txt)
+            return (0, int(m.group(1))) if m else (1, txt)
+
         for num, comp in enumerate(seen_comps, 1):
             sfx_list = [""]
             for n in range(2, 10):
@@ -1085,7 +1085,7 @@ def generate_pdf_summary(
             z_w    = per_s * 0.58
             cw_z   = [meth_w*mm, lab_w*mm] + [res_w*mm, z_w*mm] * n_samp
 
-            # 헤더 1행: 분석방법 | Lab | 사료명(중간값) [2열 span] ...
+            # 헤더 1행
             hdr1 = [_hp("분석방법"), _hp("Lab")]
             for s in valid_samples:
                 col0 = f"{comp}_{s}"
@@ -1097,17 +1097,17 @@ def generate_pdf_summary(
                     med_str = "-"
                 hdr1 += [_hp(f"{s}  (중간값: {med_str})"), _hp("")]
 
-            # 헤더 2행: '' | '' | 결과 | Z-score | ...
+            # 헤더 2행
             hdr2 = [_hp(""), _hp("")]
             for _ in valid_samples:
                 hdr2 += [_hp("결과"), _hp("Z-score")]
 
-            z_rows   = [hdr1, hdr2]
-            span_z   = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+            z_rows = [hdr1, hdr2]
+            span_z = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
             for si in range(n_samp):
                 span_z.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
 
-            # 방법별 그룹핑: {method_name: [(inst_label, row_vals), ...]}
+            # 방법별 그룹핑
             method_to_rows: dict = {}
             for sfx in sfx_list:
                 mc = f"{comp}_방법{sfx}"
@@ -1137,17 +1137,11 @@ def generate_pdf_summary(
                         [_cp(""), _cp(lab_label)] + row_vals
                     )
 
-            def _lab_sort_key(row):
-                try: return (0, int(row[1].text))
-                except Exception: return (1, str(row[1].text))
-
             ordered_methods = get_method_options(cfg, comp=comp) if cfg is not None else []
             def _meth_order(item):
-                m = item[0]
-                try: return ordered_methods.index(m)
+                try: return ordered_methods.index(item[0])
                 except ValueError: return len(ordered_methods)
 
-            # n 부족 방법 제거
             if min_n > 1:
                 method_to_rows = {m: r for m, r in method_to_rows.items() if len(r) >= min_n}
 
@@ -1178,13 +1172,14 @@ def generate_pdf_summary(
                 ] + spans))
                 return t
 
-            elems.append(Paragraph(f"{num}) {comp}", h3_style))
+            comp_heading = Paragraph(f"{num}) {comp}", h3_style)
 
+            # ── 표 elements 구성 ──
+            tbl_elems = []
+            meth_sub_style = ParagraphStyle("ms", fontName=KO, fontSize=9,
+                                            spaceBefore=4, spaceAfter=3,
+                                            textColor=colors.HexColor("#1e3a8a"))
             if do_split:
-                # 방법별 개별 표
-                meth_sub_style = ParagraphStyle("ms", fontName=KO, fontSize=9,
-                                                spaceBefore=4, spaceAfter=3,
-                                                textColor=colors.HexColor("#1e3a8a"))
                 for meth, mrows in sorted_methods:
                     mrows.sort(key=_lab_sort_key)
                     sub_rows  = [hdr1, hdr2]
@@ -1195,11 +1190,10 @@ def generate_pdf_summary(
                     sub_rows.extend(mrows)
                     if len(mrows) > 1:
                         sub_spans.append(("SPAN", (0, 2), (0, 1 + len(mrows))))
-                    elems.append(Paragraph(f"▶ {meth}", meth_sub_style))
-                    elems.append(_make_zt(sub_rows, sub_spans))
-                    elems.append(Spacer(1, 3*mm))
+                    tbl_elems.append(Paragraph(f"▶ {meth}", meth_sub_style))
+                    tbl_elems.append(_make_zt(sub_rows, sub_spans))
+                    tbl_elems.append(Spacer(1, 3*mm))
             else:
-                # 기존: 하나의 통합 표
                 for meth, mrows in sorted_methods:
                     mrows.sort(key=_lab_sort_key)
                     mrows[0][0] = _cp(meth)
@@ -1207,22 +1201,48 @@ def generate_pdf_summary(
                     z_rows.extend(mrows)
                     if len(mrows) > 1:
                         span_z.append(("SPAN", (0, mstart), (0, mstart + len(mrows) - 1)))
-
                 if len(z_rows) <= 2:
                     continue
-                elems.append(_make_zt(z_rows, span_z))
-                elems.append(Spacer(1, 4*mm))
-            if include_charts:
-                elems += _charts_for_comp(
-                    comp, z_src,
-                    group_by_method=(heading_prefix == "라"),
-                    min_n=min_n,
-                )
+                tbl_elems.append(_make_zt(z_rows, span_z))
+                tbl_elems.append(Spacer(1, 4*mm))
+
+            # ── 그래프 elements ──
+            chart_elems = _charts_for_comp(
+                comp, z_src,
+                group_by_method=(heading_prefix == "라"),
+                min_n=min_n,
+            )
+
+            # ── 표+그래프 한 페이지 가능 여부 추정 ──
+            # 행당 12pt, 헤더 2행, 성분 제목 30pt, 차트 170pt, 여유 20pt
+            ROW_H = 12
+            CHART_H = 170   # mt_pad(24)+plot_h(88)+mb_pad(38)+spacer(4mm≈11) ≈ 161+여유
+            HEADING_H = 30
+            est_tbl_h = (2 + total_data_rows) * ROW_H
+            # split의 경우 sub-heading 추가
+            if do_split:
+                est_tbl_h += len(sorted_methods) * 20
+            n_charts = len([e for e in chart_elems if isinstance(e, Drawing)])
+            est_chart_h = n_charts * CHART_H
+            fits = (HEADING_H + est_tbl_h + est_chart_h + 20) <= _PAGE_H
+
+            if fits:
+                # 한 페이지에 담기 — KeepTogether 시도
+                block = [comp_heading] + tbl_elems + chart_elems
+                elems.append(KeepTogether(block))
+            else:
+                # 표 / 그래프 별도 페이지
+                elems.append(comp_heading)
+                elems.extend(tbl_elems)
+                if chart_elems:
+                    elems.append(PageBreak())
+                    elems.extend(chart_elems)
                 elems.append(PageBreak())
+
         return elems
 
-    elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,     "다",                  include_charts=True)
-    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5, include_charts=True)
+    elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,    "다")
+    elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
 
     # 판정 기준
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
