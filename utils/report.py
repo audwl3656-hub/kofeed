@@ -761,9 +761,11 @@ def generate_pdf_summary(
         feed_color = {s: _PALETTE_CV[i % len(_PALETTE_CV)] for i, s in enumerate(feeds_with_data)}
 
         chart_w_cv = avail_mm * mm
-        ml_cv, mr_cv, mt_cv, mb_cv = 36, 12, 28, 20
-        plot_w_cv = chart_w_cv - ml_cv - mr_cv
-        plot_h_cv = 120
+        ml_cv, mr_cv, mt_cv = 36, 12, 28
+        _leg_h_cv  = 14                        # 범례 영역 높이
+        mb_cv      = 20 + 12 + _leg_h_cv      # x축 레이블(12) + 범례 영역
+        plot_w_cv  = chart_w_cv - ml_cv - mr_cv
+        plot_h_cv  = 120
 
         all_cv_vals = [v for d in cv_data.values() for v in d.values()
                        if not (isinstance(v, float) and np.isnan(v))]
@@ -829,15 +831,17 @@ def generate_pdf_summary(
                       fontSize=11, fontName=KO, textAnchor="middle",
                       fillColor=colors.black))
 
-        # 범례 (차트 좌상단 안쪽)
-        leg_x = base_x + 6
-        leg_y = base_y + plot_h_cv - 10
+        # 범례 (X축 레이블 아래, 가로 배열)
+        _leg_item_w = 55   # 범례 항목당 폭(색상박스+텍스트)
+        _leg_total_w = len(feeds_with_data) * _leg_item_w
+        leg_x0 = base_x + (plot_w_cv - _leg_total_w) / 2
+        leg_y0 = base_y - 12 - _leg_h_cv + 2
         for fi, feed in enumerate(feeds_with_data):
-            ly = leg_y - fi * 11
-            d_cv.add(Rect(leg_x, ly, 8, 6,
+            lx = leg_x0 + fi * _leg_item_w
+            d_cv.add(Rect(lx, leg_y0, 8, 6,
                           fillColor=colors.HexColor(feed_color[feed]),
                           strokeColor=None))
-            d_cv.add(GStr(leg_x + 10, ly + 0.5, feed, fontSize=7.5, fontName=KO,
+            d_cv.add(GStr(lx + 10, leg_y0 + 0.5, feed, fontSize=7.5, fontName=KO,
                           textAnchor="start", fillColor=colors.black))
 
         elements.append(d_cv)
@@ -882,7 +886,17 @@ def generate_pdf_summary(
             ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
         ])
         tbl_cv.setStyle(tbl_cv_style)
-        elements.append(tbl_cv)
+        # 표 중앙 정렬: 외부 단일 셀 Table로 감싸기
+        tbl_cv_wrap = Table([[tbl_cv]], colWidths=[avail_mm * mm])
+        tbl_cv_wrap.setStyle(TableStyle([
+            ("ALIGN",   (0,0), (-1,-1), "CENTER"),
+            ("VALIGN",  (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING",  (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING",   (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING",(0,0), (-1,-1), 0),
+        ]))
+        elements.append(tbl_cv_wrap)
 
     if summary_text:
         elements.append(Spacer(1, 4*mm))
