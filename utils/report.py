@@ -714,19 +714,20 @@ def generate_pdf_summary(
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
     tbl_style_cmds = [
-        ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#729dc9")),
-        ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
+        ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
+        ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 10),
+        ("FONTSIZE",      (0, 0), (-1, -1), 9),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID",          (0, 0), (-1, -1), 0.4, colors.black),
+        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
         ("TOPPADDING",    (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(1, 2), (-1, -1), [colors.white, colors.HexColor("#f0f0f0")]),
+        ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
+        ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
     ] + span_cmds + dead_style_cmds
     for ri in whole_rows:
         tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#ffffff"))]
