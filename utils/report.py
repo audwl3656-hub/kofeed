@@ -768,10 +768,15 @@ def generate_pdf_summary(
         all_cv_vals = [v for d in cv_data.values() for v in d.values()
                        if not (isinstance(v, float) and np.isnan(v))]
         raw_max = max(all_cv_vals) if all_cv_vals else 10.0
-        # Y축 max를 10 단위로 올림
         import math as _math
-        n_ticks_cv = 9
-        tick_step = _math.ceil(raw_max * 1.1 / n_ticks_cv / 10) * 10 or 10
+        # tick_step: raw_max 크기에 따라 자동 결정
+        # 예) max≤5→1, ≤10→2, ≤20→5, ≤50→10, ≤100→20, >100→50
+        _step_candidates = [1, 2, 5, 10, 20, 50, 100]
+        tick_step = next(
+            (s for s in _step_candidates if _math.ceil(raw_max * 1.15 / s) <= 10),
+            50
+        )
+        n_ticks_cv = _math.ceil(raw_max * 1.15 / tick_step)
         max_cv_val = tick_step * n_ticks_cv
 
         n_comps_cv = len(comps_with_data)
@@ -795,7 +800,8 @@ def generate_pdf_summary(
             ty = base_y + (tv / max_cv_val) * plot_h_cv
             d_cv.add(Line(base_x, ty, base_x + plot_w_cv, ty,
                           strokeColor=colors.HexColor("#dddddd"), strokeWidth=0.4))
-            d_cv.add(GStr(base_x - 3, ty - 3, f"{tv:.2f}",
+            _tv_lbl = str(int(tv)) if tv == int(tv) else f"{tv:.1f}"
+            d_cv.add(GStr(base_x - 3, ty - 3, _tv_lbl,
                           fontSize=7, fontName=KO, textAnchor="end",
                           fillColor=colors.HexColor("#555555")))
 
