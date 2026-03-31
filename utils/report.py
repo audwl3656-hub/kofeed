@@ -777,7 +777,7 @@ def generate_pdf_summary(
         n_comps_cv = len(comps_with_data)
         n_feeds_cv = len(feeds_with_data)
         group_w    = plot_w_cv / max(n_comps_cv, 1)
-        bar_w_cv   = (group_w - 4) / max(n_feeds_cv, 1)
+        bar_w_cv   = (group_w - 4) / max(n_feeds_cv, 1) * 0.5
 
         total_h_cv = mt_cv + plot_h_cv + mb_cv
         d_cv = Drawing(chart_w_cv, total_h_cv)
@@ -838,35 +838,43 @@ def generate_pdf_summary(
         elements.append(Spacer(1, 3*mm))
 
         # 하단 데이터 표
-        tbl_hdr = [""] + comps_with_data
+        # ── CV 하단 표 (z-score 표 스타일) ──
+        _cv_hdr_s  = ParagraphStyle("cvh", fontName=KO, fontSize=8, alignment=TA_CENTER,
+                                     textColor=colors.white, leading=10)
+        _cv_cell_s = ParagraphStyle("cvc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
+        def _cvhp(t): return Paragraph(str(t), _cv_hdr_s)
+        def _cvcp(t): return Paragraph(str(t), _cv_cell_s)
+
+        tbl_hdr = [_cvhp("사료종류")] + [_cvhp(c) for c in comps_with_data]
         tbl_rows_cv = [tbl_hdr]
         for feed in feeds_with_data:
-            row_cv = [feed]
+            row_cv = [_cvcp(feed)]
             for comp in comps_with_data:
                 cv_val = cv_data.get(comp, {}).get(feed)
                 if cv_val is not None and not (isinstance(cv_val, float) and np.isnan(cv_val)):
-                    row_cv.append(f"{cv_val:.2f}")
+                    row_cv.append(_cvcp(f"{cv_val:.2f}"))
                 else:
-                    row_cv.append("")
+                    row_cv.append(_cvcp("-"))
             tbl_rows_cv.append(row_cv)
         n_cols_cv  = len(tbl_hdr)
-        feed_col_w = 30 * mm
+        feed_col_w = 32 * mm
         comp_col_w = (avail_mm * mm - feed_col_w) / max(n_cols_cv - 1, 1)
         tbl_cv = Table(tbl_rows_cv, colWidths=[feed_col_w] + [comp_col_w] * (n_cols_cv - 1))
         tbl_cv_style = TableStyle([
-            ("FONTNAME",      (0,0), (-1,-1), KO),
-            ("FONTSIZE",      (0,0), (-1,-1), 10),
-            ("ALIGN",         (1,0), (-1,-1), "CENTER"),
-            ("ALIGN",         (0,0), (0,-1),  "LEFT"),
-            ("BACKGROUND",    (0,0), (-1,0),  colors.HexColor("#dbeafe")),
-            ("BACKGROUND",    (0,0), (0,-1),  colors.HexColor("#f1f5f9")),
-            ("GRID",          (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
-            ("TOPPADDING",    (0,0), (-1,-1), 2),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+            ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#4472C4")),
+            ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+            ("BACKGROUND",    (0, 1), (0, -1),  colors.HexColor("#f8fafc")),
+            ("FONTNAME",      (0, 0), (-1, -1), KO),
+            ("FONTSIZE",      (0, 0), (-1, -1), 8),
+            ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+            ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
+            ("TOPPADDING",    (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
         ])
-        for fi, feed in enumerate(feeds_with_data):
-            fc = colors.HexColor(feed_color[feed])
-            tbl_cv_style.add("TEXTCOLOR", (0, fi+1), (0, fi+1), fc)
         tbl_cv.setStyle(tbl_cv_style)
         elements.append(tbl_cv)
 
