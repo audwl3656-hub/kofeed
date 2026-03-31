@@ -1252,21 +1252,21 @@ def generate_pdf_summary(
                 min_n=min_n,
             )
 
-            # ── 표+그래프 한 페이지 가능 여부 추정 (보수적) ──
-            # ROW_H: 패딩 포함 행 높이, CHART_H: Drawing+Spacer 총 높이
-            ROW_H    = 15   # 여유 있게
-            CHART_H  = 190  # mt_pad(24)+plot_h(88)+mb_pad(38)+Spacer(11)+여유
-            OVERHEAD = 60   # 성분 제목 + 섹션 제목 여백
+            # ── 표+그래프 한 페이지 가능 여부 추정 ──
+            # 실측 기반: 행 14pt(8pt폰트+패딩+leading), 차트 165pt(Drawing150+Spacer11+여유4)
+            ROW_H    = 14
+            CHART_H  = 165
+            OVERHEAD = 50   # h3 제목 30pt + 여백
 
             est_tbl_h = (2 + total_data_rows) * ROW_H
             if do_split:
-                # 방법별 sub-heading(▶) + 헤더 2행 추가
-                est_tbl_h += len(sorted_methods) * (20 + 2 * ROW_H)
+                # ▶ sub-heading 15pt + 헤더 2행
+                est_tbl_h += len(sorted_methods) * (15 + 2 * ROW_H)
             n_charts = len([e for e in chart_elems if isinstance(e, Drawing)])
             est_chart_h = n_charts * CHART_H
 
-            # 임계값: 페이지의 70% 이하일 때만 함께
-            fits = (OVERHEAD + est_tbl_h + est_chart_h) <= _PAGE_H * 0.50
+            # 임계값: 실제 페이지 높이의 95% — 진짜 안 들어갈 때만 분리
+            fits = (OVERHEAD + est_tbl_h + est_chart_h) <= _PAGE_H * 0.95
 
             if fits and chart_elems:
                 # KeepTogether: 블록 전체가 한 페이지에 맞을 때
