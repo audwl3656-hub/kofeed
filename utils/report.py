@@ -203,13 +203,7 @@ def _generate_zscore_pdf(
             styles, samples, report_type, inst_method,
         )
 
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
-    elements.append(Spacer(1, 3*mm))
-    elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
-    elements.append(Paragraph("적합: |Z| <= 2.0", note_style))
-    elements.append(Paragraph("경고: 2.0 < |Z| <= 3.0", note_style))
-    elements.append(Paragraph("부적합: |Z| > 3.0", note_style))
-    elements.append(Spacer(1, 2*mm))
+
     if report_type == "overall":
         elements.append(Paragraph(
             "* Robust Z-score = (제출값 - 중앙값) / (1.4826 x MAD)  |  CV(%) = 표준편차 / 평균 x 100",
@@ -385,6 +379,14 @@ def generate_pdf_summary(
     info_style = ParagraphStyle("is",    fontName=KO, fontSize=11, spaceAfter=2,   leading=15)
     comp_style = ParagraphStyle("cs",    fontName=KO, fontSize=11, spaceAfter=2,   spaceBefore=4, leading=14)
     note_style = ParagraphStyle("ns",    fontName=KO, fontSize=9,  spaceAfter=1,   textColor=colors.grey, leftIndent=4)
+
+    def _fmt_comp(name):
+        """'조지방(산분해)' -> '조지방<br/>(산분해)' for Paragraph"""
+        if "(" in name:
+            parts = name.split("(", 1)
+            return f"{parts[0]}<br/>({parts[1]}"
+        return name
+
 
     def fmt(v, d=2):
         try:
@@ -699,12 +701,12 @@ def generate_pdf_summary(
             comp_rows_data.append(row)
 
         # 전체 행
-        whole_row = [_p(""), _p(f"{comp} 전체")]
+        whole_row = [_p(""), _p(f"{_fmt_comp(comp)} 전체")]
         _fill_sample_cells(whole_row, "")
         comp_rows_data.append(whole_row)
 
         if comp_rows_data:
-            comp_rows_data[0][0] = _p(comp)
+            comp_rows_data[0][0] = _p(_fmt_comp(comp))
         base_idx = len(stat_rows)
         if len(comp_rows_data) > 1:
             span_cmds.append(("SPAN", (0, base_idx), (0, base_idx + len(comp_rows_data) - 1)))
@@ -739,8 +741,6 @@ def generate_pdf_summary(
     elements.append(PageBreak())
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
-    elements.append(Paragraph("나. 분석결과 요약", h2_style))
-
     cv_data: dict = {}
     for comp in seen_comps:
         for s in valid_stat_samples:
@@ -764,7 +764,7 @@ def generate_pdf_summary(
         chart_w_cv = avail_mm * mm
         ml_cv, mr_cv, mt_cv = 36, 12, 28
         _leg_h_cv  = 14                        # 범례 영역 높이
-        mb_cv      = 20 + 12 + _leg_h_cv      # x축 레이블(12) + 범례 영역
+        mb_cv      = 20 + 22 + _leg_h_cv      # x축 레이블(12) + 범례 영역
         plot_w_cv  = chart_w_cv - ml_cv - mr_cv
         plot_h_cv  = 120
 
@@ -820,11 +820,20 @@ def generate_pdf_summary(
                 d_cv.add(Rect(bx, base_y, max(bar_w_cv - 1, 1), bh,
                               fillColor=colors.HexColor(feed_color[feed]),
                               strokeColor=None))
-            label = comp if len(comp) <= 8 else comp[:7] + "…"
             lx = base_x + ci * group_w + group_w / 2
-            d_cv.add(GStr(lx, base_y - 12, label,
-                          fontSize=7.5, fontName=KO, textAnchor="middle",
-                          fillColor=colors.black))
+            if "(" in comp:
+                _parts = comp.split("(", 1)
+                d_cv.add(GStr(lx, base_y - 9, _parts[0],
+                              fontSize=7.5, fontName=KO, textAnchor="middle",
+                              fillColor=colors.black))
+                d_cv.add(GStr(lx, base_y - 19, "(" + _parts[1],
+                              fontSize=7.5, fontName=KO, textAnchor="middle",
+                              fillColor=colors.black))
+            else:
+                label = comp if len(comp) <= 8 else comp[:7] + "…"
+                d_cv.add(GStr(lx, base_y - 12, label,
+                              fontSize=7.5, fontName=KO, textAnchor="middle",
+                              fillColor=colors.black))
 
         # 제목
         d_cv.add(GStr(base_x + plot_w_cv / 2, base_y + plot_h_cv + 14,
@@ -856,7 +865,7 @@ def generate_pdf_summary(
         def _cvhp(t): return Paragraph(str(t), _cv_hdr_s)
         def _cvcp(t): return Paragraph(str(t), _cv_cell_s)
 
-        tbl_hdr = [_cvhp("사료종류")] + [_cvhp(c) for c in comps_with_data]
+        tbl_hdr = [_cvhp("사료종류")] + [_cvhp(_fmt_comp(c)) for c in comps_with_data]
         tbl_rows_cv = [tbl_hdr]
         for feed in feeds_with_data:
             row_cv = [_cvcp(feed)]
@@ -906,7 +915,9 @@ def generate_pdf_summary(
             if line:
                 elements.append(Paragraph(line, info_style))
 
-    elements.append(Spacer(1, 8*mm))
+    elements.append(Spacer(1, 4*mm))
+    elements.append(Paragraph("나. 분석결과 요약", h2_style))
+    elements.append(Spacer(1, 4*mm))
 
 
     def _get_zv(z_src, row_idx, col):
@@ -1136,7 +1147,7 @@ def generate_pdf_summary(
                 continue
 
             # 컬럼 폭: 분석방법 | Lab | (결과, Z-score) × n_samples
-            meth_w = 30
+            meth_w = 40
             lab_w  = 14
             n_samp = len(valid_samples)
             per_s  = (avail_mm - meth_w - lab_w) / n_samp
@@ -1319,7 +1330,9 @@ def generate_pdf_summary(
 
         return elems
 
+    elements.append(PageBreak())
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,    "다")
+    elements.append(PageBreak())
     elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
 
     # 판정 기준
