@@ -20,8 +20,6 @@ from utils.zscore import (
     zscore_flag, zscore_color,
 )
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
-from utils.report_docx import generate_docx_summary
-from utils.drive import upload_summary_docx, download_summary_docx, get_summary_docx_info
 from utils.email_sender import send_all_reports
 from utils.config import get_history, append_history_rows, delete_history_rows
 from utils.history_dashboard import generate_institution_html_bytes, generate_institution_email_html
@@ -286,7 +284,7 @@ with tab3:
             key="rpt_summary", height=120,
         )
 
-        _docx_kwargs = dict(
+        _pdf_kwargs = dict(
             df=df, z_all=z_all, z_method=z_method,
             group_stats=group_stats, value_cols=main_cols,
             inst_field=inst_field, generated_at=generated_at, samples=SAMPLES,
@@ -296,76 +294,30 @@ with tab3:
             sample_note=_rpt_note, summary_text=_rpt_summary, cfg=cfg,
         )
 
-        col_gen1, col_gen2 = st.columns(2)
-        with col_gen1:
-            if st.button("PDF 보고서 생성", key="gen_summary"):
-                with st.spinner("PDF 생성 중..."):
-                    st.session_state["summary_pdf"] = generate_pdf_summary(**_docx_kwargs)
-                st.success("PDF 생성 완료!")
-        with col_gen2:
-            if st.button("Word(DOCX) 보고서 생성", key="gen_docx"):
-                with st.spinner("DOCX 생성 중..."):
-                    st.session_state["summary_docx"] = generate_docx_summary(**_docx_kwargs)
-                st.success("DOCX 생성 완료! 아래에서 다운로드하세요.")
+        if st.button("📄 보고서 생성 및 미리보기", key="gen_summary", type="primary"):
+            with st.spinner("보고서 생성 중..."):
+                st.session_state["summary_pdf"] = generate_pdf_summary(**_pdf_kwargs)
 
-        # ── 다운로드 ──
-        dl1, dl2 = st.columns(2)
-        with dl1:
-            summary_pdf = st.session_state.get("summary_pdf")
-            if summary_pdf:
-                st.download_button(
-                    "📄 전체 요약 PDF 다운로드",
-                    summary_pdf, "회원사비교분석_전체요약.pdf", "application/pdf",
-                    key="dl_summary",
-                )
-        with dl2:
-            summary_docx = st.session_state.get("summary_docx")
-            if summary_docx:
-                st.download_button(
-                    "📝 전체 요약 DOCX 다운로드",
-                    summary_docx, "회원사비교분석_전체요약.docx",
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key="dl_docx_fresh",
-                )
-
-        st.divider()
-
-        # ── DOCX 등록 (Drive 업로드) ──
-        st.markdown("#### 수정본 DOCX 등록")
-        st.caption("Word에서 편집 후 저장한 DOCX 파일을 업로드하면 Drive에 저장되고 전체 발송 시 첨부됩니다.")
-
-        _drive_info = get_summary_docx_info()
-        if _drive_info:
-            st.info(f"현재 등록된 파일: **{_drive_info['name']}**  (수정: {_drive_info.get('modifiedTime','?')[:10]})")
-
-        uploaded_docx = st.file_uploader(
-            "DOCX 파일 업로드 (덮어쓰기)", type=["docx"], key="upload_docx"
-        )
-        if uploaded_docx is not None:
-            if st.button("Drive에 등록", key="btn_upload_drive"):
-                with st.spinner("Drive에 저장 중..."):
-                    try:
-                        upload_summary_docx(uploaded_docx.getvalue())
-                        st.session_state["registered_docx"] = uploaded_docx.getvalue()
-                        st.success("등록 완료! 전체 발송 시 이 파일이 첨부됩니다.")
-                    except Exception as e:
-                        st.error(f"업로드 실패: {e}")
-
-        # Drive에서 최신 등록본 로드 (세션에 없으면)
-        if "registered_docx" not in st.session_state:
-            with st.spinner("등록된 DOCX 확인 중..."):
-                _dl = download_summary_docx()
-                if _dl:
-                    st.session_state["registered_docx"] = _dl
-
-        registered_docx = st.session_state.get("registered_docx")
-        if registered_docx:
+        summary_pdf = st.session_state.get("summary_pdf")
+        if summary_pdf:
+            # ── 다운로드 버튼 ──
             st.download_button(
-                "📥 현재 등록된 DOCX 다운로드",
-                registered_docx, "회원사비교분석_전체요약_등록본.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                key="dl_registered_docx",
+                "⬇ PDF 다운로드",
+                summary_pdf, "회원사비교분석_전체요약.pdf", "application/pdf",
+                key="dl_summary",
             )
+            st.caption("입력 내용을 수정한 뒤 '보고서 생성 및 미리보기'를 다시 누르면 즉시 반영됩니다.")
+
+            # ── PDF 미리보기 (iframe) ──
+            import base64 as _b64
+            _pdf_b64 = _b64.b64encode(summary_pdf).decode("utf-8")
+            st.markdown(
+                f'<iframe src="data:application/pdf;base64,{_pdf_b64}"'
+                f' width="100%" height="900px" style="border:1px solid #ddd;border-radius:4px;"></iframe>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("위에서 입력 후 '보고서 생성 및 미리보기' 버튼을 눌러주세요.")
 
         st.divider()
 
