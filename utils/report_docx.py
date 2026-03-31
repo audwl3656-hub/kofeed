@@ -53,17 +53,24 @@ def _setup_mpl_font():
 
 
 # ── 스타일 헬퍼 ─────────────────────────────────────────────────
-_HDR_COLOR = RGBColor(0x44, 0x72, 0xC4)   # #4472C4
-_ALT_COLOR  = RGBColor(0xF0, 0xF4, 0xFA)  # #f0f4fa
-_GRID_COLOR = RGBColor(0x00, 0x00, 0x00)
+_HDR_HEX  = "4472C4"
+_ALT_HEX  = "F0F4FA"
+_WHITE_HEX = "FFFFFF"
+# RGBColor는 폰트 색상용으로만 사용
+_HDR_COLOR = RGBColor(0x44, 0x72, 0xC4)
+_ALT_COLOR  = RGBColor(0xF0, 0xF4, 0xFA)
 
-def _set_cell_bg(cell, rgb: RGBColor):
+def _set_cell_bg(cell, hex_color: str):
+    """hex_color: 6자리 hex 문자열 (예: '4472C4')"""
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
+    # 기존 shd 제거 후 재설정
+    for existing in tcPr.findall(qn("w:shd")):
+        tcPr.remove(existing)
     shd = OxmlElement("w:shd")
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:color"), "auto")
-    shd.set(qn("w:fill"), f"{rgb.red:02X}{rgb.green:02X}{rgb.blue:02X}")
+    shd.set(qn("w:fill"), hex_color.lstrip("#").upper())
     tcPr.append(shd)
 
 
@@ -305,7 +312,7 @@ def _style_header_row(table, row_idx=0):
     """헤더 행 배경 파랑, 텍스트 굵게."""
     row = table.rows[row_idx]
     for cell in row.cells:
-        _set_cell_bg(cell, _HDR_COLOR)
+        _set_cell_bg(cell, _HDR_HEX)
         for para in cell.paragraphs:
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for run in para.runs:
@@ -317,7 +324,7 @@ def _style_header_row(table, row_idx=0):
 
 def _style_data_rows(table, start=1):
     for ri, row in enumerate(table.rows[start:], start=start):
-        bg = _ALT_COLOR if ri % 2 == 0 else RGBColor(0xFF, 0xFF, 0xFF)
+        bg = _ALT_HEX if ri % 2 == 0 else _WHITE_HEX
         for cell in row.cells:
             _set_cell_bg(cell, bg)
             _set_cell_border(cell)
