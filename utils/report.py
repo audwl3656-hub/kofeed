@@ -953,15 +953,19 @@ def generate_pdf_summary(
                         meth_str = "(방법 미기재)"
                     grp_key = meth_str if group_by_method else "__ALL__"
                     if is_fat:
-                        # 용매 컬럼에서 직접 읽기, 없으면 방법명에서 추출
-                        sc = f"{comp}_용매{sfx}"
-                        sol_val = ""
-                        if sc in df.columns:
+                        # 해당 sfx 용매 컬럼 읽기
+                        def _read_sol(s_col):
+                            if s_col not in df.columns:
+                                return ""
                             try:
-                                sol_val = str(df.at[row_idx, sc]).strip()
-                                if sol_val == "nan": sol_val = ""
+                                v = str(df.at[row_idx, s_col]).strip()
+                                return "" if v in ("nan", "해당없음", "-", "") else v
                             except Exception:
-                                sol_val = ""
+                                return ""
+                        sol_val = _read_sol(f"{comp}_용매{sfx}")
+                        # sfx="_2" 등 추가 행에서 비어있으면 기본(sfx="") 행 용매로 fallback
+                        if not sol_val and sfx:
+                            sol_val = _read_sol(f"{comp}_용매")
                         abbr = _sol_abbr(sol_val) if sol_val else _sol_abbr(meth_str)
                         label = f"{inst}-{abbr}" if abbr else str(inst)
                     else:
