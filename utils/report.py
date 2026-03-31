@@ -1240,6 +1240,7 @@ def generate_pdf_summary(
             tbl_elems = []
             meth_sub_style = ParagraphStyle("ms", fontName=KO, fontSize=9,
                                             spaceBefore=4, spaceAfter=3,
+                                            keepWithNext=1,
                                             textColor=colors.HexColor("#1e3a8a"))
             if do_split:
                 for meth, mrows in sorted_methods:
@@ -1307,15 +1308,14 @@ def generate_pdf_summary(
                 elems.append(KeepTogether(block))
             elif chart_elems:
                 # 표 페이지 / 그래프 페이지 엄격 분리
-                elems.append(comp_heading)
-                elems.extend(tbl_elems)
+                # 제목+표는 KeepTogether로 묶어 제목이 고아가 되지 않게
+                elems.append(KeepTogether([comp_heading] + tbl_elems))
                 elems.append(PageBreak())
                 elems.extend(chart_elems)
                 elems.append(PageBreak())
             else:
                 # 그래프 없음 — 표만
-                elems.append(comp_heading)
-                elems.extend(tbl_elems)
+                elems.append(KeepTogether([comp_heading] + tbl_elems))
 
         return elems
 
