@@ -862,13 +862,13 @@ def generate_pdf_summary(
         tbl_cv = Table(tbl_rows_cv, colWidths=[feed_col_w] + [comp_col_w] * (n_cols_cv - 1))
         tbl_cv_style = TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#4472C4")),
-            ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
+            ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.black),
             ("BACKGROUND",    (0, 1), (0, -1),  colors.HexColor("#f8fafc")),
             ("FONTNAME",      (0, 0), (-1, -1), KO),
             ("FONTSIZE",      (0, 0), (-1, -1), 8),
             ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
             ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+            ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#111111")),
             ("ROWBACKGROUNDS",(0, 1), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
             ("TOPPADDING",    (0, 0), (-1, -1), 2),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -1197,12 +1197,12 @@ def generate_pdf_summary(
                 t = Table(rows, colWidths=cw_z, repeatRows=2)
                 t.setStyle(TableStyle([
                     ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
-                    ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
+                    ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
                     ("FONTNAME",      (0, 0), (-1, -1), KO),
                     ("FONTSIZE",      (0, 0), (-1, -1), 8),
                     ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
                     ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-                    ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+                    ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
                     ("TOPPADDING",    (0, 0), (-1, -1), 2),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                     ("LEFTPADDING",   (0, 0), (-1, -1), 2),
