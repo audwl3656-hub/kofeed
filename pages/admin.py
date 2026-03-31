@@ -308,13 +308,29 @@ with tab3:
             )
             st.caption("입력 내용을 수정한 뒤 '보고서 생성 및 미리보기'를 다시 누르면 즉시 반영됩니다.")
 
-            # ── PDF 미리보기 (iframe) ──
+            # ── PDF 미리보기 (JS Blob URL — Chrome data: URI 차단 우회) ──
             import base64 as _b64
+            import streamlit.components.v1 as _components
             _pdf_b64 = _b64.b64encode(summary_pdf).decode("utf-8")
-            st.markdown(
-                f'<iframe src="data:application/pdf;base64,{_pdf_b64}"'
-                f' width="100%" height="900px" style="border:1px solid #ddd;border-radius:4px;"></iframe>',
-                unsafe_allow_html=True,
+            _components.html(
+                f"""
+                <script>
+                (function() {{
+                    var b64 = "{_pdf_b64}";
+                    var bin = atob(b64);
+                    var arr = new Uint8Array(bin.length);
+                    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                    var blob = new Blob([arr], {{type: "application/pdf"}});
+                    var url  = URL.createObjectURL(blob);
+                    var el   = document.getElementById("pdf-preview");
+                    if (el) el.src = url;
+                }})();
+                </script>
+                <iframe id="pdf-preview" width="100%" height="880"
+                  style="border:1px solid #ddd;border-radius:4px;"></iframe>
+                """,
+                height=900,
+                scrolling=False,
             )
         else:
             st.info("위에서 입력 후 '보고서 생성 및 미리보기' 버튼을 눌러주세요.")
