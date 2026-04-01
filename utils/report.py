@@ -635,7 +635,7 @@ def generate_pdf_summary(
         hdr0 += [_hp(s), _hp(""), _hp(""), _hp("")]
     hdr1 = [_hp(""), _hp("")]
     for _ in valid_stat_samples:
-        hdr1 += [_hp("N"), _hp("평균"), _hp("표준편差"), _hp("변이계수")]
+        hdr1 += [_hp("N"), _hp("평균"), _hp("표준편차"), _hp("변이계수")]
     stat_rows = [hdr0, hdr1]
 
     span_cmds = [
@@ -648,17 +648,15 @@ def generate_pdf_summary(
 
     whole_rows: set = set()
     dead_style_cmds: list = []
+    comp_span_ranges: list = []   # [(base_idx, end_idx), ...]
 
-    # 데이터가 전혀 없는 (성분, 사료) 조합 사전 탐지 → 대각선 처리용
+    # 데이터가 전혀 없는 (성분, 사료) 조합 사전 탐지
     def _is_dead(comp, s):
         for n in range(1, 10):
             sfx = "" if n == 1 else f"_{n}"
             if f"{comp}_{s}{sfx}" in non_nir_set:
                 return False
         return True
-
-    dead_cell_s = ParagraphStyle("dcp", fontName=KO, fontSize=11, alignment=TA_CENTER,
-                                 textColor=colors.HexColor("#bbbbbb"))
 
     row_cursor = len(stat_rows)  # 헤더 2행 다음부터
 
@@ -678,44 +676,59 @@ def generate_pdf_summary(
         comp_rows_data = []
 
         def _fill_sample_cells(row, sfx, mc=None, meth=None):
+            """빈 샘플은 연속 범위를 하나의 SPAN으로 병합"""
+            abs_row = row_cursor + len(comp_rows_data)
+            n_s = len(valid_stat_samples)
+            empty_start = None  # 연속 빈 샘플 시작 열
+
             for si, s in enumerate(valid_stat_samples):
                 c0 = 2 + si * n_col
-                abs_row = row_cursor + len(comp_rows_data)
+
+                is_empty = False
+                cell_vals = None
+
                 if _is_dead(comp, s):
-                    row += [Paragraph("╱", dead_cell_s), _p(""), _p(""), _p("")]
-                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
-                    dead_style_cmds.append(("BACKGROUND", (c0, abs_row), (c0+3, abs_row),
-                                            colors.HexColor("#e8e8e8")))
-                    continue
-                col = f"{comp}_{s}{sfx}"
-                if col not in df.columns:
-                    row += [_p("-"), _p(""), _p(""), _p("")]
-                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
-                    continue
-                if mc and meth:
-                    mask = (df[mc].fillna("").astype(str).str.strip() == meth)
-                    vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+                    is_empty = True
                 else:
-                    # 전체 행: 모든 suffix 풀링
-                    all_vals = []
-                    for n2 in range(1, 10):
-                        sx2 = "" if n2 == 1 else f"_{n2}"
-                        c2  = f"{comp}_{s}{sx2}"
-                        if c2 not in df.columns:
-                            if n2 > 1: break
-                            continue
-                        all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
-                    vals = pd.Series(all_vals)
-                if len(vals) == 0:
-                    row += [_p("-"), _p(""), _p(""), _p("")]
-                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
-                    continue
-                mean_ = vals.mean()
-                std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
-                cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
-                row += [_p(len(vals)), _p(fmt(mean_)),
-                        _p(fmt(std_) if not np.isnan(std_) else "-"),
-                        _p(fmt(cv_, 2) if not np.isnan(cv_) else "-")]
+                    col = f"{comp}_{s}{sfx}"
+                    if col not in df.columns:
+                        is_empty = True
+                    else:
+                        if mc and meth:
+                            mask = (df[mc].fillna("").astype(str).str.strip() == meth)
+                            vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+                        else:
+                            all_vals = []
+                            for n2 in range(1, 10):
+                                sx2 = "" if n2 == 1 else f"_{n2}"
+                                c2  = f"{comp}_{s}{sx2}"
+                                if c2 not in df.columns:
+                                    if n2 > 1: break
+                                    continue
+                                all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
+                            vals = pd.Series(all_vals)
+                        if len(vals) == 0:
+                            is_empty = True
+                        else:
+                            mean_ = vals.mean()
+                            std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
+                            cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
+                            cell_vals = [len(vals), fmt(mean_),
+                                         fmt(std_) if not np.isnan(std_) else "-",
+                                         fmt(cv_, 2) if not np.isnan(cv_) else "-"]
+
+                if is_empty:
+                    row += [_p(""), _p(""), _p(""), _p("")]
+                    if empty_start is None:
+                        empty_start = c0
+                    if si == n_s - 1 and empty_start is not None:
+                        dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0+3, abs_row)))
+                else:
+                    if empty_start is not None:
+                        dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0-1, abs_row)))
+                        empty_start = None
+                    row += [_p(cell_vals[0]), _p(cell_vals[1]),
+                            _p(cell_vals[2]), _p(cell_vals[3])]
 
         for mc, sfx, meth in method_entries:
             row = [_p(""), _p(meth)]
@@ -730,15 +743,15 @@ def generate_pdf_summary(
         if comp_rows_data:
             comp_rows_data[0][0] = _p(_fmt_comp(comp))
         base_idx = len(stat_rows)
+        end_idx  = base_idx + len(comp_rows_data) - 1
         if len(comp_rows_data) > 1:
-            span_cmds.append(("SPAN", (0, base_idx), (0, base_idx + len(comp_rows_data) - 1)))
-        whole_rows.add(base_idx + len(comp_rows_data) - 1)
+            span_cmds.append(("SPAN", (0, base_idx), (0, end_idx)))
+        comp_span_ranges.append((base_idx, end_idx))
+        whole_rows.add(end_idx)
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    _stat_row_h = 14
-    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
-                     rowHeights=[_stat_row_h] * len(stat_rows))
+    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
     tbl_style_cmds = [
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
@@ -751,18 +764,17 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
-        ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
+        ("ROWBACKGROUNDS",(2, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
         ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
+        ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds + dead_style_cmds
-    _whole_cell_s = ParagraphStyle("wcs", fontName=KO, fontSize=8, leading=10,
-                                     alignment=TA_CENTER, fontWeight="bold")
     for ri in whole_rows:
         tbl_style_cmds += [
-            ("BACKGROUND",  (0, ri), (-1, ri), colors.HexColor("#DEEAF1")),
-            ("FONTNAME",    (0, ri), (-1, ri), KO),
-            ("TEXTCOLOR",   (0, ri), (-1, ri), colors.black),
+            ("BACKGROUND",  (1, ri), (-1, ri), colors.HexColor("#DEEAF1")),
+            ("TEXTCOLOR",   (1, ri), (-1, ri), colors.black),
         ]
+    for s_start, s_end in comp_span_ranges:
+        tbl_style_cmds.append(("BACKGROUND", (0, s_start), (0, s_end), colors.white))
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
 
