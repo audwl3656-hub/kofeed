@@ -630,7 +630,7 @@ def generate_pdf_summary(
     def _hp(txt):
         return Paragraph(str(txt), cell_s_hdr)
 
-    hdr0 = [_hp("성분"), _hp("분析법")]
+    hdr0 = [_hp("성분"), _hp("분석법")]
     for s in valid_stat_samples:
         hdr0 += [_hp(s), _hp(""), _hp(""), _hp("")]
     hdr1 = [_hp(""), _hp("")]
