@@ -498,11 +498,24 @@ def generate_pdf_summary(
     elements.append(Paragraph(f"3) 결과 통계처리 및 보고서 작성 : {period_보고서}", info_style))
     elements.append(Spacer(1, 8*mm))
 
-    # 나. 시료 및 분석항목 (표 형식)
-    elements.append(Paragraph("나. 시료 및 분석항목", h2_style))
-    # 사료별 성분 매핑
+    # 나. 시료 및 분析항목 (표 형식)
+    elements.append(Paragraph("나. 시료 및 분析항목", h2_style))
+    # 그룹 정보: 아미노산/NIR은 섹션명으로 표기
+    _SECTION_GROUPS = {"아미노산", "NIR"}
+    from utils.config import get_group_order as _get_go, get_component_groups as _get_cg
+    _group_order = _get_go(cfg) if cfg is not None else []
+    _enabled_section_groups = [g["name"] for g in _group_order if g["enabled"] and g["name"] in _SECTION_GROUPS]
+    _comp_to_group: dict = {}
+    if cfg is not None:
+        _cg = _get_cg(cfg)
+        for _gname, _items in _cg.items():
+            for _it in _items:
+                _comp_to_group[_it["name"]] = _gname
+    # 사료별 성분 매핑 (섹션 그룹 제외한 개별 성분)
     sample_to_comps: dict = {}
     for comp in seen_comps:
+        if _comp_to_group.get(comp) in _SECTION_GROUPS:
+            continue
         for col in comp_to_cols.get(comp, []):
             s = get_sample_from_col(col, samples)
             if s and s in samples:
@@ -510,9 +523,11 @@ def generate_pdf_summary(
                 if comp not in sample_to_comps[s]:
                     sample_to_comps[s].append(comp)
     cell_ov = ParagraphStyle("cov", fontName=KO, fontSize=10, leading=13)
-    ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분석항목</b>", cell_ov)]]
+    ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분析항목</b>", cell_ov)]]
     for i, s in enumerate(samples):
-        comps_s = sample_to_comps.get(s, [])
+        comps_s = list(sample_to_comps.get(s, []))
+        for _sg in _enabled_section_groups:
+            comps_s.append(_sg)
         if not comps_s:
             continue
         ov_rows.append([
@@ -608,16 +623,19 @@ def generate_pdf_summary(
     cw_stat = ([comp_w_stat*mm, method_w_stat*mm]
                + [sub_w*mm] * n_col * len(valid_stat_samples))
 
-    cell_s = ParagraphStyle("csp", fontName=KO, fontSize=9, leading=11, alignment=TA_CENTER)
+    cell_s     = ParagraphStyle("csp",  fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER)
+    cell_s_hdr = ParagraphStyle("csph", fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.white)
     def _p(txt):
         return Paragraph(str(txt), cell_s)
+    def _hp(txt):
+        return Paragraph(str(txt), cell_s_hdr)
 
-    hdr0 = [_p("성분"), _p("분석법")]
+    hdr0 = [_hp("성분"), _hp("분析법")]
     for s in valid_stat_samples:
-        hdr0 += [_p(s), _p(""), _p(""), _p("")]
-    hdr1 = [_p(""), _p("")]
+        hdr0 += [_hp(s), _hp(""), _hp(""), _hp("")]
+    hdr1 = [_hp(""), _hp("")]
     for _ in valid_stat_samples:
-        hdr1 += [_p("N"), _p("평균"), _p("표준편차"), _p("변이계수")]
+        hdr1 += [_hp("N"), _hp("평균"), _hp("표준편差"), _hp("변이계수")]
     stat_rows = [hdr0, hdr1]
 
     span_cmds = [
@@ -717,9 +735,9 @@ def generate_pdf_summary(
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
     tbl_style_cmds = [
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
-        ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
+        ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 9),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
         ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
         ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
@@ -1252,7 +1270,7 @@ def generate_pdf_summary(
             meth_sub_style = ParagraphStyle("ms", fontName=KO, fontSize=9,
                                             spaceBefore=4, spaceAfter=3,
                                             keepWithNext=1,
-                                            textColor=colors.HexColor("#1e3a8a"))
+                                            textColor=colors.black)
             if do_split:
                 for meth, mrows in sorted_methods:
                     mrows.sort(key=_lab_sort_key)
