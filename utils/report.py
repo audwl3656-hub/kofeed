@@ -442,15 +442,15 @@ def generate_pdf_summary(
     def _content_page(canvas, doc):
         canvas.saveState()
         canvas.setFont(KO, 8)
-        canvas.setFillColor(colors.HexColor("#94a3b8"))
-        canvas.drawRightString(pw - rm, bm - 8*mm, f"- {doc.page} -")
+        canvas.setFillColor(colors.black)
+        canvas.drawCentredString(pw / 2, bm - 8*mm, f"- {doc.page} -")
         canvas.restoreState()
 
     def _land_page(canvas, doc):
         canvas.saveState()
         canvas.setFont(KO, 8)
-        canvas.setFillColor(colors.HexColor("#94a3b8"))
-        canvas.drawRightString(pw_land - rm, bm - 8*mm, f"- {doc.page} -")
+        canvas.setFillColor(colors.black)
+        canvas.drawCentredString(pw_land / 2, bm - 8*mm, f"- {doc.page} -")
         canvas.restoreState()
 
     doc = _SummaryDoc(
@@ -689,7 +689,9 @@ def generate_pdf_summary(
                     continue
                 col = f"{comp}_{s}{sfx}"
                 if col not in df.columns:
-                    row += [_p("")]*n_col; continue
+                    row += [_p("-"), _p(""), _p(""), _p("")]
+                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
+                    continue
                 if mc and meth:
                     mask = (df[mc].fillna("").astype(str).str.strip() == meth)
                     vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
@@ -705,13 +707,15 @@ def generate_pdf_summary(
                         all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
                     vals = pd.Series(all_vals)
                 if len(vals) == 0:
-                    row += [_p("")]*n_col; continue
+                    row += [_p("-"), _p(""), _p(""), _p("")]
+                    dead_style_cmds.append(("SPAN", (c0, abs_row), (c0+3, abs_row)))
+                    continue
                 mean_ = vals.mean()
                 std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
                 cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
                 row += [_p(len(vals)), _p(fmt(mean_)),
                         _p(fmt(std_) if not np.isnan(std_) else "-"),
-                        _p(fmt(cv_, 1) if not np.isnan(cv_) else "-")]
+                        _p(fmt(cv_, 2) if not np.isnan(cv_) else "-")]
 
         for mc, sfx, meth in method_entries:
             row = [_p(""), _p(meth)]
@@ -732,7 +736,9 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
+    _stat_row_h = 14
+    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
+                     rowHeights=[_stat_row_h] * len(stat_rows))
     tbl_style_cmds = [
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
@@ -749,8 +755,14 @@ def generate_pdf_summary(
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
         ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
     ] + span_cmds + dead_style_cmds
+    _whole_cell_s = ParagraphStyle("wcs", fontName=KO, fontSize=8, leading=10,
+                                     alignment=TA_CENTER, fontWeight="bold")
     for ri in whole_rows:
-        tbl_style_cmds += [("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#ffffff"))]
+        tbl_style_cmds += [
+            ("BACKGROUND",  (0, ri), (-1, ri), colors.HexColor("#DEEAF1")),
+            ("FONTNAME",    (0, ri), (-1, ri), KO),
+            ("TEXTCOLOR",   (0, ri), (-1, ri), colors.black),
+        ]
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
 
@@ -1350,7 +1362,6 @@ def generate_pdf_summary(
 
     elements.append(PageBreak())
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,    "다")
-    elements.append(PageBreak())
     elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
 
     # 판정 기준
