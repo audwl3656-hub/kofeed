@@ -170,7 +170,7 @@ with tab2:
                     return ""
 
             st.dataframe(
-                disp.style.applymap(color_z, subset=z_display_cols),
+                disp.style.map(color_z, subset=z_display_cols),
                 use_container_width=True,
             )
 
@@ -194,7 +194,7 @@ with tab2:
                     zm_cols.append(f"{s}_Z방법별")
 
                 st.dataframe(
-                    disp_m.style.applymap(color_z, subset=zm_cols),
+                    disp_m.style.map(color_z, subset=zm_cols),
                     use_container_width=True,
                 )
                 st.caption("방법별 Z-score: 동일 방법 사용 기관 3개 미만이면 N/A")
