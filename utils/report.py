@@ -623,10 +623,16 @@ def generate_pdf_summary(
     cw_stat = ([comp_w_stat*mm, method_w_stat*mm]
                + [sub_w*mm] * n_col * len(valid_stat_samples))
 
-    cell_s     = ParagraphStyle("csp",  fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER)
-    cell_s_hdr = ParagraphStyle("csph", fontName=KO, fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.white)
+    cell_s      = ParagraphStyle("csp",  fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
+    cell_s_hdr  = ParagraphStyle("csph", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER, textColor=colors.white)
+    cell_s_sm   = ParagraphStyle("csps", fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
+    _STAT_ROW_H = 16  # 고정 행 높이(pt) — 모든 행 동일
     def _p(txt):
         return Paragraph(str(txt), cell_s)
+    def _pm(txt):
+        """긴 텍스트(20자 초과)는 작은 글꼴"""
+        s = str(txt)
+        return Paragraph(s, cell_s_sm if len(s) > 20 else cell_s)
     def _hp(txt):
         return Paragraph(str(txt), cell_s_hdr)
 
@@ -723,20 +729,22 @@ def generate_pdf_summary(
                         empty_start = c0
                     if si == n_s - 1 and empty_start is not None:
                         dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0+3, abs_row)))
+                        dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row), (c0+3, abs_row), colors.white))
                 else:
                     if empty_start is not None:
                         dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0-1, abs_row)))
+                        dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row), (c0-1, abs_row), colors.white))
                         empty_start = None
                     row += [_p(cell_vals[0]), _p(cell_vals[1]),
                             _p(cell_vals[2]), _p(cell_vals[3])]
 
         for mc, sfx, meth in method_entries:
-            row = [_p(""), _p(meth)]
+            row = [_p(""), _pm(meth)]
             _fill_sample_cells(row, sfx, mc, meth)
             comp_rows_data.append(row)
 
         # 전체 행
-        whole_row = [_p(""), _p(f"{_fmt_comp(comp)} 전체")]
+        whole_row = [_p(""), _pm(f"{comp} 전체")]
         _fill_sample_cells(whole_row, "")
         comp_rows_data.append(whole_row)
 
@@ -751,7 +759,8 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2)
+    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
+                     rowHeights=[_STAT_ROW_H] * len(stat_rows))
     tbl_style_cmds = [
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
@@ -764,7 +773,7 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(2, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
+        ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
         ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
         ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
     ] + span_cmds + dead_style_cmds
