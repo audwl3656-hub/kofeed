@@ -498,8 +498,8 @@ def generate_pdf_summary(
     elements.append(Paragraph(f"3) 결과 통계처리 및 보고서 작성 : {period_보고서}", info_style))
     elements.append(Spacer(1, 8*mm))
 
-    # 나. 시료 및 분析항목 (표 형식)
-    elements.append(Paragraph("나. 시료 및 분析항목", h2_style))
+    # 나. 시료 및 분석항목 (표 형식)
+    elements.append(Paragraph("나. 시료 및 분석항목", h2_style))
     # 그룹 정보: 아미노산/NIR은 섹션명으로 표기
     _SECTION_GROUPS = {"아미노산", "NIR"}
     from utils.config import get_group_order as _get_go, get_component_groups as _get_cg
@@ -523,7 +523,7 @@ def generate_pdf_summary(
                 if comp not in sample_to_comps[s]:
                     sample_to_comps[s].append(comp)
     cell_ov = ParagraphStyle("cov", fontName=KO, fontSize=10, leading=13)
-    ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분析항목</b>", cell_ov)]]
+    ov_rows = [[Paragraph("<b>시료</b>", cell_ov), Paragraph("<b>분석항목</b>", cell_ov)]]
     for i, s in enumerate(samples):
         comps_s = list(sample_to_comps.get(s, []))
         for _sg in _enabled_section_groups:
