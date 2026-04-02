@@ -973,16 +973,16 @@ def generate_pdf_summary(
         ]))
         elements.append(tbl_cv_wrap)
 
+    elements.append(Spacer(1, 4*mm))
+    elements.append(Paragraph("나. 분석결과 요약", h2_style))
+    
+    elements.append(Spacer(1, 4*mm))
     if summary_text:
-        elements.append(Spacer(1, 4*mm))
         for line in summary_text.splitlines():
             line = line.strip()
             if line:
                 elements.append(Paragraph(line, info_style))
-
-    elements.append(Spacer(1, 4*mm))
-    elements.append(Paragraph("나. 분석결과 요약", h2_style))
-    elements.append(Spacer(1, 4*mm))
+        elements.append(Spacer(1, 4*mm))
 
 
     def _get_zv(z_src, row_idx, col):
