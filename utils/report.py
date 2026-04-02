@@ -1200,7 +1200,7 @@ def generate_pdf_summary(
             if not valid_samples:
                 continue
 
-            # 컬럼 폭: 분析방법 | Lab | [용매] | (결과, Z-score) × n_samples
+            # 컬럼 폭: 분석방법 | Lab | [용매] | (결과, Z-score) × n_samples
             _sol_col = f"{comp}_용매"
             def _sol_has_data(sc):
                 return (sc in df.columns and
@@ -1228,7 +1228,7 @@ def generate_pdf_summary(
                 _dat_col = 2
 
             # 헤더 1행
-            hdr1 = [_hp("분析방법"), _hp("Lab")]
+            hdr1 = [_hp("분석방법"), _hp("Lab")]
             if _has_solvent:
                 hdr1.append(_hp("용매"))
             for s in valid_samples:
