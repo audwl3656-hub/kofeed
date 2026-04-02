@@ -654,7 +654,8 @@ def generate_pdf_summary(
 
     whole_rows: set = set()
     dead_style_cmds: list = []
-    comp_span_ranges: list = []   # [(base_idx, end_idx), ...]
+    dead_span_info:  list = []   # (abs_row, c_start, c_end) — 대각선용
+    comp_span_ranges: list = []  # [(base_idx, end_idx), ...]
 
     # 데이터가 전혀 없는 (성분, 사료) 조합 사전 탐지
     def _is_dead(comp, s):
@@ -682,14 +683,19 @@ def generate_pdf_summary(
         comp_rows_data = []
 
         def _fill_sample_cells(row, sfx, mc=None, meth=None):
-            """빈 샘플은 연속 범위를 하나의 SPAN으로 병합"""
+            """빈 샘플은 연속 범위를 하나의 SPAN으로 병합 + 대각선 정보 기록"""
             abs_row = row_cursor + len(comp_rows_data)
             n_s = len(valid_stat_samples)
-            empty_start = None  # 연속 빈 샘플 시작 열
+            empty_start = None
+
+            def _close_empty(c_end_inclusive):
+                dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c_end_inclusive, abs_row)))
+                dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row),
+                                         (c_end_inclusive, abs_row), colors.HexColor("#eeeeee")))
+                dead_span_info.append((abs_row, empty_start, c_end_inclusive))
 
             for si, s in enumerate(valid_stat_samples):
                 c0 = 2 + si * n_col
-
                 is_empty = False
                 cell_vals = None
 
@@ -727,13 +733,11 @@ def generate_pdf_summary(
                     row += [_p(""), _p(""), _p(""), _p("")]
                     if empty_start is None:
                         empty_start = c0
-                    if si == n_s - 1 and empty_start is not None:
-                        dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0+3, abs_row)))
-                        dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row), (c0+3, abs_row), colors.white))
+                    if si == n_s - 1:
+                        _close_empty(c0 + 3)
                 else:
                     if empty_start is not None:
-                        dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c0-1, abs_row)))
-                        dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row), (c0-1, abs_row), colors.white))
+                        _close_empty(c0 - 1)
                         empty_start = None
                     row += [_p(cell_vals[0]), _p(cell_vals[1]),
                             _p(cell_vals[2]), _p(cell_vals[3])]
@@ -743,7 +747,6 @@ def generate_pdf_summary(
             _fill_sample_cells(row, sfx, mc, meth)
             comp_rows_data.append(row)
 
-        # 전체 행
         whole_row = [_p(""), _pm(f"{comp} 전체")]
         _fill_sample_cells(whole_row, "")
         comp_rows_data.append(whole_row)
@@ -759,9 +762,28 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
+    # ── 빈 셀 대각선 그리기 ──
+    # dead_span_info 기반으로 Drawing을 해당 셀에 삽입
+    from reportlab.graphics.shapes import Line as _Line
+    _diag_color = colors.HexColor("#888888")
+    for (drow, c_start, c_end) in dead_span_info:
+        span_w = sum(cw_stat[c_start:c_end + 1])
+        d_diag = Drawing(span_w, _STAT_ROW_H)
+        d_diag.add(_Line(0, _STAT_ROW_H, span_w, 0,
+                         strokeColor=_diag_color, strokeWidth=0.7))
+        stat_rows[drow][c_start] = d_diag
+
+    # ── 스타일: ROWBACKGROUNDS 제거, 명시적 교대 배경으로 대체 (서식 충돌 방지) ──
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
+
+    _ALT_A = colors.white
+    _ALT_B = colors.HexColor("#f0f4fa")
+    _COL1  = colors.HexColor("#f8fafc")
+    _WHOLE = colors.HexColor("#DEEAF1")
+
     tbl_style_cmds = [
+        # 헤더 2행
         ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",      (0, 0), (-1, -1), KO),
@@ -773,17 +795,26 @@ def generate_pdf_summary(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING",   (0, 0), (-1, -1), 2),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
-        ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
-        ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
-    ] + span_cmds + dead_style_cmds
+    ]
+    # 데이터 행 교대 배경 (명시적, ROWBACKGROUNDS 대체)
+    for ri in range(2, len(stat_rows)):
+        bg = _ALT_A if ri % 2 == 0 else _ALT_B
+        tbl_style_cmds += [
+            ("BACKGROUND", (0,  ri), (0,  ri), _ALT_A),   # 성분 열: 항상 흰색
+            ("BACKGROUND", (1,  ri), (1,  ri), _COL1),    # 분석법 열: 연회색
+            ("BACKGROUND", (2,  ri), (-1, ri), bg),       # 데이터 열: 교대
+        ]
+    # span_cmds (헤더 SPAN + 성분 열 SPAN) 먼저
+    tbl_style_cmds += span_cmds
+    # 전체 행 강조 (성분 열 제외, 분析法+데이터 열만)
     for ri in whole_rows:
         tbl_style_cmds += [
-            ("BACKGROUND",  (1, ri), (-1, ri), colors.HexColor("#DEEAF1")),
-            ("TEXTCOLOR",   (1, ri), (-1, ri), colors.black),
+            ("BACKGROUND", (1, ri), (-1, ri), _WHOLE),
+            ("TEXTCOLOR",  (1, ri), (-1, ri), colors.black),
         ]
-    for s_start, s_end in comp_span_ranges:
-        tbl_style_cmds.append(("BACKGROUND", (0, s_start), (0, s_end), colors.white))
+    # 빈 셀 SPAN + 배경 (dead_style_cmds) — 가장 마지막에 덮어씀
+    tbl_style_cmds += dead_style_cmds
+
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
 
