@@ -14,7 +14,7 @@ def _rfc2047(filename: str) -> str:
 
 
 def _attach_pdf(msg: MIMEMultipart, pdf_bytes: bytes, filename: str) -> None:
-    part = MIMEBase("application", "octet-stream")
+    part = MIMEBase("application", "pdf")
     part.set_payload(pdf_bytes)
     encoders.encode_base64(part)
     part.add_header("Content-Disposition", "attachment", filename=_rfc2047(filename))
