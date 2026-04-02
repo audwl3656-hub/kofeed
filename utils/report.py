@@ -871,6 +871,7 @@ def generate_pdf_summary(
 
         total_h_cv = mt_cv + plot_h_cv + mb_cv
         d_cv = Drawing(chart_w_cv, total_h_cv)
+        d_cv.transform = (1, 0, 0, 1, -5, 0)
         base_x = ml_cv
         base_y = mb_cv
 
@@ -1133,6 +1134,7 @@ def generate_pdf_summary(
                 z_fs    = max(4.5, 6.5 - max(0, n_bars - 20) * 0.1)
 
                 d = Drawing(chart_w, mt_pad + plot_h + mb_pad)
+                d.transform = (1, 0, 0, 1, -5, 0)
                 d.add(Rect(ml, mb_pad, plot_w, plot_h,
                            fillColor=colors.white,
                            strokeColor=colors.HexColor("#aaaaaa"), strokeWidth=0.5))
@@ -1185,8 +1187,8 @@ def generate_pdf_summary(
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
 
-        hdr_s  = ParagraphStyle("zh", fontName=KO, fontSize=8, alignment=TA_CENTER,
-                                 textColor=colors.white, leading=10)
+        hdr_s  = ParagraphStyle("zh", fontName=KO, fontSize=9, alignment=TA_CENTER,
+                                 textColor=colors.black, leading=11)
         cell_s2 = ParagraphStyle("zc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
         red_s   = ParagraphStyle("zr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
                                  textColor=colors.HexColor("#dc2626"))
@@ -1234,8 +1236,8 @@ def generate_pdf_summary(
             lab_w  = 14
             n_samp = len(valid_samples)
             per_s  = (avail_mm - meth_w - lab_w) / n_samp
-            res_w  = per_s * 0.42
-            z_w    = per_s * 0.58
+            res_w  = per_s * 0.5
+            z_w    = per_s * 0.5
             cw_z   = [meth_w*mm, lab_w*mm] + [res_w*mm, z_w*mm] * n_samp
 
             # 헤더 1행
@@ -1309,12 +1311,15 @@ def generate_pdf_summary(
             do_split = split_at > 0 and total_data_rows > split_at
 
             def _make_zt(rows, spans):
-                t = Table(rows, colWidths=cw_z, repeatRows=2)
+                _n_data = len(rows) - 2
+                _row_h  = [20, 16] + [14] * _n_data   # 헤더 2행 높이 크게
+                t = Table(rows, colWidths=cw_z, repeatRows=2, rowHeights=_row_h)
                 t.setStyle(TableStyle([
                     ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
                     ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
                     ("FONTNAME",      (0, 0), (-1, -1), KO),
-                    ("FONTSIZE",      (0, 0), (-1, -1), 8),
+                    ("FONTSIZE",      (0, 2), (-1, -1), 8),
+                    ("FONTSIZE",      (0, 0), (-1, 1),  9),
                     ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
                     ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
                     ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
