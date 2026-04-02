@@ -653,11 +653,9 @@ def generate_pdf_summary(
         span_cmds.append(("SPAN", (c0, 0), (c0 + n_col - 1, 0)))
 
     whole_rows: set = set()
-    dead_style_cmds: list = []
-    dead_span_info:  list = []   # (abs_row, c_start, c_end) — 대각선용
-    comp_span_ranges: list = []  # [(base_idx, end_idx), ...]
+    empty_ranges: list = []   # (abs_row, col_start, col_end)
+    comp_span_ranges: list = []
 
-    # 데이터가 전혀 없는 (성분, 사료) 조합 사전 탐지
     def _is_dead(comp, s):
         for n in range(1, 10):
             sfx = "" if n == 1 else f"_{n}"
@@ -665,7 +663,33 @@ def generate_pdf_summary(
                 return False
         return True
 
-    row_cursor = len(stat_rows)  # 헤더 2행 다음부터
+    def _calc_vals(comp, s, sfx, mc, meth):
+        col = f"{comp}_{s}{sfx}"
+        if col not in df.columns:
+            return None
+        if mc and meth:
+            mask = (df[mc].fillna("").astype(str).str.strip() == meth)
+            vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
+        else:
+            all_vals = []
+            for n2 in range(1, 10):
+                sx2 = "" if n2 == 1 else f"_{n2}"
+                c2  = f"{comp}_{s}{sx2}"
+                if c2 not in df.columns:
+                    if n2 > 1: break
+                    continue
+                all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
+            vals = pd.Series(all_vals)
+        if len(vals) == 0:
+            return None
+        mean_ = vals.mean()
+        std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
+        cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
+        return (len(vals), fmt(mean_),
+                fmt(std_) if not np.isnan(std_) else "-",
+                fmt(cv_, 2) if not np.isnan(cv_) else "-")
+
+    row_cursor = len(stat_rows)
 
     for comp in seen_comps:
         method_entries = []
@@ -673,8 +697,7 @@ def generate_pdf_summary(
             sfx = "" if n == 1 else f"_{n}"
             mc  = f"{comp}_방법{sfx}"
             if mc not in df.columns:
-                if n > 1:
-                    break
+                if n > 1: break
                 continue
             for m in df[mc].dropna().astype(str).unique():
                 if m.strip():
@@ -682,74 +705,30 @@ def generate_pdf_summary(
 
         comp_rows_data = []
 
-        def _fill_sample_cells(row, sfx, mc=None, meth=None):
-            """빈 샘플은 연속 범위를 하나의 SPAN으로 병합 + 대각선 정보 기록"""
+        def _build_row(label_cell, sfx, mc=None, meth=None):
             abs_row = row_cursor + len(comp_rows_data)
-            n_s = len(valid_stat_samples)
-            empty_start = None
-
-            def _close_empty(c_end_inclusive):
-                dead_style_cmds.append(("SPAN", (empty_start, abs_row), (c_end_inclusive, abs_row)))
-                dead_style_cmds.append(("BACKGROUND", (empty_start, abs_row),
-                                         (c_end_inclusive, abs_row), colors.HexColor("#eeeeee")))
-                dead_span_info.append((abs_row, empty_start, c_end_inclusive))
-
+            row = [_p(""), label_cell]
+            run_start = None
             for si, s in enumerate(valid_stat_samples):
                 c0 = 2 + si * n_col
-                is_empty = False
-                cell_vals = None
-
-                if _is_dead(comp, s):
-                    is_empty = True
-                else:
-                    col = f"{comp}_{s}{sfx}"
-                    if col not in df.columns:
-                        is_empty = True
-                    else:
-                        if mc and meth:
-                            mask = (df[mc].fillna("").astype(str).str.strip() == meth)
-                            vals = pd.to_numeric(df.loc[mask, col], errors="coerce").dropna()
-                        else:
-                            all_vals = []
-                            for n2 in range(1, 10):
-                                sx2 = "" if n2 == 1 else f"_{n2}"
-                                c2  = f"{comp}_{s}{sx2}"
-                                if c2 not in df.columns:
-                                    if n2 > 1: break
-                                    continue
-                                all_vals.extend(pd.to_numeric(df[c2], errors="coerce").dropna().tolist())
-                            vals = pd.Series(all_vals)
-                        if len(vals) == 0:
-                            is_empty = True
-                        else:
-                            mean_ = vals.mean()
-                            std_  = vals.std(ddof=1) if len(vals) > 1 else float("nan")
-                            cv_   = (std_/mean_*100) if mean_ != 0 and not np.isnan(std_) else float("nan")
-                            cell_vals = [len(vals), fmt(mean_),
-                                         fmt(std_) if not np.isnan(std_) else "-",
-                                         fmt(cv_, 2) if not np.isnan(cv_) else "-"]
-
-                if is_empty:
+                is_last = (si == len(valid_stat_samples) - 1)
+                cv = None if _is_dead(comp, s) else _calc_vals(comp, s, sfx, mc, meth)
+                if cv is None:
                     row += [_p(""), _p(""), _p(""), _p("")]
-                    if empty_start is None:
-                        empty_start = c0
-                    if si == n_s - 1:
-                        _close_empty(c0 + 3)
+                    if run_start is None:
+                        run_start = c0
+                    if is_last:
+                        empty_ranges.append((abs_row, run_start, c0 + 3))
                 else:
-                    if empty_start is not None:
-                        _close_empty(c0 - 1)
-                        empty_start = None
-                    row += [_p(cell_vals[0]), _p(cell_vals[1]),
-                            _p(cell_vals[2]), _p(cell_vals[3])]
+                    if run_start is not None:
+                        empty_ranges.append((abs_row, run_start, c0 - 1))
+                        run_start = None
+                    row += [_p(cv[0]), _p(cv[1]), _p(cv[2]), _p(cv[3])]
+            return row
 
         for mc, sfx, meth in method_entries:
-            row = [_p(""), _pm(meth)]
-            _fill_sample_cells(row, sfx, mc, meth)
-            comp_rows_data.append(row)
-
-        whole_row = [_p(""), _pm(f"{comp} 전체")]
-        _fill_sample_cells(whole_row, "")
-        comp_rows_data.append(whole_row)
+            comp_rows_data.append(_build_row(_pm(meth), sfx, mc, meth))
+        comp_rows_data.append(_build_row(_pm(f"{comp} 전체"), ""))
 
         if comp_rows_data:
             comp_rows_data[0][0] = _p(_fmt_comp(comp))
@@ -762,60 +741,51 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    # ── 빈 셀 대각선 그리기 ──
-    # dead_span_info 기반으로 Drawing을 해당 셀에 삽입
+    # 빈 셀 대각선 Drawing 삽입
     from reportlab.graphics.shapes import Line as _Line
+    _DEAD_BG    = colors.HexColor("#e0e0e0")
     _diag_color = colors.HexColor("#888888")
-    for (drow, c_start, c_end) in dead_span_info:
-        span_w = sum(cw_stat[c_start:c_end + 1])
+    for (drow, c_start, c_end) in empty_ranges:
+        span_w = sum(cw_stat[c_start : c_end + 1])
         d_diag = Drawing(span_w, _STAT_ROW_H)
         d_diag.add(_Line(0, _STAT_ROW_H, span_w, 0,
                          strokeColor=_diag_color, strokeWidth=0.7))
         stat_rows[drow][c_start] = d_diag
-
-    # ── 스타일: ROWBACKGROUNDS 제거, 명시적 교대 배경으로 대체 (서식 충돌 방지) ──
-    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
-                     rowHeights=[_STAT_ROW_H] * len(stat_rows))
 
     _ALT_A = colors.white
     _ALT_B = colors.HexColor("#f0f4fa")
     _COL1  = colors.HexColor("#f8fafc")
     _WHOLE = colors.HexColor("#DEEAF1")
 
+    stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
+                     rowHeights=[_STAT_ROW_H] * len(stat_rows))
     tbl_style_cmds = [
-        # 헤더 2행
-        ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
-        ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
-        ("FONTNAME",      (0, 0), (-1, -1), KO),
-        ("FONTSIZE",      (0, 0), (-1, -1), 8),
-        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
-        ("TOPPADDING",    (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 2),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+        ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
+        ("TEXTCOLOR",      (0, 0), (-1, 1),  colors.white),
+        ("FONTNAME",       (0, 0), (-1, -1), KO),
+        ("FONTSIZE",       (0, 0), (-1, -1), 8),
+        ("ALIGN",          (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID",           (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
+        ("TOPPADDING",     (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), 2),
+        ("LEFTPADDING",    (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING",   (0, 0), (-1, -1), 2),
+        ("ROWBACKGROUNDS", (0, 2), (-1, -1), [_ALT_A, _ALT_B]),
+        ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
+        ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    # 데이터 행 교대 배경 (명시적, ROWBACKGROUNDS 대체)
-    for ri in range(2, len(stat_rows)):
-        bg = _ALT_A if ri % 2 == 0 else _ALT_B
-        tbl_style_cmds += [
-            ("BACKGROUND", (0,  ri), (0,  ri), _ALT_A),   # 성분 열: 항상 흰색
-            ("BACKGROUND", (1,  ri), (1,  ri), _COL1),    # 분석법 열: 연회색
-            ("BACKGROUND", (2,  ri), (-1, ri), bg),       # 데이터 열: 교대
-        ]
-    # span_cmds (헤더 SPAN + 성분 열 SPAN) 먼저
     tbl_style_cmds += span_cmds
-    # 전체 행 강조 (성분 열 제외, 분析法+데이터 열만)
     for ri in whole_rows:
+        tbl_style_cmds += [("BACKGROUND", (1, ri), (-1, ri), _WHOLE)]
+    # SPAN + 배경 마지막에 (가장 높은 우선순위)
+    for (drow, c_start, c_end) in empty_ranges:
         tbl_style_cmds += [
-            ("BACKGROUND", (1, ri), (-1, ri), _WHOLE),
-            ("TEXTCOLOR",  (1, ri), (-1, ri), colors.black),
+            ("SPAN",       (c_start, drow), (c_end, drow)),
+            ("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG),
         ]
-    # 빈 셀 SPAN + 배경 (dead_style_cmds) — 가장 마지막에 덮어씀
-    tbl_style_cmds += dead_style_cmds
-
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
+    elements.append(stat_tbl)
     elements.append(stat_tbl)
 
     # 가로 페이지 종료 → 세로 페이지로 복귀
@@ -1030,8 +1000,8 @@ def generate_pdf_summary(
 
         def _sol_abbr(val):
             m = str(val).upper()
-            if "PETROLEUM" in m or "석유에테르" in val or "석유" in val: return "P"
-            if "DIETHYL"   in m: return "DE"
+            if "P.Ether" in m: return "P"
+            if "(D)E.Ether"   in m: return "E"
             if "헥산" in val or "HEXAN" in m: return "H"
             if "에탄올" in val or "ETHANOL" in m: return "EtOH"
             if "아세톤" in val or "ACETON" in m: return "Ac"
