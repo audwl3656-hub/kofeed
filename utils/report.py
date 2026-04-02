@@ -840,7 +840,7 @@ def generate_pdf_summary(
 
         total_h_cv = mt_cv + plot_h_cv + mb_cv
         d_cv = Drawing(chart_w_cv, total_h_cv)
-        d_cv.transform = (1, 0, 0, 1, -5, 0)
+        d_cv.transform = (1, 0, 0, 1, -30, 0)
         base_x = ml_cv
         base_y = mb_cv
 
