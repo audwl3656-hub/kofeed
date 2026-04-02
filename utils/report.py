@@ -79,6 +79,12 @@ def _build_sample_section(
             return "-"
 
     z_cell_style = ParagraphStyle("zcell", fontName=KO, fontSize=10, alignment=TA_CENTER)
+    meth_s    = ParagraphStyle("mcs",  fontName=KO, fontSize=10, alignment=TA_CENTER, leading=12)
+    meth_s_sm = ParagraphStyle("mcss", fontName=KO, fontSize=7,  alignment=TA_CENTER, leading=9)
+
+    def _mcp(txt):
+        s = str(txt)
+        return Paragraph(s, meth_s_sm if len(s) > 18 else meth_s)
 
     if report_type == "overall":
         header = ["성분", "방법", "제출값", "중앙값", "CV(%)", "n", "Z전체"]
@@ -118,7 +124,7 @@ def _build_sample_section(
 
         cv_val = stats.get("cv")
         try:
-            cv_str = f"{float(cv_val):.1f}" if cv_val is not None and not np.isnan(float(cv_val)) else "-"
+            cv_str = f"{float(cv_val):.2f}" if cv_val is not None and not np.isnan(float(cv_val)) else "-"
         except Exception:
             cv_str = "-"
 
@@ -127,7 +133,7 @@ def _build_sample_section(
         sfx = col[len(f"{comp}_{sample_in_col}"):] if sample_in_col else ""
         method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "")
         rows.append([
-            comp, method, fmt(val),
+            comp, _mcp(method), fmt(val),
             fmt(stats.get("median", "")),
             cv_str,
             str(stats.get("n", "")),
@@ -626,13 +632,20 @@ def generate_pdf_summary(
     cell_s      = ParagraphStyle("csp",  fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
     cell_s_hdr  = ParagraphStyle("csph", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER, textColor=colors.white)
     cell_s_sm   = ParagraphStyle("csps", fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
-    _STAT_ROW_H = 16  # 고정 행 높이(pt) — 모든 행 동일
+    cell_s_bold = ParagraphStyle("cspb", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
+    cell_s_sm_b = ParagraphStyle("cspsb",fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
+    _STAT_ROW_H = 16
     def _p(txt):
         return Paragraph(str(txt), cell_s)
     def _pm(txt):
-        """긴 텍스트(20자 초과)는 작은 글꼴"""
         s = str(txt)
         return Paragraph(s, cell_s_sm if len(s) > 20 else cell_s)
+    def _pmb(txt):
+        """전체 행용 — 굵게"""
+        s = str(txt)
+        return Paragraph(f"<b>{s}</b>", cell_s_sm_b if len(s) > 20 else cell_s_bold)
+    def _pb(txt):
+        return Paragraph(f"<b>{str(txt)}</b>", cell_s_bold)
     def _hp(txt):
         return Paragraph(str(txt), cell_s_hdr)
 
@@ -728,7 +741,7 @@ def generate_pdf_summary(
 
         for mc, sfx, meth in method_entries:
             comp_rows_data.append(_build_row(_pm(meth), sfx, mc, meth))
-        comp_rows_data.append(_build_row(_pm(f"{comp} 전체"), ""))
+        comp_rows_data.append(_build_row(_pmb(f"{comp} 전체"), ""))
 
         if comp_rows_data:
             comp_rows_data[0][0] = _p(_fmt_comp(comp))
@@ -741,25 +754,27 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    # 빈 셀 대각선 Drawing 삽입
-    from reportlab.graphics.shapes import Line as _Line
-    _DEAD_BG    = colors.HexColor("#e0e0e0")
-    _diag_color = colors.HexColor("#888888")
+    # 빈 셀: 첫 셀에 "/" 삽입 (대각선 대체)
+    _dead_cell_s = ParagraphStyle("dcs", fontName=KO, fontSize=14, alignment=TA_CENTER,
+                                  textColor=colors.HexColor("#aaaaaa"), leading=16)
     for (drow, c_start, c_end) in empty_ranges:
-        span_w = sum(cw_stat[c_start : c_end + 1])
-        d_diag = Drawing(span_w, _STAT_ROW_H)
-        d_diag.add(_Line(0, _STAT_ROW_H, span_w, 0,
-                         strokeColor=_diag_color, strokeWidth=0.7))
-        stat_rows[drow][c_start] = d_diag
+        stat_rows[drow][c_start] = Paragraph("/", _dead_cell_s)
 
     _ALT_A = colors.white
     _ALT_B = colors.HexColor("#f0f4fa")
     _COL1  = colors.HexColor("#f8fafc")
-    _WHOLE = colors.HexColor("#DEEAF1")
+    _DEAD_BG = colors.HexColor("#e8e8e8")
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
-    tbl_style_cmds = [
+
+    # ── SPAN 명령 맨 앞 배치 (ReportLab 요구사항) ──
+    all_spans = []
+    all_spans += span_cmds  # 헤더 SPAN + 성분 열 SPAN
+    for (drow, c_start, c_end) in empty_ranges:
+        all_spans.append(("SPAN", (c_start, drow), (c_end, drow)))
+
+    tbl_style_cmds = all_spans + [
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",      (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",       (0, 0), (-1, -1), KO),
@@ -775,15 +790,12 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
         ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    tbl_style_cmds += span_cmds
-    for ri in whole_rows:
-        tbl_style_cmds += [("BACKGROUND", (1, ri), (-1, ri), _WHOLE)]
-    # SPAN + 배경 마지막에 (가장 높은 우선순위)
+    # 빈 셀 배경 + 전체 행 강조 (SPAN 이후)
     for (drow, c_start, c_end) in empty_ranges:
-        tbl_style_cmds += [
-            ("SPAN",       (c_start, drow), (c_end, drow)),
-            ("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG),
-        ]
+        tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
+    for ri in whole_rows:
+        tbl_style_cmds.append(("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#DEEAF1")))
+
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
 
