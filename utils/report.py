@@ -1157,7 +1157,7 @@ def generate_pdf_summary(
         elems.append(Paragraph(sec_title, sec_heading_style))
 
         hdr_s  = ParagraphStyle("zh", fontName=KO, fontSize=9, alignment=TA_CENTER,
-                                 textColor=colors.black, leading=11)
+                                 textColor=colors.white, leading=11)
         cell_s2 = ParagraphStyle("zc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
         red_s   = ParagraphStyle("zr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
                                  textColor=colors.HexColor("#dc2626"))
