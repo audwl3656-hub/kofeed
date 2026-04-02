@@ -998,9 +998,10 @@ def generate_pdf_summary(
         COL_TXT  = colors.HexColor("#444444")
 
         def _sol_abbr(val):
-            m = str(val).upper()
-            if "P.Ether" in m: return "P"
-            if "(D)E.Ether"   in m: return "E"
+            m = str(val).strip().upper()
+            if not m or m in ("NAN", "해당없음", "-"): return ""
+            if "P.ETHER" in m or "PETROLEUM" in m: return "P"
+            if "(D)E.ETHER" in m or "DIETHYL" in m: return "E"
             if "헥산" in val or "HEXAN" in m: return "H"
             if "에탄올" in val or "ETHANOL" in m: return "EtOH"
             if "아세톤" in val or "ACETON" in m: return "Ac"
@@ -1019,7 +1020,7 @@ def generate_pdf_summary(
         if not valid_samps:
             return chart_elems
 
-        is_fat = "조지방" in str(comp)
+        is_fat = "조지방" in str(comp) and "산분해" not in str(comp)
 
         for s in valid_samps:
             grouped: dict = {}
@@ -1060,7 +1061,7 @@ def generate_pdf_summary(
                         if not sol_val and sfx:
                             sol_val = _read_sol(f"{comp}_용매")
                         abbr = _sol_abbr(sol_val) if sol_val else _sol_abbr(meth_str)
-                        label = f"{inst}-{abbr}" if abbr else str(inst)
+                        label = f"{inst}{abbr}" if abbr else str(inst)
                     else:
                         label = str(inst)
                     grouped.setdefault(grp_key, []).append((label, zv))
@@ -1153,9 +1154,10 @@ def generate_pdf_summary(
     _PAGE_H = fh
 
     def _sol_abbr_fn(val):
-        m = str(val).upper()
-        if "P.ETHER" in m: return "P"
-        if "(D)E.ETHER" in m: return "E"
+        m = str(val).strip().upper()
+        if not m or m in ("NAN", "해당없음", "-"): return ""
+        if "P.ETHER" in m or "PETROLEUM" in m: return "P"
+        if "(D)E.ETHER" in m or "DIETHYL" in m: return "E"
         if "헥산" in val or "HEXAN" in m: return "H"
         if "에탄올" in val or "ETHANOL" in m: return "EtOH"
         if "아세톤" in val or "ACETON" in m: return "Ac"
