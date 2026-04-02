@@ -314,6 +314,8 @@ with tab3:
             _pdf_b64 = _b64.b64encode(summary_pdf).decode("utf-8")
             _components.html(
                 f"""
+                <iframe id="pdf-preview" width="100%" height="880"
+                  style="border:1px solid #ddd;border-radius:4px;"></iframe>
                 <script>
                 (function() {{
                     var b64 = "{_pdf_b64}";
@@ -326,8 +328,6 @@ with tab3:
                     if (el) el.src = url;
                 }})();
                 </script>
-                <iframe id="pdf-preview" width="100%" height="880"
-                  style="border:1px solid #ddd;border-radius:4px;"></iframe>
                 """,
                 height=900,
                 scrolling=False,
