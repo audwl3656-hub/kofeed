@@ -1152,6 +1152,16 @@ def generate_pdf_summary(
     # 페이지 본문 높이 (pt) — 표+그래프 함께 들어가는지 판단
     _PAGE_H = fh
 
+    def _sol_abbr_fn(val):
+        m = str(val).upper()
+        if "P.ETHER" in m: return "P"
+        if "(D)E.ETHER" in m: return "E"
+        if "헥산" in val or "HEXAN" in m: return "H"
+        if "에탄올" in val or "ETHANOL" in m: return "EtOH"
+        if "아세톤" in val or "ACETON" in m: return "Ac"
+        if "ETHER" in m or "에테르" in val: return "E"
+        return ""
+
     def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0):
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
@@ -1293,7 +1303,7 @@ def generate_pdf_summary(
                                 return "" if v in ("nan","해당없음","-","") else v
                             except: return ""
                         sol_v = _rsol(f"{comp}_용매{sfx}") or _rsol(f"{comp}_용매")
-                        _abbr_v = _sol_abbr(sol_v) if sol_v else ""
+                        _abbr_v = _sol_abbr_fn(sol_v) if sol_v else ""
                         sol_cell = [_cp(_abbr_v if _abbr_v else sol_v)]
                     else:
                         sol_cell = []
