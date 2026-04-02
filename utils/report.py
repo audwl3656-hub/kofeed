@@ -786,7 +786,6 @@ def generate_pdf_summary(
         ]
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
-    elements.append(stat_tbl)
 
     # 가로 페이지 종료 → 세로 페이지로 복귀
     elements.append(NextPageTemplate('Content'))
@@ -1201,17 +1200,37 @@ def generate_pdf_summary(
             if not valid_samples:
                 continue
 
-            # 컬럼 폭: 분석방법 | Lab | (결과, Z-score) × n_samples
+            # 컬럼 폭: 분析방법 | Lab | [용매] | (결과, Z-score) × n_samples
+            _sol_col = f"{comp}_용매"
+            def _sol_has_data(sc):
+                return (sc in df.columns and
+                        df[sc].dropna().astype(str).str.strip()
+                        .replace({"nan":"","해당없음":"","-":""}).ne("").any())
+            _has_solvent = _sol_has_data(_sol_col)
+            if not _has_solvent:
+                for _sfx2 in sfx_list[1:]:
+                    if _sol_has_data(f"{comp}_용매{_sfx2}"):
+                        _has_solvent = True; break
+
             meth_w = 40
             lab_w  = 14
+            sol_w  = 12
             n_samp = len(valid_samples)
-            per_s  = (avail_mm - meth_w - lab_w) / n_samp
+            _fixed_w = meth_w + lab_w + (sol_w if _has_solvent else 0)
+            per_s  = (avail_mm - _fixed_w) / n_samp
             res_w  = per_s * 0.5
             z_w    = per_s * 0.5
-            cw_z   = [meth_w*mm, lab_w*mm] + [res_w*mm, z_w*mm] * n_samp
+            if _has_solvent:
+                cw_z    = [meth_w*mm, lab_w*mm, sol_w*mm] + [res_w*mm, z_w*mm] * n_samp
+                _dat_col = 3
+            else:
+                cw_z    = [meth_w*mm, lab_w*mm] + [res_w*mm, z_w*mm] * n_samp
+                _dat_col = 2
 
             # 헤더 1행
-            hdr1 = [_hp("분석방법"), _hp("Lab")]
+            hdr1 = [_hp("분析방법"), _hp("Lab")]
+            if _has_solvent:
+                hdr1.append(_hp("용매"))
             for s in valid_samples:
                 col0 = f"{comp}_{s}"
                 gs   = group_stats.get(col0, {})
@@ -1224,13 +1243,17 @@ def generate_pdf_summary(
 
             # 헤더 2행
             hdr2 = [_hp(""), _hp("")]
+            if _has_solvent:
+                hdr2.append(_hp(""))
             for _ in valid_samples:
                 hdr2 += [_hp("결과"), _hp("Z-score")]
 
             z_rows = [hdr1, hdr2]
             span_z = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+            if _has_solvent:
+                span_z.append(("SPAN", (2, 0), (2, 1)))
             for si in range(n_samp):
-                span_z.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
+                span_z.append(("SPAN", (_dat_col + si*2, 0), (_dat_col + si*2 + 1, 0)))
 
             # 방법별 그룹핑 + 방법별 raw 값 수집 (중간값 계산용)
             method_to_rows: dict = {}
@@ -1261,8 +1284,20 @@ def generate_pdf_summary(
                     if not has_any:
                         continue
                     lab_label = inst if sfx == "" else f"{inst}{sfx}"
+                    # 용매 셀
+                    if _has_solvent:
+                        def _rsol(sc):
+                            if sc not in df.columns: return ""
+                            try:
+                                v = str(df.at[row_idx, sc]).strip()
+                                return "" if v in ("nan","해당없음","-","") else v
+                            except: return ""
+                        sol_v = _rsol(f"{comp}_용매{sfx}") or _rsol(f"{comp}_용매")
+                        sol_cell = [_cp(sol_v if sol_v else "")]
+                    else:
+                        sol_cell = []
                     method_to_rows.setdefault(meth, []).append(
-                        [_cp(""), _cp(lab_label)] + row_vals
+                        [_cp(""), _cp(lab_label)] + sol_cell + row_vals
                     )
 
             ordered_methods = get_method_options(cfg, comp=comp) if cfg is not None else []
@@ -1282,9 +1317,9 @@ def generate_pdf_summary(
 
             def _make_zt(rows, spans):
                 _n_data = len(rows) - 2
-                _row_h  = [20, 16] + [14] * _n_data   # 헤더 2행 높이 크게
+                _row_h  = [20, 16] + [14] * _n_data
                 t = Table(rows, colWidths=cw_z, repeatRows=2, rowHeights=_row_h)
-                t.setStyle(TableStyle([
+                _zt_style = [
                     ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
                     ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
                     ("FONTNAME",      (0, 0), (-1, -1), KO),
@@ -1299,8 +1334,9 @@ def generate_pdf_summary(
                     ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
                     ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
                     ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
-                    ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
-                ] + spans))
+                    ("BACKGROUND",    (1, 2), (_dat_col - 1, -1),  colors.HexColor("#f8fafc")),
+                ] + spans
+                t.setStyle(TableStyle(_zt_style))
                 return t
 
             comp_heading = Paragraph(f"{num}) {comp}", h3_style)
@@ -1316,6 +1352,8 @@ def generate_pdf_summary(
                     mrows.sort(key=_lab_sort_key)
                     # 방법별 중간값 헤더 생성
                     meth_hdr1 = [_hp("분석방법"), _hp("Lab")]
+                    if _has_solvent:
+                        meth_hdr1.append(_hp("용매"))
                     for s in valid_samples:
                         m_vals = method_raw_vals.get(meth, {}).get(s, [])
                         try:
