@@ -1284,7 +1284,7 @@ def generate_pdf_summary(
                     if not has_any:
                         continue
                     lab_label = inst if sfx == "" else f"{inst}{sfx}"
-                    # 용매 셀
+                    # 용매 셀 (약어 적용)
                     if _has_solvent:
                         def _rsol(sc):
                             if sc not in df.columns: return ""
@@ -1293,7 +1293,8 @@ def generate_pdf_summary(
                                 return "" if v in ("nan","해당없음","-","") else v
                             except: return ""
                         sol_v = _rsol(f"{comp}_용매{sfx}") or _rsol(f"{comp}_용매")
-                        sol_cell = [_cp(sol_v if sol_v else "")]
+                        _abbr_v = _sol_abbr(sol_v) if sol_v else ""
+                        sol_cell = [_cp(_abbr_v if _abbr_v else sol_v)]
                     else:
                         sol_cell = []
                     method_to_rows.setdefault(meth, []).append(
