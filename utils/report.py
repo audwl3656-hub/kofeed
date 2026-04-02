@@ -814,8 +814,8 @@ def generate_pdf_summary(
 
         chart_w_cv = avail_mm * mm
         ml_cv, mr_cv, mt_cv = 36, 12, 28
-        _leg_h_cv  = 14                        # 범례 영역 높이
-        mb_cv      = 20 + 22 + _leg_h_cv      # x축 레이블(12) + 범례 영역
+        _leg_h_cv  = 22                        # 범례 영역 높이
+        mb_cv      = 20 + 22 + _leg_h_cv      # x축 레이블(22) + 범례 영역
         plot_w_cv  = chart_w_cv - ml_cv - mr_cv
         plot_h_cv  = 120
 
@@ -859,14 +859,15 @@ def generate_pdf_summary(
                           fontSize=7, fontName=KO, textAnchor="end",
                           fillColor=colors.HexColor("#555555")))
 
-        # 세로 막대 + X축 레이블 (직선)
+        # 세로 막대 + X축 레이블 (직선) — 그룹 내 중앙 정렬
+        _total_bar_w = n_feeds_cv * bar_w_cv
         for ci, comp in enumerate(comps_with_data):
-            gx = base_x + ci * group_w + 2
+            _bar_start = base_x + ci * group_w + (group_w - _total_bar_w) / 2
             for fi, feed in enumerate(feeds_with_data):
                 cv_val = cv_data.get(comp, {}).get(feed)
                 if cv_val is None or (isinstance(cv_val, float) and np.isnan(cv_val)):
                     continue
-                bx = gx + fi * bar_w_cv
+                bx = _bar_start + fi * bar_w_cv
                 bh = max((cv_val / max_cv_val) * plot_h_cv, 0)
                 d_cv.add(Rect(bx, base_y, max(bar_w_cv - 1, 1), bh,
                               fillColor=colors.HexColor(feed_color[feed]),
@@ -896,7 +897,7 @@ def generate_pdf_summary(
         _leg_item_w = 55   # 범례 항목당 폭(색상박스+텍스트)
         _leg_total_w = len(feeds_with_data) * _leg_item_w
         leg_x0 = base_x + (plot_w_cv - _leg_total_w) / 2
-        leg_y0 = base_y - 12 - _leg_h_cv + 2
+        leg_y0 = base_y - 22 - _leg_h_cv + 2
         for fi, feed in enumerate(feeds_with_data):
             lx = leg_x0 + fi * _leg_item_w
             d_cv.add(Rect(lx, leg_y0, 8, 6,
