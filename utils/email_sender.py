@@ -50,17 +50,17 @@ def send_report(to_email: str, institution: str,
 회원사 비교분석 시험 결과 보고서를 첨부 파일로 송부드립니다.
 보고서에는 귀 기관의 제출값과 Robust Z-score 판정 결과가 포함되어 있습니다.
 {"연도별 Z-Score 추이 대시보드(HTML 파일)도 함께 첨부하였습니다. 파일을 저장 후 브라우저에서 열어 확인하시기 바랍니다." if html_dashboard else ""}
-문의 사항이 있으시면 회신해 주시기 바랍니다.
+문의 사항이 있으시면 한국사료협회로 전화부탁드립니다.
 
 감사합니다.
 """
     msg.attach(MIMEText(body, "plain", "utf-8"))
-    _attach_pdf(msg, pdf_overall, f"회원사비교분석_{institution}_전체 Robust Z-score.pdf")
-    _attach_pdf(msg, pdf_method,  f"회원사비교분석_{institution}_방법별 Robust Z-score.pdf")
+    _attach_pdf(msg, pdf_overall, f"한국사료협회 비교분석_{institution}_시료, 성분별 Robust Z-score.pdf")
+    _attach_pdf(msg, pdf_method,  f"한국사료협회 비교분석_{institution}_방법별 Robust Z-score.pdf")
     if pdf_summary:
-        _attach_pdf(msg, pdf_summary, "회원사비교분석_전체요약.pdf")
+        _attach_pdf(msg, pdf_summary, "한국사료협회 비교분석_결과 보고서.pdf")
     if html_dashboard:
-        _attach_html(msg, html_dashboard, f"사료_ZScore_{institution}_연도별_대시보드.html")
+        _attach_html(msg, html_dashboard, f"{institution}_비교분석 3년 총합 Z-Score_연도별_대시보드.html")
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(sender, password)
@@ -89,7 +89,7 @@ def send_confirmation(to_email: str, institution: str, row: dict, cfg) -> bool:
     msg = MIMEMultipart()
     msg["From"]    = sender
     msg["To"]      = to_email
-    msg["Subject"] = f"[회원사 비교분석] {institution} 데이터 접수 확인"
+    msg["Subject"] = f"[한국사료협회 비교분석] {institution} 데이터 접수 확인"
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
     pdf_bytes = generate_submission_pdf(row, cfg, generated_at=row.get("제출일시"))
