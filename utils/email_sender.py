@@ -42,7 +42,7 @@ def send_report(to_email: str, institution: str,
     msg = MIMEMultipart()
     msg["From"]    = sender
     msg["To"]      = to_email
-    msg["Subject"] = f"[회원사비교분석] {institution} 회원사 비교분석 결과 보고서"
+    msg["Subject"] = f"[한국사료협회 비교분석] {institution} 비교분석 결과 보고서"
 
     body = f"""\
 {institution} 귀중
