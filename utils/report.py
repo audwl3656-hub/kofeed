@@ -771,26 +771,72 @@ def generate_pdf_summary(
     _DEAD_BG = colors.HexColor("#e8e8e8")
     _DEAD_LINE = colors.HexColor("#aaaaaa")
 
-    # 빈 범위: 행마다 가로 병합 + 대각선 (세로 병합 없음 → 페이지 분리 안전)
     from reportlab.graphics.shapes import Line as _Line
 
-    for (drow, c_start, c_end) in empty_ranges:
+    # ── 페이지 경계 계산 ──
+    # 가로(landscape) 페이지 가용 높이: fh_land
+    # 헤더 행 2개 + 반복 헤더 각 페이지마다 차지하는 높이
+    _hdr_h = _STAT_ROW_H * 2          # 헤더 2행
+    _page_h = fh_land                  # 페이지당 가용 높이
+    # 1페이지: h1/h2 제목 등 선행 요소 높이 (근사값)
+    _pre_h = 18 * mm                   # "2.비교분석결과" + "가." 제목 근사
+    _rows_per_page_1 = int((_page_h - _pre_h - _hdr_h) / _STAT_ROW_H)
+    _rows_per_page_n = int((_page_h - _hdr_h) / _STAT_ROW_H)
+
+    def _page_of_row(row_idx):
+        """데이터 행 인덱스(0-based, 헤더 제외)로 몇 번째 페이지인지 반환"""
+        data_row = row_idx - 2  # 헤더 2행 제외
+        if data_row < 0:
+            return 0
+        if data_row < _rows_per_page_1:
+            return 1
+        remaining = data_row - _rows_per_page_1
+        return 2 + remaining // _rows_per_page_n
+
+    # ── 연속 행 그룹화 → 페이지 경계에서 끊기 ──
+    sorted_empty = sorted(empty_ranges, key=lambda x: (x[1], x[2], x[0]))
+    final_spans = []   # (r_start, r_end, c_start, c_end)
+    i = 0
+    while i < len(sorted_empty):
+        r, cs, ce = sorted_empty[i]
+        group_rows = [r]
+        j = i + 1
+        while j < len(sorted_empty):
+            rj, csj, cej = sorted_empty[j]
+            if csj == cs and cej == ce and rj == group_rows[-1] + 1:
+                group_rows.append(rj)
+                j += 1
+            else:
+                break
+        # 같은 페이지끼리만 묶기
+        seg_start = group_rows[0]
+        for k in range(1, len(group_rows)):
+            if _page_of_row(group_rows[k]) != _page_of_row(group_rows[k-1]):
+                final_spans.append((seg_start, group_rows[k-1], cs, ce))
+                seg_start = group_rows[k]
+        final_spans.append((seg_start, group_rows[-1], cs, ce))
+        i = j
+
+    # ── 대각선 Drawing 삽입 ──
+    for (r_start, r_end, c_start, c_end) in final_spans:
         merged_w = sum(cw_stat[c_start : c_end + 1])
-        h = _STAT_ROW_H
-        d = Drawing(merged_w, h)
-        d.add(_Line(0, h, merged_w, 0,
+        merged_h = _STAT_ROW_H * (r_end - r_start + 1)
+        d = Drawing(merged_w, merged_h)
+        d.add(_Line(0, merged_h, merged_w, 0,
                     strokeColor=_DEAD_LINE, strokeWidth=0.7))
-        stat_rows[drow][c_start] = d
-        for c in range(c_start + 1, c_end + 1):
-            stat_rows[drow][c] = ""
+        stat_rows[r_start][c_start] = d
+        for r in range(r_start, r_end + 1):
+            for c in range(c_start, c_end + 1):
+                if r != r_start or c != c_start:
+                    stat_rows[r][c] = ""
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
 
     # ── SPAN 명령 맨 앞 (ReportLab 필수) ──
     all_spans = list(span_cmds)
-    for (drow, c_start, c_end) in empty_ranges:
-        all_spans.append(("SPAN", (c_start, drow), (c_end, drow)))
+    for (r_start, r_end, c_start, c_end) in final_spans:
+        all_spans.append(("SPAN", (c_start, r_start), (c_end, r_end)))
 
     tbl_style_cmds = all_spans + [
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
@@ -808,8 +854,8 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
         ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    for (drow, c_start, c_end) in empty_ranges:
-        tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
+    for (r_start, r_end, c_start, c_end) in final_spans:
+        tbl_style_cmds.append(("BACKGROUND", (c_start, r_start), (c_end, r_end), _DEAD_BG))
 
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
