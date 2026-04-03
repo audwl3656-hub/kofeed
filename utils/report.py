@@ -771,23 +771,48 @@ def generate_pdf_summary(
     _DEAD_BG = colors.HexColor("#e8e8e8")
     _DEAD_LINE = colors.HexColor("#aaaaaa")
 
-    # 빈 범위 첫 셀에 대각선 Drawing 삽입
+    # ── 연속된 빈 범위를 세로로도 병합 ──
+    # empty_ranges: (row, c_start, c_end) → 같은 (c_start, c_end) + 연속 행끼리 묶음
     from reportlab.graphics.shapes import Line as _Line
-    for (drow, c_start, c_end) in empty_ranges:
+
+    sorted_empty = sorted(empty_ranges, key=lambda x: (x[1], x[2], x[0]))
+    merged_empty = []   # (row_start, row_end, c_start, c_end)
+    i = 0
+    while i < len(sorted_empty):
+        r, cs, ce = sorted_empty[i]
+        row_end = r
+        j = i + 1
+        while j < len(sorted_empty):
+            rj, csj, cej = sorted_empty[j]
+            if csj == cs and cej == ce and rj == row_end + 1:
+                row_end = rj
+                j += 1
+            else:
+                break
+        merged_empty.append((r, row_end, cs, ce))
+        i = j
+
+    # 병합된 셀 왼쪽 상단에만 대각선 Drawing
+    for (r_start, r_end, c_start, c_end) in merged_empty:
         merged_w = sum(cw_stat[c_start : c_end + 1])
-        h = _STAT_ROW_H
-        d = Drawing(merged_w, h)
-        d.add(_Line(0, h, merged_w, 0,
-                    strokeColor=_DEAD_LINE, strokeWidth=0.5))
-        stat_rows[drow][c_start] = d
+        merged_h = _STAT_ROW_H * (r_end - r_start + 1)
+        d = Drawing(merged_w, merged_h)
+        d.add(_Line(0, merged_h, merged_w, 0,
+                    strokeColor=_DEAD_LINE, strokeWidth=0.7))
+        stat_rows[r_start][c_start] = d
+        # 병합될 나머지 셀 비우기
+        for r in range(r_start, r_end + 1):
+            for c in range(c_start, c_end + 1):
+                if r != r_start or c != c_start:
+                    stat_rows[r][c] = ""
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
 
     # ── SPAN 명령 맨 앞 (ReportLab 필수) ──
     all_spans = list(span_cmds)
-    for (drow, c_start, c_end) in empty_ranges:
-        all_spans.append(("SPAN", (c_start, drow), (c_end, drow)))
+    for (r_start, r_end, c_start, c_end) in merged_empty:
+        all_spans.append(("SPAN", (c_start, r_start), (c_end, r_end)))
 
     tbl_style_cmds = all_spans + [
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
@@ -805,8 +830,8 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
         ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    for (drow, c_start, c_end) in empty_ranges:
-        tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
+    for (r_start, r_end, c_start, c_end) in merged_empty:
+        tbl_style_cmds.append(("BACKGROUND", (c_start, r_start), (c_end, r_end), _DEAD_BG))
 
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
