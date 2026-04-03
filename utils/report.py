@@ -773,27 +773,14 @@ def generate_pdf_summary(
 
     from reportlab.graphics.shapes import Line as _Line
 
-    # ── 페이지 경계 계산 ──
-    # 가로(landscape) 페이지 가용 높이: fh_land
-    # 헤더 행 2개 + 반복 헤더 각 페이지마다 차지하는 높이
-    _hdr_h = _STAT_ROW_H * 2          # 헤더 2행
-    _page_h = fh_land                  # 페이지당 가용 높이
-    # 1페이지: h1/h2 제목 등 선행 요소 높이 (근사값)
-    _pre_h = 18 * mm                   # "2.비교분석결과" + "가." 제목 근사
-    _rows_per_page_1 = int((_page_h - _pre_h - _hdr_h) / _STAT_ROW_H)
-    _rows_per_page_n = int((_page_h - _hdr_h) / _STAT_ROW_H)
+    # ── 연속 행 그룹화 → 같은 성분(comp) 블록 안에서만 세로 병합 ──
+    # comp_span_ranges: [(base_idx, end_idx), ...] — 성분별 행 범위
+    def _comp_of_row(row_idx):
+        for ci, (b, e) in enumerate(comp_span_ranges):
+            if b <= row_idx <= e:
+                return ci
+        return -1
 
-    def _page_of_row(row_idx):
-        """데이터 행 인덱스(0-based, 헤더 제외)로 몇 번째 페이지인지 반환"""
-        data_row = row_idx - 2  # 헤더 2행 제외
-        if data_row < 0:
-            return 0
-        if data_row < _rows_per_page_1:
-            return 1
-        remaining = data_row - _rows_per_page_1
-        return 2 + remaining // _rows_per_page_n
-
-    # ── 연속 행 그룹화 → 페이지 경계에서 끊기 ──
     sorted_empty = sorted(empty_ranges, key=lambda x: (x[1], x[2], x[0]))
     final_spans = []   # (r_start, r_end, c_start, c_end)
     i = 0
@@ -803,18 +790,14 @@ def generate_pdf_summary(
         j = i + 1
         while j < len(sorted_empty):
             rj, csj, cej = sorted_empty[j]
-            if csj == cs and cej == ce and rj == group_rows[-1] + 1:
+            if (csj == cs and cej == ce
+                    and rj == group_rows[-1] + 1
+                    and _comp_of_row(rj) == _comp_of_row(group_rows[-1])):
                 group_rows.append(rj)
                 j += 1
             else:
                 break
-        # 같은 페이지끼리만 묶기
-        seg_start = group_rows[0]
-        for k in range(1, len(group_rows)):
-            if _page_of_row(group_rows[k]) != _page_of_row(group_rows[k-1]):
-                final_spans.append((seg_start, group_rows[k-1], cs, ce))
-                seg_start = group_rows[k]
-        final_spans.append((seg_start, group_rows[-1], cs, ce))
+        final_spans.append((group_rows[0], group_rows[-1], cs, ce))
         i = j
 
     # ── 대각선 Drawing 삽입 ──
