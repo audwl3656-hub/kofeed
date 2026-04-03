@@ -728,16 +728,17 @@ def generate_pdf_summary(
 
         comp_rows_data = []
 
-        def _build_row(label_cell, sfx, mc=None, meth=None):
+        def _build_row(label_cell, sfx, mc=None, meth=None, bold=False):
             abs_row = row_cursor + len(comp_rows_data)
             row = [_p(""), label_cell]
+            _dat = _pb if bold else _p
             run_start = None
             for si, s in enumerate(valid_stat_samples):
                 c0 = 2 + si * n_col
                 is_last = (si == len(valid_stat_samples) - 1)
                 cv = None if _is_dead(comp, s) else _calc_vals(comp, s, sfx, mc, meth)
                 if cv is None:
-                    row += ["", "", "", ""]  # 반드시 빈 문자열이어야 SPAN 작동
+                    row += ["", "", "", ""]
                     if run_start is None:
                         run_start = c0
                     if is_last:
@@ -746,12 +747,12 @@ def generate_pdf_summary(
                     if run_start is not None:
                         empty_ranges.append((abs_row, run_start, c0 - 1))
                         run_start = None
-                    row += [_p(cv[0]), _p(cv[1]), _p(cv[2]), _p(cv[3])]
+                    row += [_dat(cv[0]), _dat(cv[1]), _dat(cv[2]), _dat(cv[3])]
             return row
 
         for mc, sfx, meth in method_entries:
             comp_rows_data.append(_build_row(_pm(meth), sfx, mc, meth))
-        comp_rows_data.append(_build_row(_pmb(f"{comp} 전체"), ""))
+        comp_rows_data.append(_build_row(_pmb(f"{comp} 전체"), "", bold=True))
 
         if comp_rows_data:
             comp_rows_data[0][0] = _p(_fmt_comp(comp))
@@ -778,13 +779,8 @@ def generate_pdf_summary(
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
 
-    # ── SPAN 명령 맨 앞 배치 (ReportLab 요구사항) ──
-    all_spans = []
-    all_spans += span_cmds  # 헤더 SPAN + 성분 열 SPAN
-    for (drow, c_start, c_end) in empty_ranges:
-        all_spans.append(("SPAN", (c_start, drow), (c_end, drow)))
-
-    tbl_style_cmds = all_spans + [
+    # ── SPAN: 헤더 + 성분열만 ──
+    tbl_style_cmds = list(span_cmds) + [
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",      (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",       (0, 0), (-1, -1), KO),
@@ -800,11 +796,11 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
         ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    # 빈 셀 배경 + 전체 행 강조 (SPAN 이후)
+    # 빈 범위: 배경 통일 + 내부 세로선 제거 (GRID가 그린 선 덮어씌우기)
     for (drow, c_start, c_end) in empty_ranges:
         tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
-    for ri in whole_rows:
-        tbl_style_cmds.append(("FONTNAME", (0, ri), (-1, ri), KO_B))
+        for col in range(c_start, c_end):
+            tbl_style_cmds.append(("LINEAFTER", (col, drow), (col, drow), 0, _DEAD_BG))
 
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
