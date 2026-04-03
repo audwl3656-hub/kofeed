@@ -22,16 +22,26 @@ from utils.config import get_component_from_col, get_sample_from_col, get_method
 # 한글 TTF 폰트 등록
 import os as _os
 _FONT_CANDIDATES = [
-    # 로컬/배포: 리포 내 fonts 폴더
     _os.path.join(_os.path.dirname(__file__), "..", "fonts", "KoPub Batang Medium.ttf"),
-    # Streamlit Cloud fallback
     "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
 ]
+_FONT_BOLD_CANDIDATES = [
+    _os.path.join(_os.path.dirname(__file__), "..", "fonts", "KoPub Batang Bold.ttf"),
+    "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+]
 KO = "Helvetica"
+KO_B = "Helvetica-Bold"
 for _fp in _FONT_CANDIDATES:
     try:
         pdfmetrics.registerFont(TTFont("KoPubBatangM", _fp))
         KO = "KoPubBatangM"
+        break
+    except Exception:
+        continue
+for _fp in _FONT_BOLD_CANDIDATES:
+    try:
+        pdfmetrics.registerFont(TTFont("KoPubBatangB", _fp))
+        KO_B = "KoPubBatangB"
         break
     except Exception:
         continue
@@ -632,8 +642,8 @@ def generate_pdf_summary(
     cell_s      = ParagraphStyle("csp",  fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
     cell_s_hdr  = ParagraphStyle("csph", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER, textColor=colors.white)
     cell_s_sm   = ParagraphStyle("csps", fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
-    cell_s_bold = ParagraphStyle("cspb", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
-    cell_s_sm_b = ParagraphStyle("cspsb",fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
+    cell_s_bold = ParagraphStyle("cspb", fontName=KO_B, fontSize=8,   leading=10, alignment=TA_CENTER)
+    cell_s_sm_b = ParagraphStyle("cspsb",fontName=KO_B, fontSize=6.5, leading=8,  alignment=TA_CENTER)
     _STAT_ROW_H = 16
     def _p(txt):
         return Paragraph(str(txt), cell_s)
@@ -641,11 +651,11 @@ def generate_pdf_summary(
         s = str(txt)
         return Paragraph(s, cell_s_sm if len(s) > 20 else cell_s)
     def _pmb(txt):
-        """전체 행용 — 굵게"""
+        """전체 행용 — 굵게 (KO_B 폰트 직접 사용)"""
         s = str(txt)
-        return Paragraph(f"<b>{s}</b>", cell_s_sm_b if len(s) > 20 else cell_s_bold)
+        return Paragraph(s, cell_s_sm_b if len(s) > 20 else cell_s_bold)
     def _pb(txt):
-        return Paragraph(f"<b>{str(txt)}</b>", cell_s_bold)
+        return Paragraph(str(txt), cell_s_bold)
     def _hp(txt):
         return Paragraph(str(txt), cell_s_hdr)
 
@@ -727,7 +737,7 @@ def generate_pdf_summary(
                 is_last = (si == len(valid_stat_samples) - 1)
                 cv = None if _is_dead(comp, s) else _calc_vals(comp, s, sfx, mc, meth)
                 if cv is None:
-                    row += [_p(""), _p(""), _p(""), _p("")]
+                    row += ["", "", "", ""]  # 반드시 빈 문자열이어야 SPAN 작동
                     if run_start is None:
                         run_start = c0
                     if is_last:
@@ -794,7 +804,7 @@ def generate_pdf_summary(
     for (drow, c_start, c_end) in empty_ranges:
         tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
     for ri in whole_rows:
-        tbl_style_cmds.append(("BACKGROUND", (0, ri), (-1, ri), colors.HexColor("#DEEAF1")))
+        tbl_style_cmds.append(("FONTNAME", (0, ri), (-1, ri), KO_B))
 
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
