@@ -765,22 +765,31 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
-    # 빈 셀: 첫 셀에 "/" 삽입 (대각선 대체)
-    _dead_cell_s = ParagraphStyle("dcs", fontName=KO, fontSize=14, alignment=TA_CENTER,
-                                  textColor=colors.HexColor("#aaaaaa"), leading=16)
-    for (drow, c_start, c_end) in empty_ranges:
-        stat_rows[drow][c_start] = Paragraph("/", _dead_cell_s)
-
     _ALT_A = colors.white
     _ALT_B = colors.HexColor("#f0f4fa")
     _COL1  = colors.HexColor("#f8fafc")
     _DEAD_BG = colors.HexColor("#e8e8e8")
+    _DEAD_LINE = colors.HexColor("#aaaaaa")
+
+    # 빈 범위 첫 셀에 대각선 Drawing 삽입
+    from reportlab.graphics.shapes import Line as _Line
+    for (drow, c_start, c_end) in empty_ranges:
+        merged_w = sum(cw_stat[c_start : c_end + 1])
+        h = _STAT_ROW_H
+        d = Drawing(merged_w, h)
+        d.add(_Line(0, h, merged_w, 0,
+                    strokeColor=_DEAD_LINE, strokeWidth=0.5))
+        stat_rows[drow][c_start] = d
 
     stat_tbl = Table(stat_rows, colWidths=cw_stat, repeatRows=2,
                      rowHeights=[_STAT_ROW_H] * len(stat_rows))
 
-    # ── SPAN: 헤더 + 성분열만 ──
-    tbl_style_cmds = list(span_cmds) + [
+    # ── SPAN 명령 맨 앞 (ReportLab 필수) ──
+    all_spans = list(span_cmds)
+    for (drow, c_start, c_end) in empty_ranges:
+        all_spans.append(("SPAN", (c_start, drow), (c_end, drow)))
+
+    tbl_style_cmds = all_spans + [
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",      (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",       (0, 0), (-1, -1), KO),
@@ -796,11 +805,8 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 2), (0, -1),  _ALT_A),
         ("BACKGROUND",     (1, 2), (1, -1),  _COL1),
     ]
-    # 빈 범위: 배경 통일 + 내부 세로선 제거 (GRID가 그린 선 덮어씌우기)
     for (drow, c_start, c_end) in empty_ranges:
         tbl_style_cmds.append(("BACKGROUND", (c_start, drow), (c_end, drow), _DEAD_BG))
-        for col in range(c_start, c_end):
-            tbl_style_cmds.append(("LINEAFTER", (col, drow), (col, drow), 0, _DEAD_BG))
 
     stat_tbl.setStyle(TableStyle(tbl_style_cmds))
     elements.append(stat_tbl)
