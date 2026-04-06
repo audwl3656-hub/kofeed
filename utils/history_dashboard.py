@@ -304,6 +304,7 @@ function App() {
 
   return (
     <div style={{ fontFamily:"'Noto Sans KR','Malgun Gothic',sans-serif", background:"#f1f5f9", minHeight:"100vh", padding:"26px 28px" }}>
+      <div style={{ maxWidth:"80%", margin:"0 auto" }}>
       {/* 헤더 */}
       <div style={{ marginBottom:20 }}>
         <div style={{ display:"flex", alignItems:"center", gap:9, marginBottom:4 }}>
@@ -350,6 +351,7 @@ function App() {
 
       <div style={{ marginTop:12, fontSize:10.5, color:"#94a3b8", textAlign:"right" }}>
         Z-Score = (기관값 − 그룹중앙값) ÷ (1.4826 × MAD) | 5개 이하 참가 시 N/A
+      </div>
       </div>
     </div>
   );
