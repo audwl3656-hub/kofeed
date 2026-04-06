@@ -185,8 +185,10 @@ function Briefing({ myData, feeds, items, years }) {
   const latestYear = Math.max(...years);
   const prevYears  = years.filter(y => y !== latestYear);
 
-  const issues   = [];  // 최근 연도 |Z| ≥ 3
-  const improved = [];  // 이전에 이상 → 최근에 |Z| ≤ 1로 개선
+  const issues      = [];  // 최근 연도 |Z| ≥ 3
+  const improved    = [];  // 이전에 이상 → 최근에 |Z| ≤ 1로 완전 개선
+  const partImproved = []; // 이전에 이상 → 최근에 1 < |Z| < 3 (범위 진입)
+  const goodFeeds   = [];  // 최신 연도 모든 항목 |Z| < 2인 사료
 
   feeds.forEach(feed => {
     items.forEach(item => {
@@ -199,11 +201,25 @@ function Briefing({ myData, feeds, items, years }) {
       } else if (prevZs.some(z => Math.abs(z) >= 3) && latestZ !== null && Math.abs(latestZ) <= 1) {
         const worstPrev = prevZs.reduce((a, b) => Math.abs(a) > Math.abs(b) ? a : b);
         improved.push({ feed, item, prevZ: worstPrev, latestZ });
+      } else if (prevZs.some(z => Math.abs(z) >= 3) && latestZ !== null && Math.abs(latestZ) > 1 && Math.abs(latestZ) < 3) {
+        const worstPrev = prevZs.reduce((a, b) => Math.abs(a) > Math.abs(b) ? a : b);
+        partImproved.push({ feed, item, prevZ: worstPrev, latestZ });
       }
     });
   });
 
-  if (issues.length === 0 && improved.length === 0) {
+  // 우수 사료: 최신 연도 데이터가 있는 항목 모두 |Z| < 2
+  feeds.forEach(feed => {
+    const feedZs = items
+      .map(item => myData[`${latestYear}_${feed}_${item}`]?.z ?? null)
+      .filter(z => z !== null);
+    if (feedZs.length > 0 && feedZs.every(z => Math.abs(z) < 2)) {
+      const avgZ = feedZs.reduce((a, b) => a + Math.abs(b), 0) / feedZs.length;
+      goodFeeds.push({ feed, avgZ, n: feedZs.length });
+    }
+  });
+
+  if (issues.length === 0 && improved.length === 0 && partImproved.length === 0) {
     return (
       <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10,
         padding:"14px 18px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
@@ -297,6 +313,74 @@ function Briefing({ myData, feeds, items, years }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {partImproved.length > 0 && (
+        <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:"#92400e", marginBottom:8 }}>
+            📈 범위 진입 항목 — 이전 이상치 → {latestYear}년 |Z| {"<"} 3 ({partImproved.length}건)
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {partImproved.map((a, i) => {
+              const allYears = [...years].sort((x,y)=>x-y);
+              const zByYear = allYears.map(y => ({
+                y, z: myData[`${y}_${a.feed}_${a.item}`]?.z ?? null
+              }));
+              return (
+                <div key={i} style={{ background:"#fff", border:"1px solid #fde68a",
+                  borderRadius:8, padding:"10px 14px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <strong style={{ color:"#92400e", fontSize:12.5 }}>{a.feed} · {a.item}</strong>
+                    <span style={{ fontSize:11, color:"#6b7280" }}>
+                      (이상치 → {latestYear}년 {a.latestZ.toFixed(2)})
+                    </span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                    {zByYear.map(({y, z}, idx) => {
+                      const isLatest = y === latestYear;
+                      const abs = z !== null ? Math.abs(z) : null;
+                      const bg = z === null ? "#f1f5f9" : abs >= 3 ? "#fef2f2" : abs >= 2 ? "#fff7ed" : "#f0fdf4";
+                      const fc = z === null ? "#94a3b8" : abs >= 3 ? "#b91c1c" : abs >= 2 ? "#c2410c" : "#166534";
+                      return (
+                        <React.Fragment key={y}>
+                          {idx > 0 && <span style={{ color:"#94a3b8", fontSize:11 }}>→</span>}
+                          <div style={{ textAlign:"center", background:bg,
+                            border:`1px solid ${isLatest ? "#fcd34d" : "#e2e8f0"}`,
+                            borderRadius:6, padding:"4px 10px",
+                            boxShadow: isLatest ? "0 0 0 2px #fde68a" : "none" }}>
+                            <div style={{ fontSize:10, color:"#6b7280" }}>{y}년</div>
+                            <div style={{ fontSize:12.5, fontWeight:700, color:fc }}>
+                              {z !== null ? z.toFixed(2) : "—"}
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {goodFeeds.length > 0 && (
+        <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"14px 18px" }}>
+          <div style={{ fontWeight:800, fontSize:13, color:"#1e40af", marginBottom:8 }}>
+            🏆 전체 우수 사료 — {latestYear}년 모든 항목 |Z| {"<"} 2 ({goodFeeds.length}종)
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+            {goodFeeds.sort((a,b) => a.avgZ - b.avgZ).map((a, i) => (
+              <div key={i} style={{ background:"#fff", border:"1px solid #bfdbfe",
+                borderRadius:8, padding:"8px 14px", minWidth:120, textAlign:"center" }}>
+                <div style={{ fontWeight:700, fontSize:13, color:"#1e40af" }}>{a.feed}</div>
+                <div style={{ fontSize:11, color:"#6b7280", marginTop:3 }}>
+                  평균 |Z| {a.avgZ.toFixed(2)} · {a.n}항목
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
