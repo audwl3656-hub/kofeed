@@ -570,7 +570,7 @@ def generate_pdf_summary(
     # 다. 통계처리방법
     elements.append(Paragraph("다. 통계처리방법", h2_style))
     elements.append(Paragraph(
-        "1) 평균(x̄), 표준편차(σ), 변이계수(CV) 등을 산출함.", info_style))
+        "1) 평균(x-bar), 표준편차(σ), 변이계수(CV) 등을 산출함.", info_style))
     elements.append(Paragraph(
         "2) 시험소 간 비교숙련도 시험용 Robust Z-score, Outlier : KS Q ISO 13528(통계적방법)에 따라 다음과 같이 계산하여 해석함.",
         info_style))
