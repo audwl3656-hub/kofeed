@@ -197,7 +197,6 @@ function Briefing({ myData, feeds, items, years }) {
   const latestYear = Math.max(...years);
   const prevYears  = years.filter(y => y !== latestYear);
 
-  const issues   = [];  // 최근 연도 |Z| > 2
   const improved = [];  // 이전에 이상 → 최근에 |Z| ≤ 1로 개선
 
   feeds.forEach(feed => {
@@ -206,16 +205,14 @@ function Briefing({ myData, feeds, items, years }) {
       const latestZ = latestM?.z ?? null;
       const prevZs  = prevYears.map(y => myData[`${y}_${feed}_${item}`]?.z ?? null).filter(v => v !== null);
 
-      if (latestZ !== null && Math.abs(latestZ) >= 3) {
-        issues.push({ feed, item, z: latestZ });
-      } else if (prevZs.some(z => Math.abs(z) >= 3) && latestZ !== null && Math.abs(latestZ) <= 1) {
+      if (prevZs.some(z => Math.abs(z) >= 3) && latestZ !== null && Math.abs(latestZ) <= 1) {
         const worstPrev = prevZs.reduce((a, b) => Math.abs(a) > Math.abs(b) ? a : b);
         improved.push({ feed, item, prevZ: worstPrev, latestZ });
       }
     });
   });
 
-  if (issues.length === 0 && improved.length === 0) {
+  if (improved.length === 0) {
     return (
       <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10,
         padding:"14px 18px", marginBottom:20, display:"flex", alignItems:"center", gap:10 }}>
@@ -229,28 +226,6 @@ function Briefing({ myData, feeds, items, years }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
-      {issues.length > 0 && (
-        <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:10, padding:"14px 18px" }}>
-          <div style={{ fontWeight:800, fontSize:13, color:"#991b1b", marginBottom:8 }}>
-            ⚠️ 주의 필요 — {latestYear}년 기준 {issues.length}건 (|Z| ≥ 3)
-          </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-            {issues.sort((a,b) => Math.abs(b.z)-Math.abs(a.z)).map((a, i) => {
-              const tc = a.z > 0 ? "#b91c1c" : "#1d4ed8";
-              const isHigh = Math.abs(a.z) > 3;
-              return (
-                <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
-                  background: isHigh ? "#fff1f2" : "#fff",
-                  border:`1px solid ${isHigh ? "#fca5a5" : "#fecaca"}`, color:"#374151" }}>
-                  <strong style={{ color:tc }}>{a.feed} · {a.item}</strong>
-                  {" "}Z={a.z.toFixed(2)}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {improved.length > 0 && (
         <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontWeight:800, fontSize:13, color:"#166534", marginBottom:8 }}>
