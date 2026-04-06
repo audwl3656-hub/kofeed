@@ -1433,8 +1433,10 @@ def generate_pdf_summary(
                         meth_hdr1 += [_hp(f"{s}  (중간값: {med_str_m})"), _hp("")]
                     sub_rows  = [meth_hdr1, hdr2]
                     sub_spans = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+                    if _has_solvent:
+                        sub_spans.append(("SPAN", (2, 0), (2, 1)))
                     for si in range(n_samp):
-                        sub_spans.append(("SPAN", (2 + si*2, 0), (3 + si*2, 0)))
+                        sub_spans.append(("SPAN", (_dat_col + si*2, 0), (_dat_col + si*2 + 1, 0)))
                     mrows[0][0] = _cp(meth)
                     sub_rows.extend(mrows)
                     if len(mrows) > 1:
