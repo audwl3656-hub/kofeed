@@ -244,7 +244,6 @@ function Briefing({ myData, feeds, items, years }) {
                   border:`1px solid ${isHigh ? "#fca5a5" : "#fecaca"}`, color:"#374151" }}>
                   <strong style={{ color:tc }}>{a.feed} · {a.item}</strong>
                   {" "}Z={a.z.toFixed(2)}
-                  {isHigh && <span style={{ color:"#dc2626", fontWeight:700, marginLeft:4 }}>🔴 재검사</span>}
                 </div>
               );
             })}
@@ -257,15 +256,61 @@ function Briefing({ myData, feeds, items, years }) {
           <div style={{ fontWeight:800, fontSize:13, color:"#166534", marginBottom:8 }}>
             ✅ 개선된 항목 — 이전 이상치 → {latestYear}년 정상 범위 ({improved.length}건)
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-            {improved.map((a, i) => (
-              <div key={i} style={{ fontSize:11.5, padding:"5px 10px", borderRadius:7,
-                background:"#fff", border:"1px solid #bbf7d0", color:"#374151" }}>
-                <strong style={{ color:"#166534" }}>{a.feed} · {a.item}</strong>
-                {" "}Z: <span style={{ color:"#6b7280" }}>{a.prevZ.toFixed(2)}</span>
-                {" → "}<span style={{ color:"#166534", fontWeight:700 }}>{a.latestZ.toFixed(2)}</span>
-              </div>
-            ))}
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {improved.map((a, i) => {
+              const allYears = [...years].sort((x,y)=>x-y);
+              const zByYear = allYears.map(y => {
+                const z = myData[`${y}_${a.feed}_${a.item}`]?.z ?? null;
+                return { y, z };
+              });
+              const abnormYears = zByYear.filter(({z}) => z !== null && Math.abs(z) >= 3).map(({y})=>y);
+              const improvement = a.latestZ - a.prevZ;
+              return (
+                <div key={i} style={{ background:"#fff", border:"1px solid #bbf7d0",
+                  borderRadius:8, padding:"10px 14px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <strong style={{ color:"#166534", fontSize:12.5 }}>{a.feed} · {a.item}</strong>
+                    {abnormYears.length > 0 && (
+                      <span style={{ fontSize:11, color:"#6b7280" }}>
+                        ({abnormYears.join(", ")}년 이상치 → {latestYear}년 개선)
+                      </span>
+                    )}
+                    <span style={{ marginLeft:"auto", fontSize:11.5, fontWeight:700,
+                      color: improvement < 0 ? "#166534" : "#1d4ed8" }}>
+                      변화량 {improvement > 0 ? "+" : ""}{improvement.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                    {zByYear.map(({y, z}, idx) => {
+                      const isLatest = y === latestYear;
+                      const abs = z !== null ? Math.abs(z) : null;
+                      const bg = z === null ? "#f1f5f9"
+                        : abs >= 3 ? "#fef2f2"
+                        : abs >= 2 ? "#fff7ed"
+                        : "#f0fdf4";
+                      const fc = z === null ? "#94a3b8"
+                        : abs >= 3 ? "#b91c1c"
+                        : abs >= 2 ? "#c2410c"
+                        : "#166534";
+                      return (
+                        <React.Fragment key={y}>
+                          {idx > 0 && <span style={{ color:"#94a3b8", fontSize:11 }}>→</span>}
+                          <div style={{ textAlign:"center", background:bg,
+                            border:`1px solid ${isLatest ? "#4ade80" : "#e2e8f0"}`,
+                            borderRadius:6, padding:"4px 10px",
+                            boxShadow: isLatest ? "0 0 0 2px #bbf7d0" : "none" }}>
+                            <div style={{ fontSize:10, color:"#6b7280" }}>{y}년</div>
+                            <div style={{ fontSize:12.5, fontWeight:700, color:fc }}>
+                              {z !== null ? z.toFixed(2) : "—"}
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
