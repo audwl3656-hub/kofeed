@@ -1499,12 +1499,6 @@ def generate_pdf_summary(
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,    "다")
     elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
 
-    # 판정 기준
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
-    elements.append(Spacer(1, 3*mm))
-    elements.append(Paragraph("<b>판정 기준 (Robust Z-score)</b>", info_style))
-    elements.append(Paragraph("적합: |Z| ≤ 2.0   경고: 2.0 < |Z| ≤ 3.0   부적합: |Z| > 3.0", note_style))
-
     doc.multiBuild(elements)
     return buf.getvalue()
 
