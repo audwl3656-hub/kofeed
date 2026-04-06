@@ -39,29 +39,17 @@ function Sparkline({ values, color, w = 80, h = 30 }) {
   // null은 null 유지 (h/2로 대체하지 않음)
   const ys = values.map(v => (v === null || v === undefined) ? null : h - pad - ((v - min) / range) * (h - pad * 2));
 
-  // null을 건너뛰며 경로 생성 (null 구간에서 M으로 이동)
-  let linePath = "";
-  let gapped = true;
-  xs.forEach((x, i) => {
-    if (ys[i] === null) { gapped = true; return; }
-    linePath += `${gapped ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)} `;
-    gapped = false;
-  });
+  // null을 건너뛰고 유효한 점끼리 직접 연결 (갭 없이)
+  const validPts = xs.map((x, i) => ys[i] !== null ? { x, y: ys[i] } : null).filter(Boolean);
+  const linePath = validPts.length >= 2
+    ? validPts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")
+    : "";
 
-  // 연속 구간별 area path
+  // area path (유효 점 전체를 하나의 닫힌 영역으로)
   let areaPath = "";
-  let segStart = -1;
-  for (let i = 0; i <= values.length; i++) {
-    const valid = i < values.length && ys[i] !== null;
-    if (valid && segStart === -1) { segStart = i; }
-    else if (!valid && segStart !== -1) {
-      if (i - segStart >= 2) {
-        const sx = xs.slice(segStart, i), sy = ys.slice(segStart, i);
-        const seg = sx.map((x, j) => `${j===0?"M":"L"}${x.toFixed(1)},${sy[j].toFixed(1)}`).join(" ");
-        areaPath += `${seg} L${sx[sx.length-1]},${h-pad} L${sx[0]},${h-pad} Z `;
-      }
-      segStart = -1;
-    }
+  if (validPts.length >= 2) {
+    const seg = validPts.map((p, i) => `${i===0?"M":"L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    areaPath = `${seg} L${validPts[validPts.length-1].x.toFixed(1)},${h-pad} L${validPts[0].x.toFixed(1)},${h-pad} Z`;
   }
 
   const diff = clean[clean.length-1] - clean[0];
