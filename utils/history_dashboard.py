@@ -320,7 +320,7 @@ function Briefing({ myData, feeds, items, years }) {
       {partImproved.length > 0 && (
         <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"14px 18px" }}>
           <div style={{ fontWeight:800, fontSize:13, color:"#92400e", marginBottom:8 }}>
-            📈 범위 진입 항목 — 이전 이상치 → {latestYear}년 |Z| {"<"} 3 ({partImproved.length}건)
+            📈 개선 항목 — 이전 이상치 → {latestYear}년 |Z| {"<"} 3 ({partImproved.length}건)
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {partImproved.map((a, i) => {
