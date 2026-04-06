@@ -1076,7 +1076,7 @@ def generate_pdf_summary(
         if not valid_samps:
             return chart_elems
 
-        is_fat = "조지방" in str(comp) and "산분해" not in str(comp)
+        is_fat = "조지방" in str(comp)
 
         for s in valid_samps:
             grouped: dict = {}
@@ -1388,9 +1388,9 @@ def generate_pdf_summary(
                 _n_data = len(rows) - 2
                 _row_h  = [20, 16] + [14] * _n_data
                 t = Table(rows, colWidths=cw_z, repeatRows=2, rowHeights=_row_h)
-                _zt_style = [
+                _zt_style = spans + [
                     ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
-                    ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.black),
+                    ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
                     ("FONTNAME",      (0, 0), (-1, -1), KO),
                     ("FONTSIZE",      (0, 2), (-1, -1), 8),
                     ("FONTSIZE",      (0, 0), (-1, 1),  9),
@@ -1404,7 +1404,7 @@ def generate_pdf_summary(
                     ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
                     ("BACKGROUND",    (0, 2), (0, -1),  colors.white),
                     ("BACKGROUND",    (1, 2), (_dat_col - 1, -1),  colors.HexColor("#f8fafc")),
-                ] + spans
+                ]
                 t.setStyle(TableStyle(_zt_style))
                 return t
 
