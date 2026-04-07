@@ -151,9 +151,8 @@ def _build_sample_section(
         method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "")
         raw_rows.append((comp, method, val, stats, z_f, z_str, cv_str))
 
-    # method 보고서: 성분 순서 → 방법명 순서 정렬
-    if report_type == "method":
-        raw_rows.sort(key=lambda r: (comp_order.get(r[0], 999), str(r[1]).lower()))
+    # 성분 순서 → 방법명 순서 정렬 (overall/method 모두 적용)
+    raw_rows.sort(key=lambda r: (comp_order.get(r[0], 999), str(r[1]).lower()))
 
     rows = [header]
     for comp, method, val, stats, z_f, z_str, cv_str in raw_rows:
