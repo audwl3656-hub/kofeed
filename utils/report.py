@@ -615,7 +615,7 @@ def generate_pdf_summary(
     elements.append(Paragraph("- Normalized IQR : 제3사분위수(Q3)에서 제1사분위수(Q1)를 뺀 값 × 0.7413", note_style))
     elements.append(Spacer(1, 2*mm))
     crit_data = [
-        ["|Z| ≤ 2", "    : 만족(Satisfactory)"],
+        ["|Z| ≤ 2", "      : 만족(Satisfactory)"],
         ["2 < |Z| < 3", ": 의심(Doubt)"],
         ["3 ≤ |Z|", "    : 불만족(Outlier)"],
     ]
