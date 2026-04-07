@@ -110,7 +110,14 @@ def _build_sample_section(
             return Paragraph(f'<font color="red"><b><u>{z_str}</u></b></font>', z_cell_style)
         return z_str
 
-    rows = [header]
+    # 성분 순서 인덱스 (cols_for_sample 등장 순서 기준)
+    comp_order: dict = {}
+    for _ci, _col in enumerate(cols_for_sample):
+        _c = get_component_from_col(_col, samples) or _col
+        if _c not in comp_order:
+            comp_order[_c] = _ci
+
+    raw_rows = []  # (comp, method_str, val, stats, z_f, z_str, cv_str)
     for col in cols_for_sample:
         comp  = get_component_from_col(col, samples) or col
         val   = row_data.get(col, "")
@@ -142,6 +149,14 @@ def _build_sample_section(
         sample_in_col = get_sample_from_col(col, samples) or ""
         sfx = col[len(f"{comp}_{sample_in_col}"):] if sample_in_col else ""
         method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "")
+        raw_rows.append((comp, method, val, stats, z_f, z_str, cv_str))
+
+    # method 보고서: 성분 순서 → 방법명 순서 정렬
+    if report_type == "method":
+        raw_rows.sort(key=lambda r: (comp_order.get(r[0], 999), str(r[1]).lower()))
+
+    rows = [header]
+    for comp, method, val, stats, z_f, z_str, cv_str in raw_rows:
         rows.append([
             comp, _mcp(method), fmt(val),
             fmt(stats.get("median", "")),

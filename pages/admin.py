@@ -241,25 +241,41 @@ with tab3:
                                 "mean": mean, "std": std, "cv": cv}
 
         def _calc_method_group_stats(inst_method_dict):
-            """기관의 방법을 기준으로 동일 방법 기관들만의 통계를 반환."""
+            """기관의 방법을 기준으로 동일 방법 기관들만의 통계를 반환.
+            같은 base 컬럼의 suffix(_2, _3 등)를 풀링하여 n·통계 계산 (z-score 계산 방식과 동일).
+            """
+            # base_col → [col, col_2, ...] 매핑 (이미 위에서 _base_to_vcols 구성됨)
             stats = {}
             for col in main_cols:
-                comp = get_component_from_col(col, SAMPLES)
-                sfx  = get_col_suffix(col)
-                mc   = f"{comp}_방법{sfx}" if comp else None
+                comp   = get_component_from_col(col, SAMPLES)
+                sfx    = get_col_suffix(col)
+                mc     = f"{comp}_방법{sfx}" if comp else None
                 method = inst_method_dict.get(f"{comp}{sfx}", "").strip() if comp else ""
-                if mc and mc in df.columns and method:
-                    mask = df[mc].fillna("").astype(str).str.strip() == method
-                    vals = df.loc[mask, col].dropna()
-                    if not vals.empty:
-                        med  = float(np.median(vals))
-                        mean = float(vals.mean())
-                        std  = float(vals.std())
-                        cv   = (std / mean * 100) if mean != 0 else np.nan
-                        stats[col] = {"median": med, "n": len(vals),
-                                      "mean": mean, "std": std, "cv": cv}
-                        continue
-                stats[col] = {}
+                if not (mc and mc in df.columns and method):
+                    stats[col] = {}
+                    continue
+                # 같은 base의 모든 suffix 컬럼을 pooling
+                base      = get_base_col(col)
+                vcols_all = _base_to_vcols.get(base, [col])
+                pooled: list = []
+                for vcol in vcols_all:
+                    vcol_comp = get_component_from_col(vcol, SAMPLES)
+                    vcol_sfx  = get_col_suffix(vcol)
+                    vcol_mc   = f"{vcol_comp}_방법{vcol_sfx}" if vcol_comp else None
+                    if vcol_mc and vcol_mc in df.columns:
+                        mask = df[vcol_mc].fillna("").astype(str).str.strip() == method
+                        vals = pd.to_numeric(df.loc[mask, vcol], errors="coerce").dropna()
+                        pooled.extend(vals.tolist())
+                if pooled:
+                    arr  = np.array(pooled)
+                    med  = float(np.median(arr))
+                    mean = float(arr.mean())
+                    std  = float(arr.std())
+                    cv   = (std / mean * 100) if mean != 0 else np.nan
+                    stats[col] = {"median": med, "n": len(arr),
+                                  "mean": mean, "std": std, "cv": cv}
+                else:
+                    stats[col] = {}
             return stats
 
         generated_at = datetime.now(KST).strftime("%Y-%m-%d %H:%M")
