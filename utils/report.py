@@ -236,12 +236,12 @@ def _generate_zscore_pdf(
 
     if report_type == "overall":
         elements.append(Paragraph(
-            "* Robust Z-score = (제출값 - 중앙값) / (1.4826 x MAD)  |  CV(%) = 표준편차 / 평균 x 100",
+            "* Robust Z-score = (결과값 - 중위수) / (정규화된 사분위범위)  |  CV(%) = 표준편차 / 평균 x 100",
             note_style,
         ))
     else:
         elements.append(Paragraph(
-            "* Z방법별: 동일 방법 사용 기관 5개 미만이면 N/A  |  CV(%) = 표준편차 / 평균 x 100",
+            "* Robust Z-score = (결과값 - 중위수) / (정규화된 사분위범위)  |  CV(%) = 표준편차 / 평균 x 100",
             note_style,
         ))
 
@@ -615,9 +615,9 @@ def generate_pdf_summary(
     elements.append(Paragraph("- Normalized IQR : 제3사분위수(Q3)에서 제1사분위수(Q1)를 뺀 값 × 0.7413", note_style))
     elements.append(Spacer(1, 2*mm))
     crit_data = [
-        ["|Z| ≤ 2", ": 만족(Satisfactory)"],
+        ["|Z| ≤ 2", "    : 만족(Satisfactory)"],
         ["2 < |Z| < 3", ": 의심(Doubt)"],
-        ["3 ≤ |Z|", ": 불만족(Outlier)"],
+        ["3 ≤ |Z|", "    : 불만족(Outlier)"],
     ]
     crit_tbl = Table(crit_data, colWidths=[35*mm, 60*mm], hAlign="CENTER")
     crit_tbl.setStyle(TableStyle([
