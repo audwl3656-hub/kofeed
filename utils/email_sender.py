@@ -4,7 +4,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from email.header import Header
 import streamlit as st
+
+
+def _display_sender(addr: str) -> str:
+    """'한국사료협회 사료기술연구소 <addr>' 형식으로 반환."""
+    name = Header("한국사료협회 사료기술연구소", "utf-8").encode()
+    return f"{name} <{addr}>"
 
 
 def _rfc2047(filename: str) -> str:
@@ -40,7 +47,7 @@ def send_report(to_email: str, institution: str,
     password = cfg["password"]
 
     msg = MIMEMultipart()
-    msg["From"]    = sender
+    msg["From"]    = _display_sender(sender)
     msg["To"]      = to_email
     msg["Subject"] = f"[한국사료협회 비교분석] {institution} 비교분석 결과 보고서"
 
@@ -87,7 +94,7 @@ def send_confirmation(to_email: str, institution: str, row: dict, cfg) -> bool:
 감사합니다.
 """
     msg = MIMEMultipart()
-    msg["From"]    = sender
+    msg["From"]    = _display_sender(sender)
     msg["To"]      = to_email
     msg["Subject"] = f"[한국사료협회 비교분석] {institution} 데이터 접수 확인"
     msg.attach(MIMEText(body, "plain", "utf-8"))
