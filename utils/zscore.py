@@ -6,17 +6,14 @@ def robust_zscore(values: np.ndarray) -> np.ndarray:
     """
     Robust Z-score (KS Q ISO 13528)
     Z = (x - Median) / ((Q3 - Q1) × 0.7413)
-    IQR=0인 경우 표준편차 기반 Z-score로 폴백.
+    IQR=0이면 NaN 반환.
     """
     values = np.array(values, dtype=float)
     median = np.median(values)
     q1, q3 = np.percentile(values, [25, 75])
     niqr = (q3 - q1) * 0.7413
     if niqr == 0:
-        std = np.std(values)
-        if std == 0:
-            return np.zeros_like(values)
-        return (values - np.mean(values)) / std
+        return np.full_like(values, np.nan)
     return (values - median) / niqr
 
 

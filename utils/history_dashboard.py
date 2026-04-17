@@ -459,16 +459,13 @@ root.render(<App />);
 
 def _robust_z(value: float, values: list[float]) -> float | None:
     arr = np.array([v for v in values if v is not None and not np.isnan(v)], dtype=float)
-    if len(arr) < 2:
+    if len(arr) <= 5:
         return None
     median = float(np.median(arr))
     q1, q3 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
     niqr = (q3 - q1) * 0.7413
     if niqr == 0:
-        std = float(np.std(arr))
-        if std == 0:
-            return 0.0
-        return round((value - float(np.mean(arr))) / std, 3)
+        return None
     return round((value - median) / niqr, 3)
 
 
