@@ -63,10 +63,10 @@ def send_report(to_email: str, institution: str,
 감사합니다.
 """
     msg.attach(MIMEText(body, "plain", "utf-8"))
-    _attach_pdf(msg, pdf_overall, f"한국사료협회 비교분석_{institution}_시료, 성분별 Robust Z-score.pdf")
-    _attach_pdf(msg, pdf_method,  f"한국사료협회 비교분석_{institution}_방법별 Robust Z-score.pdf")
     if pdf_summary:
         _attach_pdf(msg, pdf_summary, "한국사료협회 비교분석_결과 보고서.pdf")
+    _attach_pdf(msg, pdf_overall, f"한국사료협회 비교분석_{institution}_시료, 성분별 Robust Z-score.pdf")
+    _attach_pdf(msg, pdf_method,  f"한국사료협회 비교분석_{institution}_방법별 Robust Z-score.pdf")
     if html_dashboard:
         _attach_html(msg, html_dashboard, f"{institution}_비교분석 3년 총합 Z-Score_연도별_대시보드(참고용).html")
 
