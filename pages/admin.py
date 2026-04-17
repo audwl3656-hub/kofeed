@@ -892,26 +892,34 @@ with tab5:
                                     value=datetime.now(KST).year, step=1)
 
         # 기관별·사료별 원값 수집
+        # _2, _3 등 suffix 컬럼도 별도 행으로 저장 → 히스토리 Z-score 풀이 메인 보고서와 일치
         preview_rows = []
         for _, row in df.iterrows():
             inst_name = row.get(inst_field, "")
             if not inst_name:
                 continue
             for sample in SAMPLES:
-                sample_cols = [c for c in main_cols if c.endswith(f"_{sample}")]
-                if not sample_cols:
+                # suffix별로 그룹핑: {"": [base_cols], "_2": [_2 cols], ...}
+                sfx_groups: dict = {}
+                for col in main_cols:
+                    if get_sample_from_col(col, SAMPLES) == sample:
+                        sfx = get_col_suffix(col)
+                        sfx_groups.setdefault(sfx, []).append(col)
+                if not sfx_groups:
                     continue
-                row_dict = {"year": int(save_year), "feed": sample, "institution": inst_name}
-                has_val = False
-                for col in sample_cols:
-                    comp = get_component_from_col(col, SAMPLES)
-                    if comp:
-                        val = pd.to_numeric(row.get(col, None), errors="coerce")
-                        row_dict[comp] = round(float(val), 4) if not pd.isna(val) else None
-                        if not pd.isna(val):
-                            has_val = True
-                if has_val:
-                    preview_rows.append(row_dict)
+                for sfx, cols in sfx_groups.items():
+                    inst_label = inst_name if not sfx else f"{inst_name}{sfx}"
+                    row_dict = {"year": int(save_year), "feed": sample, "institution": inst_label}
+                    has_val = False
+                    for col in cols:
+                        comp = get_component_from_col(col, SAMPLES)
+                        if comp:
+                            val = pd.to_numeric(row.get(col, None), errors="coerce")
+                            row_dict[comp] = round(float(val), 4) if not pd.isna(val) else None
+                            if not pd.isna(val):
+                                has_val = True
+                    if has_val:
+                        preview_rows.append(row_dict)
 
         if preview_rows:
             st.markdown(f"**저장 미리보기** — {len(preview_rows)}행 (기관 × 사료)")
