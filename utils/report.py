@@ -586,8 +586,10 @@ def generate_pdf_summary(
     elements.append(Paragraph(
         "1) 평균(x-bar), 표준편차(σ), 변이계수(CV) 등을 산출함.", info_style))
     elements.append(Paragraph(
-        "2) 시험소 간 비교숙련도 시험용 Robust Z-score, Outlier : KS Q ISO 13528(통계적방법)에 따라 다음과 같이 계산하여 해석함.",
+        "2) 시험소 간 비교숙련도 시험용 Robust Z-score, Outlier : KS Q ISO 13528(통계적방법)에 따라",
         info_style))
+    elements.append(Paragraph(
+        "다음과 같이 계산하여 해석함.", info_style))
     elements.append(Spacer(1, 2*mm))
     # 수식 표 (분수 형태)
     formula_cell = ParagraphStyle("fc", fontName=KO, fontSize=10.5, alignment=TA_CENTER, leading=14)
