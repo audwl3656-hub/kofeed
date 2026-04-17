@@ -636,7 +636,7 @@ def generate_pdf_summary(
     elements.append(Paragraph("라. 참가회원사", h2_style))
     _inst_real = sorted(set(raw_inst_names))
     _inst_escaped = ", ".join(n.replace("&", "&amp;") for n in _inst_real)
-    elements.append(Paragraph(_inst_escaped, info_style))
+    elements.append(Paragraph(f"{_inst_escaped} - {len(_inst_real)}개 회원사", info_style))
 
     # ─── 2. 비교분석 결과 (가로 페이지 시작) ───
     elements.append(NextPageTemplate('Landscape'))
