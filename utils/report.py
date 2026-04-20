@@ -148,7 +148,7 @@ def _build_sample_section(
         # suffix-aware method lookup (e.g. col="조단백질_축우사료_2" → sfx="_2")
         sample_in_col = get_sample_from_col(col, samples) or ""
         sfx = col[len(f"{comp}_{sample_in_col}"):] if sample_in_col else ""
-        method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "")
+        method = row_data.get(f"{comp}_방법{sfx}", "") or (inst_method or {}).get(f"{comp}{sfx}", "") or (inst_method or {}).get(comp, "") or "-"
         raw_rows.append((comp, method, val, stats, z_f, z_str, cv_str))
 
     # 성분 순서 → 방법명 순서 정렬 (overall/method 모두 적용)
