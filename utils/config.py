@@ -194,6 +194,21 @@ def get_participant_map(cfg: pd.DataFrame = None) -> dict[str, str]:
     return result
 
 
+def get_participant_password_map(cfg: pd.DataFrame = None) -> dict[str, str]:
+    """참가코드 → 비밀번호 매핑. config type='participant', samples=비밀번호.
+    samples가 비어 있으면 해당 코드는 비밀번호 없음."""
+    if cfg is None:
+        cfg = get_config()
+    rows = cfg[(cfg["type"] == "participant") & (cfg["enabled"])]
+    result = {}
+    for _, r in rows.iterrows():
+        code = str(r["group"]).strip()
+        pw   = str(r.get("samples", "")).strip()
+        if code and code not in ("", "nan") and pw not in ("", "nan"):
+            result[code] = pw
+    return result
+
+
 def get_questions(cfg: pd.DataFrame = None) -> list[dict]:
     """
     추가 질문 목록.

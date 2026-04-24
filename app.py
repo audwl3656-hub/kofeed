@@ -7,7 +7,7 @@ from utils.report import generate_submission_pdf
 from utils.config import (
     get_config, get_samples, get_component_groups,
     get_info_fields, get_method_options, get_solvent_options, get_questions,
-    get_participant_map,
+    get_participant_map, get_participant_password_map,
 )
 from utils.email_sender import send_confirmation
 
@@ -53,19 +53,26 @@ _INST_FIELD = next(
 
 # ── 참가코드로 접속 제한 ──────────────────────────────────────
 if PARTICIPANT_MAP:
+    PARTICIPANT_PASSWORDS = get_participant_password_map(cfg)
+
     if "app_code" not in st.session_state:
         st.session_state.app_code = ""
 
     if not st.session_state.app_code:
-        st.title("회원사 비교분석 시험")
-        st.caption("참가코드를 입력하면 데이터 제출 페이지로 이동합니다.")
+        st.title("한국사료협회 비교분석 시험")
+        st.caption("해당 페이지 저작권은 한국사료협회에 있습니다.")
         code_try = st.text_input("참가코드", placeholder="예: 01", key="_code_input").strip()
+        pw_try   = st.text_input("비밀번호", type="password", key="_pw_input").strip()
         if st.button("입장", type="primary"):
-            if code_try in PARTICIPANT_MAP:
-                st.session_state.app_code = code_try
-                st.rerun()
-            else:
+            if code_try not in PARTICIPANT_MAP:
                 st.error("등록되지 않은 코드입니다. 다시 확인해주세요.")
+            else:
+                expected_pw = PARTICIPANT_PASSWORDS.get(code_try, "")
+                if expected_pw and pw_try != expected_pw:
+                    st.error("비밀번호가 올바르지 않습니다.")
+                else:
+                    st.session_state.app_code = code_try
+                    st.rerun()
         st.stop()
 
     # 인증된 코드와 회사명
