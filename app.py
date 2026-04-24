@@ -246,11 +246,24 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
 
 
 # ── 입력 폼 ──────────────────────────────────────────────────
-st.title("회원사 비교분석 시험")
-if _company_from_code:
-    st.caption(f"참가코드: **{_entered_code}** | 회사명: **{_company_from_code}**")
-else:
-    st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
+_title_col, _draft_col = st.columns([8, 2])
+with _title_col:
+    st.title("회원사 비교분석 시험")
+    if _company_from_code:
+        st.caption(f"참가코드: **{_entered_code}** | 회사명: **{_company_from_code}**")
+    else:
+        st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
+with _draft_col:
+    st.markdown("<div style='padding-top:1.4rem'></div>", unsafe_allow_html=True)
+    if _entered_code and st.button("💾 임시저장", key="_draft_save_btn", use_container_width=True):
+        _snap = _take_draft_snapshot()
+        _now  = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            save_draft(_entered_code, _now, _snap)
+            st.session_state._draft_state = "none"
+            st.toast(f"임시저장 완료  ({_now})", icon="💾")
+        except Exception as _e:
+            st.error(f"임시저장 실패: {_e}")
 st.divider()
 
 # ── 임시저장 복원 배너 (세션당 1회 API 호출) ─────────────────
@@ -337,16 +350,6 @@ if QUESTIONS:
             ]
             all_data[f"Q_{q['id']}"] = ", ".join(selected)
     st.divider()
-
-if _entered_code and st.button("💾 임시저장", key="_draft_save_btn"):
-    _snap = _take_draft_snapshot()
-    _now  = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
-    try:
-        save_draft(_entered_code, _now, _snap)
-        st.session_state._draft_state = "none"
-        st.toast(f"임시저장 완료  ({_now})", icon="💾")
-    except Exception as _e:
-        st.error(f"임시저장 실패: {_e}")
 
 if st.button("데이터 제출", type="primary", use_container_width=True):
     st.session_state._submit_confirm = True
