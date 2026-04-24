@@ -1,3 +1,4 @@
+import json
 import time
 import streamlit as st
 import gspread
@@ -67,6 +68,64 @@ def get_all_data() -> pd.DataFrame:
                 raise
             time.sleep(2 ** attempt)
     return pd.DataFrame()
+
+
+_DRAFT_SHEET = "임시저장"
+
+
+def _get_draft_sheet():
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPE
+    )
+    client = gspread.authorize(creds)
+    sp = client.open(st.secrets["sheet"]["name"])
+    try:
+        return sp.worksheet(_DRAFT_SHEET)
+    except gspread.WorksheetNotFound:
+        return sp.add_worksheet(title=_DRAFT_SHEET, rows=200, cols=3)
+
+
+def save_draft(code: str, saved_at: str, data: dict):
+    """참가코드에 해당하는 임시저장 덮어쓰기. data는 session_state 스냅샷."""
+    ws = _get_draft_sheet()
+    data_json = json.dumps(data, ensure_ascii=False, default=str)
+    existing = ws.get_all_records()
+    row = [code, saved_at, data_json]
+    if not existing:
+        ws.update("A1", [["code", "saved_at", "data"], row])
+        return
+    for i, r in enumerate(existing):
+        if str(r.get("code", "")) == code:
+            ws.update(f"A{i + 2}", [row])
+            return
+    ws.append_row(row)
+
+
+def load_draft(code: str) -> tuple[dict | None, str]:
+    """(data_dict, saved_at) 반환. 없으면 (None, "")."""
+    try:
+        ws = _get_draft_sheet()
+        for r in ws.get_all_records():
+            if str(r.get("code", "")) == code:
+                return json.loads(r.get("data", "{}")), str(r.get("saved_at", ""))
+        return None, ""
+    except Exception:
+        return None, ""
+
+
+def delete_draft(code: str):
+    """참가코드에 해당하는 임시저장 행 삭제."""
+    try:
+        ws = _get_draft_sheet()
+        existing = ws.get_all_records()
+        if not existing:
+            return
+        headers = list(existing[0].keys())
+        kept = [r for r in existing if str(r.get("code", "")) != code]
+        ws.clear()
+        ws.update("A1", [headers] + [[r.get(h, "") for h in headers] for r in kept])
+    except Exception:
+        pass
 
 
 def get_submitted_by_institution(institution_name: str, inst_field: str = "기관명") -> pd.DataFrame | None:

@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
-from utils.sheets import submit_data, get_submitted_by_institution
+from utils.sheets import submit_data, get_submitted_by_institution, save_draft, load_draft, delete_draft
 from utils.report import generate_submission_pdf
 from utils.config import (
     get_config, get_samples, get_component_groups,
@@ -60,9 +60,9 @@ if PARTICIPANT_MAP:
 
     if not st.session_state.app_code:
         st.title("한국사료협회 비교분석 시험")
-        st.caption("해당 페이지 저작권은 한국사료협회에 있습니다.")
-        code_try = st.text_input("참가코드", placeholder="예: 01", key="_code_input").strip()
-        pw_try   = st.text_input("비밀번호", type="password", key="_pw_input").strip()
+        st.caption("해당 페이지 저작권은 한국사료협회 사료기술연구소에 있습니다.")
+        code_try = st.text_input("참가코드", placeholder="예: A99", key="_code_input").strip()
+        pw_try   = st.text_input("비밀번호", placeholder="예: 1234", type="password", key="_pw_input").strip()
         if st.button("입장", type="primary"):
             if code_try not in PARTICIPANT_MAP:
                 st.error("등록되지 않은 코드입니다. 다시 확인해주세요.")
@@ -81,6 +81,41 @@ if PARTICIPANT_MAP:
 else:
     _entered_code      = ""
     _company_from_code = ""
+
+# ── 임시저장 스냅샷 수집 ──────────────────────────────────────
+def _take_draft_snapshot() -> dict:
+    snap = {}
+    for field in INFO_FIELDS:
+        k = f"info_{field['name']}"
+        if k in st.session_state:
+            snap[k] = st.session_state[k]
+    for group_name, items in GROUPS.items():
+        for item in items:
+            comp  = item["name"]
+            extra = st.session_state.get(f"{group_name}_{comp}_extra", 0)
+            if extra:
+                snap[f"{group_name}_{comp}_extra"] = extra
+            for sfx in [""] + [f"_{i+2}" for i in range(extra)]:
+                for s in item["samples"]:
+                    k = f"{group_name}_{comp}_{s}{sfx}"
+                    if k in st.session_state:
+                        snap[k] = st.session_state[k]
+                for sub in ("method", "equip", "solvent"):
+                    k = f"{group_name}_{comp}_{sub}{sfx}"
+                    if k in st.session_state:
+                        snap[k] = st.session_state[k]
+    for q in QUESTIONS:
+        if q["type"] == "multicheck":
+            for opt in q["options"]:
+                k = f"q_{q['id']}_{opt}"
+                if k in st.session_state:
+                    snap[k] = st.session_state[k]
+        else:
+            k = f"q_{q['id']}"
+            if k in st.session_state:
+                snap[k] = st.session_state[k]
+    return snap
+
 
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str, free_decimal: bool = False):
@@ -218,6 +253,31 @@ else:
     st.caption("제출하신 데이터는 적어주신 이메일로 발송됩니다.")
 st.divider()
 
+# ── 임시저장 복원 배너 (세션당 1회 API 호출) ─────────────────
+if _entered_code and "_draft_state" not in st.session_state:
+    _d, _at = load_draft(_entered_code)
+    if _d:
+        st.session_state._draft_state = "pending"
+        st.session_state._draft_ss    = _d
+        st.session_state._draft_at    = _at
+    else:
+        st.session_state._draft_state = "none"
+
+if st.session_state.get("_draft_state") == "pending":
+    _at_disp = st.session_state.get("_draft_at", "")
+    st.info(f"💾 이전에 임시저장한 데이터가 있습니다.  ·  저장일시: **{_at_disp}**")
+    _dc1, _dc2, _ = st.columns([2, 2, 6])
+    with _dc1:
+        if st.button("📂 불러오기", use_container_width=True):
+            for _k, _v in st.session_state._draft_ss.items():
+                st.session_state[_k] = _v
+            st.session_state._draft_state = "loaded"
+            st.rerun()
+    with _dc2:
+        if st.button("✕ 무시", use_container_width=True):
+            st.session_state._draft_state = "dismissed"
+            st.rerun()
+
 # ── 이미 제출한 데이터 표시 ───────────────────────────────────
 if _company_from_code:
     _prev = get_submitted_by_institution(_company_from_code, _INST_FIELD)
@@ -278,7 +338,30 @@ if QUESTIONS:
             all_data[f"Q_{q['id']}"] = ", ".join(selected)
     st.divider()
 
-submitted = st.button("데이터 제출", type="primary", use_container_width=True)
+if _entered_code and st.button("💾 임시저장", key="_draft_save_btn"):
+    _snap = _take_draft_snapshot()
+    _now  = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        save_draft(_entered_code, _now, _snap)
+        st.session_state._draft_state = "none"
+        st.toast(f"임시저장 완료  ({_now})", icon="💾")
+    except Exception as _e:
+        st.error(f"임시저장 실패: {_e}")
+
+if st.button("데이터 제출", type="primary", use_container_width=True):
+    st.session_state._submit_confirm = True
+
+if st.session_state.get("_submit_confirm"):
+    st.warning("⚠️ 정말로 제출하시겠습니까?  제출 후에는 수정이 불가합니다.")
+    _cf1, _cf2, _ = st.columns([2, 2, 6])
+    with _cf1:
+        submitted = st.button("✅ 제출", type="primary", use_container_width=True, key="_confirm_yes")
+    with _cf2:
+        if st.button("❌ 취소", use_container_width=True, key="_confirm_no"):
+            st.session_state._submit_confirm = False
+            st.rerun()
+else:
+    submitted = False
 
 # ── 제출 처리 ─────────────────────────────────────────────────
 if submitted:
@@ -365,8 +448,15 @@ if submitted:
         with st.spinner("제출 중..."):
             try:
                 submit_data(row)
+                st.session_state._submit_confirm = False
                 st.success(f"{inst_name or '기관'}의 데이터가 성공적으로 제출되었습니다!")
                 st.balloons()
+                if _entered_code:
+                    try:
+                        delete_draft(_entered_code)
+                        st.session_state._draft_state = "none"
+                    except Exception:
+                        pass
             except Exception as e:
                 st.error(f"제출 중 오류가 발생했습니다: {e}")
                 st.stop()
