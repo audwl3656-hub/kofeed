@@ -117,6 +117,114 @@ def _take_draft_snapshot() -> dict:
     return snap
 
 
+# ── 검증 + 데이터 수집 ────────────────────────────────────────
+def _collect_and_validate(info_values: dict) -> tuple[list[str], dict | None]:
+    import math
+    errors, all_data = [], {}
+    for group_name, items in GROUPS.items():
+        for item in items:
+            comp = item["name"]
+            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
+            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
+            for sfx in suffixes:
+                for s in item["samples"]:
+                    v = st.session_state.get(f"{group_name}_{comp}_{s}{sfx}")
+                    if v is not None:
+                        all_data[f"{comp}_{s}{sfx}"] = v
+                for sub, dk in [("method", f"{comp}_방법{sfx}"),
+                                 ("equip",  f"{comp}_기기{sfx}"),
+                                 ("solvent",f"{comp}_용매{sfx}")]:
+                    v = st.session_state.get(f"{group_name}_{comp}_{sub}{sfx}")
+                    if v is not None:
+                        all_data[dk] = v
+    for field in INFO_FIELDS:
+        val = info_values.get(field["name"], "").strip()
+        if field["required"] and not val:
+            errors.append(f"{field['name']}을(를) 입력해주세요.")
+        elif field["email"] and val and "@" not in val:
+            errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
+    for q in QUESTIONS:
+        if not q.get("required"):
+            continue
+        val = all_data.get(f"Q_{q['id']}", "")
+        if q["type"] == "choice" and (not val or val == "(선택 안 함)"):
+            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
+        elif q["type"] in ("text", "multicheck") and not str(val).strip():
+            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
+    for group_name, group_items in GROUPS.items():
+        for item in group_items:
+            comp = item["name"]
+            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
+            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
+            for sfx in suffixes:
+                method_val  = st.session_state.get(f"{group_name}_{comp}_method{sfx}", "") or ""
+                solvent_val = st.session_state.get(f"{group_name}_{comp}_solvent{sfx}", "") or ""
+                any_value   = any(
+                    st.session_state.get(f"{group_name}_{comp}_{s}{sfx}") is not None
+                    for s in item["samples"]
+                )
+                label = comp if sfx == "" else f"{comp}(추가{sfx})"
+                if any_value and bool(get_method_options(cfg, comp=comp)) and not method_val:
+                    errors.append(f"[{label}] 값을 입력한 경우 방법을 선택해야 합니다.")
+                if any_value and item.get("use_solvent", True) and not solvent_val:
+                    errors.append(f"[{label}] 값을 입력한 경우 용매를 선택해야 합니다.")
+    if errors:
+        return errors, None
+    inst_field_name = next(
+        (f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))),
+        INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명"
+    )
+    email_field_name = next((f["name"] for f in INFO_FIELDS if f["email"]), None)
+    inst_name = info_values.get(inst_field_name, "").strip()
+    email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
+    row = {"제출일시": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")}
+    for field in INFO_FIELDS:
+        row[field["name"]] = info_values.get(field["name"], "").strip()
+    for k, v in all_data.items():
+        if v is None:
+            row[k] = ""
+        elif isinstance(v, float) and math.isnan(v):
+            row[k] = ""
+        else:
+            row[k] = v
+    return [], {"row": row, "inst_name": inst_name, "email_to": email_to}
+
+
+@st.dialog("제출 확인")
+def _submit_dialog():
+    st.markdown("정말로 제출하시겠습니까?")
+    st.markdown("**제출 후에는 수정이 불가합니다.**")
+    st.markdown("")
+    _d1, _d2 = st.columns(2)
+    with _d1:
+        if st.button("✅ 제출", type="primary", use_container_width=True):
+            _p     = st.session_state.get("_pending_submission", {})
+            _row   = _p.get("row", {})
+            _inst  = _p.get("inst_name", "")
+            _email = _p.get("email_to", "")
+            with st.spinner("제출 중..."):
+                try:
+                    submit_data(_row)
+                    if _entered_code:
+                        try:
+                            delete_draft(_entered_code)
+                            st.session_state._draft_state = "none"
+                        except Exception:
+                            pass
+                    st.session_state._submit_confirm = False
+                    st.session_state._just_submitted = True
+                    st.session_state._submit_inst    = _inst
+                    st.session_state._submit_email   = _email
+                    st.session_state._submit_row     = _row
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"제출 중 오류가 발생했습니다: {_e}")
+    with _d2:
+        if st.button("❌ 취소", use_container_width=True):
+            st.session_state._submit_confirm = False
+            st.rerun()
+
+
 # ── 값 파싱 헬퍼 ──────────────────────────────────────────────
 def parse_float(s: str, free_decimal: bool = False):
     """문자열 → float, 빈 값이면 None. free_decimal=False면 소수점 2자리로 반올림."""
@@ -248,7 +356,7 @@ def component_table(items: list[dict], prefix: str = "") -> dict:
 # ── 입력 폼 ──────────────────────────────────────────────────
 _title_col, _draft_col = st.columns([8, 2])
 with _title_col:
-    st.title("회원사 비교분석 시험")
+    st.title("한국사료협회 비교분석 시험")
     if _company_from_code:
         st.caption(f"참가코드: **{_entered_code}** | 회사명: **{_company_from_code}**")
     else:
@@ -351,124 +459,35 @@ if QUESTIONS:
             all_data[f"Q_{q['id']}"] = ", ".join(selected)
     st.divider()
 
+# ── 데이터 제출 버튼 ──────────────────────────────────────────
 if st.button("데이터 제출", type="primary", use_container_width=True):
-    st.session_state._submit_confirm = True
+    _errs, _result = _collect_and_validate(info_values)
+    if _errs:
+        st.session_state._validation_errors = _errs
+        st.session_state._submit_confirm = False
+    else:
+        st.session_state._validation_errors = []
+        st.session_state._pending_submission = _result
+        st.session_state._submit_confirm = True
+
+for _e in st.session_state.get("_validation_errors", []):
+    st.error(_e)
 
 if st.session_state.get("_submit_confirm"):
-    st.warning("⚠️ 정말로 제출하시겠습니까?  제출 후에는 수정이 불가합니다.")
-    _cf1, _cf2, _ = st.columns([2, 2, 6])
-    with _cf1:
-        submitted = st.button("✅ 제출", type="primary", use_container_width=True, key="_confirm_yes")
-    with _cf2:
-        if st.button("❌ 취소", use_container_width=True, key="_confirm_no"):
-            st.session_state._submit_confirm = False
-            st.rerun()
-else:
-    submitted = False
+    _submit_dialog()
 
-# ── 제출 처리 ─────────────────────────────────────────────────
-if submitted:
-    errors = []
-
-    # ── session_state에서 직접 성분값 읽기 (검증 전에 수행) ──────
-    for group_name, items in GROUPS.items():
-        for item in items:
-            comp = item["name"]
-            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
-            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
-            for sfx in suffixes:
-                for s in item["samples"]:
-                    ss_val = st.session_state.get(f"{group_name}_{comp}_{s}{sfx}")
-                    if ss_val is not None:
-                        all_data[f"{comp}_{s}{sfx}"] = ss_val
-                if (v := st.session_state.get(f"{group_name}_{comp}_method{sfx}")) is not None:
-                    all_data[f"{comp}_방법{sfx}"] = v
-                if (v := st.session_state.get(f"{group_name}_{comp}_equip{sfx}")) is not None:
-                    all_data[f"{comp}_기기{sfx}"] = v
-                if (v := st.session_state.get(f"{group_name}_{comp}_solvent{sfx}")) is not None:
-                    all_data[f"{comp}_용매{sfx}"] = v
-    # 기관 정보 검증
-    for field in INFO_FIELDS:
-        val = info_values.get(field["name"], "").strip()
-        if field["required"] and not val:
-            errors.append(f"{field['name']}을(를) 입력해주세요.")
-        elif field["email"] and val and "@" not in val:
-            errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
-
-    # 필수 설문 검증
-    for q in QUESTIONS:
-        if not q.get("required"):
-            continue
-        val = all_data.get(f"Q_{q['id']}", "")
-        if q["type"] == "choice" and (not val or val == "(선택 안 함)"):
-            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
-        elif q["type"] in ("text", "multicheck") and not str(val).strip():
-            errors.append(f"[추가설문] '{q['text']}' 항목은 필수입니다.")
-
-    # 값 입력 시 방법 필수 검증 (session_state에서 직접 읽기)
-    for group_name, group_items in GROUPS.items():
-        for item in group_items:
-            comp = item["name"]
-            extra_count = st.session_state.get(f"{group_name}_{comp}_extra", 0)
-            suffixes = [""] + [f"_{i+2}" for i in range(extra_count)]
-            for sfx in suffixes:
-                method_val  = st.session_state.get(f"{group_name}_{comp}_method{sfx}", "") or ""
-                solvent_val = st.session_state.get(f"{group_name}_{comp}_solvent{sfx}", "") or ""
-                any_value = any(
-                    st.session_state.get(f"{group_name}_{comp}_{s}{sfx}") is not None
-                    for s in item["samples"]
-                )
-                label = comp if sfx == "" else f"{comp}(추가{sfx})"
-                if any_value and bool(get_method_options(cfg, comp=comp)) and not method_val:
-                    errors.append(f"[{label}] 값을 입력한 경우 방법을 선택해야 합니다.")
-                if any_value and item.get("use_solvent", True) and not solvent_val:
-                    errors.append(f"[{label}] 값을 입력한 경우 용매를 선택해야 합니다.")
-
-    if errors:
-        for e in errors:
-            st.error(e)
-    else:
-        inst_field_name = next(
-            (f["name"] for f in INFO_FIELDS if any(kw in f["name"] for kw in ("기관", "회사", "기업", "업체"))),
-            INFO_FIELDS[0]["name"] if INFO_FIELDS else "기관명"
-        )
-        email_field_name = next((f["name"] for f in INFO_FIELDS if f["email"]), None)
-        inst_name = info_values.get(inst_field_name, "").strip()
-        email_to  = info_values.get(email_field_name, "").strip() if email_field_name else ""
-
-        row = {"제출일시": datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")}
-        for field in INFO_FIELDS:
-            row[field["name"]] = info_values.get(field["name"], "").strip()
-        import math
-        for k, v in all_data.items():
-            if v is None:
-                row[k] = ""
-            elif isinstance(v, float) and math.isnan(v):
-                row[k] = ""
-            else:
-                row[k] = v
-
-        with st.spinner("제출 중..."):
+# ── 제출 성공 처리 ────────────────────────────────────────────
+if st.session_state.get("_just_submitted"):
+    st.session_state._just_submitted = False
+    _inst_ok  = st.session_state.pop("_submit_inst",  "기관")
+    _email_ok = st.session_state.pop("_submit_email", "")
+    _row_ok   = st.session_state.pop("_submit_row",   {})
+    st.success(f"{_inst_ok or '기관'}의 데이터가 성공적으로 제출되었습니다!")
+    st.balloons()
+    if _email_ok:
+        with st.spinner("접수 확인 이메일 발송 중..."):
             try:
-                submit_data(row)
-                st.session_state._submit_confirm = False
-                st.success(f"{inst_name or '기관'}의 데이터가 성공적으로 제출되었습니다!")
-                st.balloons()
-                if _entered_code:
-                    try:
-                        delete_draft(_entered_code)
-                        st.session_state._draft_state = "none"
-                    except Exception:
-                        pass
-            except Exception as e:
-                st.error(f"제출 중 오류가 발생했습니다: {e}")
-                st.stop()
-
-        # ── 접수 확인 이메일 즉시 발송 ───────────────────────
-        if email_to:
-            with st.spinner("접수 확인 이메일 발송 중..."):
-                try:
-                    send_confirmation(email_to, inst_name, row, cfg)
-                    st.info(f"접수 확인 이메일이 {email_to}으로 발송되었습니다.")
-                except Exception as e:
-                    st.warning(f"이메일 발송 중 오류가 발생했습니다: {e}")
+                send_confirmation(_email_ok, _inst_ok, _row_ok, cfg)
+                st.info(f"접수 확인 이메일이 {_email_ok}으로 발송되었습니다.")
+            except Exception as _e:
+                st.warning(f"이메일 발송 중 오류가 발생했습니다: {_e}")
