@@ -34,6 +34,29 @@ div[data-testid="InputInstructions"] { display: none !important; }
 
 /* 숫자 입력 중앙 정렬 */
 div[data-testid="stNumberInput"] input { text-align: center !important; }
+
+/* ── 모바일 최적화 ── */
+@media (max-width: 768px) {
+    /* 성분 입력 테이블 가로 스크롤 */
+    div[data-testid="stHorizontalBlock"] {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    div[data-testid="stColumn"] {
+        min-width: 88px !important;
+        flex-shrink: 0 !important;
+    }
+    /* iOS 입력 포커스 시 자동 확대 방지 */
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+    /* 좌우 여백 축소 */
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
