@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as _components
 from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
@@ -59,6 +60,38 @@ div[data-testid="stNumberInput"] input { text-align: center !important; }
 }
 </style>
 """, unsafe_allow_html=True)
+
+# ── 모바일: 섹션 내 행 스크롤 동기화 ─────────────────────────
+_components.html("""
+<script>
+(function(){
+  function sync() {
+    try {
+      var doc = window.parent.document;
+      var groups = new Map();
+      doc.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function(b) {
+        var p = b.parentElement;
+        if (!groups.has(p)) groups.set(p, []);
+        groups.get(p).push(b);
+      });
+      groups.forEach(function(gs) {
+        if (gs.length < 2) return;
+        gs.forEach(function(b) {
+          b.onscroll = function() {
+            gs.forEach(function(o) { o.scrollLeft = b.scrollLeft; });
+          };
+        });
+      });
+    } catch(e) {}
+  }
+  var t;
+  new MutationObserver(function() {
+    clearTimeout(t); t = setTimeout(sync, 200);
+  }).observe(window.parent.document.body, {childList:true, subtree:true});
+  sync();
+})();
+</script>
+""", height=0)
 
 # ── 설정 로드 ─────────────────────────────────────────────────
 cfg             = get_config()
