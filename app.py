@@ -418,7 +418,7 @@ if st.session_state.get("_draft_state") == "pending":
             st.session_state._draft_state = "loaded"
             st.rerun()
     with _dc2:
-        if st.button("✕ 무시", use_container_width=True):
+        if st.button("✕  삭제", use_container_width=True):
             st.session_state._draft_state = "dismissed"
             st.rerun()
 
