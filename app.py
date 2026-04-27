@@ -1,5 +1,5 @@
+import html as _html
 import streamlit as st
-import streamlit.components.v1 as _components
 from datetime import datetime, timezone, timedelta
 
 KST = timezone(timedelta(hours=9))
@@ -61,37 +61,32 @@ div[data-testid="stNumberInput"] input { text-align: center !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── 모바일: 섹션 내 행 스크롤 동기화 ─────────────────────────
-_components.html("""
-<script>
+# ── 모바일: 전체 행 스크롤 동기화 ───────────────────────────
+_sync_script = """
 (function(){
-  function sync() {
+  var _t;
+  function sync(){
     try {
-      var doc = window.parent.document;
-      var groups = new Map();
-      doc.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function(b) {
-        var p = b.parentElement;
-        if (!groups.has(p)) groups.set(p, []);
-        groups.get(p).push(b);
-      });
-      groups.forEach(function(gs) {
-        if (gs.length < 2) return;
-        gs.forEach(function(b) {
-          b.onscroll = function() {
-            gs.forEach(function(o) { o.scrollLeft = b.scrollLeft; });
-          };
-        });
+      var doc = parent.document;
+      var all = Array.from(doc.querySelectorAll('[data-testid="stHorizontalBlock"]'));
+      if(all.length < 2) return;
+      all.forEach(function(b){
+        b.onscroll = function(){ var x=b.scrollLeft; all.forEach(function(o){ if(o!==b) o.scrollLeft=x; }); };
       });
     } catch(e) {}
   }
-  var t;
-  new MutationObserver(function() {
-    clearTimeout(t); t = setTimeout(sync, 200);
-  }).observe(window.parent.document.body, {childList:true, subtree:true});
-  sync();
+  function run(){ clearTimeout(_t); _t=setTimeout(sync,300); }
+  run();
+  try { new MutationObserver(run).observe(parent.document.body,{childList:true,subtree:true}); } catch(e){}
 })();
-</script>
-""", height=0)
+"""
+st.markdown(
+    '<iframe sandbox="allow-scripts allow-same-origin" '
+    'style="display:none;position:absolute;width:0;height:0" '
+    f'srcdoc="{_html.escape("<script>" + _sync_script + "</script>", quote=True)}">'
+    '</iframe>',
+    unsafe_allow_html=True,
+)
 
 # ── 설정 로드 ─────────────────────────────────────────────────
 cfg             = get_config()
