@@ -41,7 +41,7 @@ if not st.session_state.admin_auth:
             st.error("비밀번호가 틀렸습니다.")
     st.stop()
 
-st.title("숙련도 시험 관리자")
+st.title("한국사료협회 비교분석 시험 관리자")
 st.caption(f"로그인됨 | {datetime.now(KST).strftime('%Y-%m-%d %H:%M')}")
 if st.button("로그아웃"):
     st.session_state.admin_auth = False
@@ -755,13 +755,14 @@ with tab4:
     )
     _raw_part = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
     if _raw_part.empty:
-        part_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
-            {"group": str, "name": str, "order": int, "enabled": bool}
+        part_df = pd.DataFrame(columns=["group", "name", "samples", "order", "enabled"]).astype(
+            {"group": str, "name": str, "samples": str, "order": int, "enabled": bool}
         )
     else:
         part_df = pd.DataFrame({
             "group":   _raw_part["group"].astype(str).replace("nan", ""),
             "name":    _raw_part["name"].astype(str).replace("nan", ""),
+            "samples": _raw_part["samples"].astype(str).replace("nan", ""),
             "order":   pd.to_numeric(_raw_part["order"], errors="coerce").fillna(1).astype(int),
             "enabled": _raw_part["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
         })
@@ -772,6 +773,7 @@ with tab4:
         column_config={
             "group":   st.column_config.TextColumn("코드 *", help="참가자에게 배포할 고유 코드"),
             "name":    st.column_config.TextColumn("회사명 *"),
+            "samples": st.column_config.TextColumn("비밀번호", help="비워두면 비밀번호 없이 코드만으로 입장"),
             "order":   st.column_config.NumberColumn("순서", min_value=1, step=1),
             "enabled": st.column_config.CheckboxColumn("활성화"),
         },
@@ -779,7 +781,6 @@ with tab4:
         hide_index=True,
     )
     edited_participants["type"]         = "participant"
-    edited_participants["samples"]      = ""
     edited_participants["use_equip"]    = ""
     edited_participants["use_solvent"]  = ""
     edited_participants["free_decimal"] = ""
