@@ -674,12 +674,12 @@ def generate_pdf_summary(
     cw_stat = ([comp_w_stat*mm, method_w_stat*mm]
                + [sub_w*mm] * n_col * len(valid_stat_samples))
 
-    cell_s      = ParagraphStyle("csp",  fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER)
-    cell_s_hdr  = ParagraphStyle("csph", fontName=KO, fontSize=8,   leading=10, alignment=TA_CENTER, textColor=colors.white)
-    cell_s_sm   = ParagraphStyle("csps", fontName=KO, fontSize=6.5, leading=8,  alignment=TA_CENTER)
-    cell_s_bold = ParagraphStyle("cspb", fontName=KO_B, fontSize=8,   leading=10, alignment=TA_CENTER)
-    cell_s_sm_b = ParagraphStyle("cspsb",fontName=KO_B, fontSize=6.5, leading=8,  alignment=TA_CENTER)
-    _STAT_ROW_H = 16
+    cell_s      = ParagraphStyle("csp",  fontName=KO, fontSize=9,   leading=11, alignment=TA_CENTER)
+    cell_s_hdr  = ParagraphStyle("csph", fontName=KO, fontSize=9,   leading=11, alignment=TA_CENTER, textColor=colors.white)
+    cell_s_sm   = ParagraphStyle("csps", fontName=KO, fontSize=7.5, leading=9.5,  alignment=TA_CENTER)
+    cell_s_bold = ParagraphStyle("cspb", fontName=KO_B, fontSize=9,   leading=11, alignment=TA_CENTER)
+    cell_s_sm_b = ParagraphStyle("cspsb",fontName=KO_B, fontSize=7.5, leading=9.5,  alignment=TA_CENTER)
+    _STAT_ROW_H = 18
     def _p(txt):
         return Paragraph(str(txt), cell_s)
     def _pm(txt):
@@ -800,6 +800,12 @@ def generate_pdf_summary(
         row_cursor += len(comp_rows_data)
         stat_rows.extend(comp_rows_data)
 
+
+    # 동적 행 높이: 페이지 빈 공간 채우기
+    _n_stat_rows = len(stat_rows)
+    _title_reserve_pts = 80  # 섹션 제목 영역 예약 공간
+    _row_h_fill = (fh_land - _title_reserve_pts) / _n_stat_rows if _n_stat_rows else 18
+    _STAT_ROW_H = max(18, min(32, _row_h_fill))
     _ALT_A = colors.white
     _ALT_B = colors.HexColor("#f0f4fa")
     _COL1  = colors.HexColor("#f8fafc")
@@ -860,7 +866,7 @@ def generate_pdf_summary(
         ("BACKGROUND",     (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
         ("TEXTCOLOR",      (0, 0), (-1, 1),  colors.white),
         ("FONTNAME",       (0, 0), (-1, -1), KO),
-        ("FONTSIZE",       (0, 0), (-1, -1), 8),
+        ("FONTSIZE",       (0, 0), (-1, -1), 9),
         ("ALIGN",          (0, 0), (-1, -1), "CENTER"),
         ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
         ("GRID",           (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
