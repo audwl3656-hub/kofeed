@@ -454,6 +454,21 @@ def generate_pdf_summary(
     inst_names = [_name_to_code.get(n, n) for n in raw_inst_names]
     idx_list = df.index.tolist()
 
+    # ── NIR / 아미노산 성분 분리 ──
+    from utils.config import get_component_groups as _gcg_sp
+    _comp_grp_map: dict = {}
+    if cfg is not None:
+        for _gn, _gi in _gcg_sp(cfg).items():
+            for _it in _gi:
+                _comp_grp_map[_it["name"]] = _gn
+    _SPECIAL_Z_GROUPS = {"아미노산", "NIR"}
+    regular_comps = [c for c in seen_comps if _comp_grp_map.get(c) not in _SPECIAL_Z_GROUPS]
+    _special_group_comps: dict = {}
+    for _c in seen_comps:
+        _g = _comp_grp_map.get(_c)
+        if _g in _SPECIAL_Z_GROUPS:
+            _special_group_comps.setdefault(_g, []).append(_c)
+
     # ── 문서 설정 ──
     lm, rm, tm, bm = 20*mm, 20*mm, 25*mm, 20*mm
     pw, ph = A4
@@ -1240,7 +1255,9 @@ def generate_pdf_summary(
         if "ETHER" in m or "에테르" in val: return "E"
         return ""
 
-    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0):
+    def _build_zscore_section(sec_title, sec_heading_style, z_src, heading_prefix, min_n=1, split_at=0, comps_list=None):
+        if comps_list is None:
+            comps_list = regular_comps
         elems = []
         elems.append(Paragraph(sec_title, sec_heading_style))
 
@@ -1275,7 +1292,7 @@ def generate_pdf_summary(
             m = _re2.match(r'[A-Za-z]*(\d+)', txt)
             return (0, int(m.group(1))) if m else (1, txt)
 
-        for num, comp in enumerate(seen_comps, 1):
+        for num, comp in enumerate(comps_list, 1):
             sfx_list = [""]
             for n in range(2, 10):
                 if any(f"{comp}_{s}_{n}" in non_nir_set for s in samples):
@@ -1517,9 +1534,138 @@ def generate_pdf_summary(
 
         return elems
 
+    def _build_group_zscore_section(sec_title, group_name, z_src):
+        """NIR / 아미노산: 성분=열, 기관=행 가로 확장 표 (Landscape)."""
+        import re as _re_g
+        comps_g = _special_group_comps.get(group_name, [])
+        if not comps_g:
+            return []
+
+        hdr_s  = ParagraphStyle("zgh", fontName=KO, fontSize=9, alignment=TA_CENTER,
+                                 textColor=colors.white, leading=11)
+        cell_s = ParagraphStyle("zgc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
+        red_s  = ParagraphStyle("zgr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+                                 textColor=colors.HexColor("#dc2626"))
+        org_s  = ParagraphStyle("zgo", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+                                 textColor=colors.HexColor("#000000"))
+
+        def _hp(t): return Paragraph(str(t), hdr_s)
+        def _cp(t): return Paragraph(str(t), cell_s)
+        def _zc(z_val):
+            try:
+                z_f = float(z_val)
+                if np.isnan(z_f): return _cp("-")
+            except Exception:
+                return _cp("-")
+            z_str = f"{z_f:.2f}"
+            if abs(z_f) > 3:
+                return Paragraph(f"<b><u>{z_str}</u></b>", red_s)
+            elif abs(z_f) > 2:
+                return Paragraph(f"<b>{z_str}</b>", org_s)
+            return _cp(z_str)
+
+        def _lab_key_g(r):
+            txt = r[1].text if hasattr(r[1], "text") else str(r[1])
+            m = _re_g.match(r'[A-Za-z]*(\d+)', txt)
+            return (0, int(m.group(1))) if m else (1, txt)
+
+        elems = []
+        elems.append(NextPageTemplate('Landscape'))
+        elems.append(PageBreak())
+        elems.append(Paragraph(sec_title, h2_style))
+
+        for sample in valid_stat_samples:
+            valid_comps = [c for c in comps_g if f"{c}_{sample}" in non_nir_set]
+            if not valid_comps:
+                continue
+
+            n_c    = len(valid_comps)
+            samp_w = 20
+            lab_w  = 12
+            per_c  = (avail_land_mm - samp_w - lab_w) / n_c
+            cw_g   = [samp_w*mm, lab_w*mm] + [per_c*0.5*mm, per_c*0.5*mm] * n_c
+
+            hdr1 = [_hp("성분"), _hp("Lab")]
+            hdr2 = [_hp(""), _hp("")]
+            spans = [("SPAN", (0, 0), (0, 1)), ("SPAN", (1, 0), (1, 1))]
+
+            for ci, comp in enumerate(valid_comps):
+                col_k = f"{comp}_{sample}"
+                gs = group_stats.get(col_k, {})
+                try:
+                    med = float(gs.get("median", float("nan")))
+                    med_str = f"{med:.2f}" if not np.isnan(med) else "-"
+                except Exception:
+                    med_str = "-"
+                hdr1 += [_hp(f"{comp}\n(중간값 : {med_str})"), _hp("")]
+                hdr2 += [_hp("결과"), _hp("Z-score")]
+                ci2 = 2 + ci * 2
+                spans.append(("SPAN", (ci2, 0), (ci2 + 1, 0)))
+
+            data_rows = []
+            for inst, row_idx in zip(inst_names, idx_list):
+                row_data = [_cp(sample), _cp(inst)]
+                has_any  = False
+                for comp in valid_comps:
+                    col_k = f"{comp}_{sample}"
+                    if col_k not in df.columns:
+                        row_data += [_cp("-"), _cp("-")]; continue
+                    raw = df.at[row_idx, col_k]
+                    try:
+                        rv = float(raw)
+                        res_str = f"{rv:.2f}" if not np.isnan(rv) else "-"
+                        if not np.isnan(rv): has_any = True
+                    except Exception:
+                        res_str = "-"
+                    zv = _get_zv(z_src, row_idx, col_k)
+                    row_data += [_cp(res_str), _zc(zv)]
+                if not has_any:
+                    continue
+                data_rows.append(row_data)
+
+            if not data_rows:
+                continue
+
+            data_rows.sort(key=_lab_key_g)
+            if len(data_rows) > 1:
+                spans.append(("SPAN", (0, 2), (0, 1 + len(data_rows))))
+
+            all_rows = [hdr1, hdr2] + data_rows
+            row_heights = [20, 16] + [14] * len(data_rows)
+            tbl = Table(all_rows, colWidths=cw_g, repeatRows=2, rowHeights=row_heights)
+            tbl.setStyle(TableStyle(spans + [
+                ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
+                ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
+                ("FONTNAME",      (0, 0), (-1, -1), KO),
+                ("FONTSIZE",      (0, 2), (-1, -1), 8),
+                ("FONTSIZE",      (0, 0), (-1, 1),  9),
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID",          (0, 0), (-1, -1), 0.4, colors.HexColor("#000000")),
+                ("TOPPADDING",    (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+                ("ROWBACKGROUNDS",(0, 2), (-1, -1), [colors.white, colors.HexColor("#f0f4fa")]),
+                ("BACKGROUND",    (0, 2), (0, -1),  colors.HexColor("#f8fafc")),
+                ("BACKGROUND",    (1, 2), (1, -1),  colors.HexColor("#f8fafc")),
+            ]))
+            elems.append(tbl)
+            elems.append(Spacer(1, 4*mm))
+
+        return elems
+
     elements.append(PageBreak())
     elements += _build_zscore_section("다. 시료, 성분별 Robust Z-score", h2_style, z_all,    "다")
     elements += _build_zscore_section("라. 방법별 Robust Z-score",        h2_style, z_method, "라", min_n=5, split_at=5)
+
+    _sec_map = {"NIR": "마", "아미노산": "바"}
+    for _gname in ["NIR", "아미노산"]:
+        if _gname in _special_group_comps:
+            _let = _sec_map[_gname]
+            elements += _build_group_zscore_section(
+                f"{_let}. {_gname} Robust Z-score", _gname, z_all
+            )
 
     doc.multiBuild(elements)
     return buf.getvalue()
