@@ -2,11 +2,11 @@ name: wake-streamlit
 
 on:
   schedule:
-    - cron: '0 */10 * * *'   # 10시간마다 실행
+    - cron: '0 */5 * * *'   # 5시간마다 실행
 
 jobs:
   wake:
     runs-on: ubuntu-latest
     steps:
       - name: Ping kofeed.streamlit.app
-        run: curl -L --max-time 30 https://kofeed.streamlit.app/
+        run: curl -L --max-time 60 --retry 3 --retry-delay 10 https://kofeed.streamlit.app/
