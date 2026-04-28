@@ -1549,10 +1549,10 @@ def generate_pdf_summary(
 
         hdr_s  = ParagraphStyle("zgh", fontName=KO, fontSize=9, alignment=TA_CENTER,
                                  textColor=colors.white, leading=11)
-        cell_s = ParagraphStyle("zgc", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10)
-        red_s  = ParagraphStyle("zgr", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+        cell_s = ParagraphStyle("zgc", fontName=KO, fontSize=9, alignment=TA_CENTER, leading=11)
+        red_s  = ParagraphStyle("zgr", fontName=KO, fontSize=9, alignment=TA_CENTER, leading=11,
                                  textColor=colors.HexColor("#dc2626"))
-        org_s  = ParagraphStyle("zgo", fontName=KO, fontSize=8, alignment=TA_CENTER, leading=10,
+        org_s  = ParagraphStyle("zgo", fontName=KO, fontSize=9, alignment=TA_CENTER, leading=11,
                                  textColor=colors.HexColor("#000000"))
 
         def _hp(t): return Paragraph(str(t), hdr_s)
@@ -1637,13 +1637,16 @@ def generate_pdf_summary(
                 spans.append(("SPAN", (0, 2), (0, 1 + len(data_rows))))
 
             all_rows = [hdr1, hdr2] + data_rows
-            row_heights = [20, 16] + [14] * len(data_rows)
+            _n_total_g = 2 + len(data_rows)
+            _avail_data_h = fh_land - 80 - 22 - 18
+            _data_row_h = max(14, min(32, _avail_data_h / len(data_rows))) if data_rows else 16
+            row_heights = [22, 18] + [_data_row_h] * len(data_rows)
             tbl = Table(all_rows, colWidths=cw_g, repeatRows=2, rowHeights=row_heights)
             tbl.setStyle(TableStyle(spans + [
                 ("BACKGROUND",    (0, 0), (-1, 1),  colors.HexColor("#4472C4")),
                 ("TEXTCOLOR",     (0, 0), (-1, 1),  colors.white),
                 ("FONTNAME",      (0, 0), (-1, -1), KO),
-                ("FONTSIZE",      (0, 2), (-1, -1), 8),
+                ("FONTSIZE",      (0, 2), (-1, -1), 9),
                 ("FONTSIZE",      (0, 0), (-1, 1),  9),
                 ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
