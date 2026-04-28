@@ -195,6 +195,13 @@ def _collect_and_validate(info_values: dict) -> tuple[list[str], dict | None]:
         elif field["email"] and val and "@" not in val:
             errors.append(f"{field['name']}: 올바른 이메일 주소를 입력해주세요.")
     for q in QUESTIONS:
+        if q["type"] == "multicheck":
+            selected = [opt for opt in q["options"] if st.session_state.get(f"q_{q['id']}_{opt}")]
+            all_data[f"Q_{q['id']}"] = ", ".join(selected)
+        else:
+            v = st.session_state.get(f"q_{q['id']}", "")
+            all_data[f"Q_{q['id']}"] = v if v is not None else ""
+    for q in QUESTIONS:
         if not q.get("required"):
             continue
         val = all_data.get(f"Q_{q['id']}", "")
