@@ -393,6 +393,7 @@ def generate_pdf_summary(
     period_보고서: str = "",
     sample_note: str = "",
     summary_text: str = "",
+    sample_comp_text: dict = None,
     cfg=None,
 ) -> bytes:
     """전체 요약 보고서: 표지 + 목차 + 개요 + 통계요약 + CV차트 + Z-score 표."""
@@ -560,9 +561,10 @@ def generate_pdf_summary(
             comps_s.append(_sg)
         if not comps_s:
             continue
+        comp_text = (sample_comp_text or {}).get(s, "").strip() or ", ".join(comps_s)
         ov_rows.append([
             Paragraph(f"{s}(샘플{i+1})", cell_ov),
-            Paragraph(", ".join(comps_s), cell_ov),
+            Paragraph(comp_text, cell_ov),
         ])
     ov_tbl = Table(ov_rows, colWidths=[45*mm, 135*mm])
     ov_tbl.setStyle(TableStyle([
@@ -1555,7 +1557,7 @@ def generate_submission_pdf(
     generated_at = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M")
     elements = []
 
-    elements.append(Paragraph("데이터 제출 확인서", title_sty))
+    elements.append(Paragraph("한국사료협회 비교분석 데이터 제출 확인서", title_sty))
     elements.append(Spacer(1, 5*mm))
     elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2c3e50")))
     elements.append(Spacer(1, 4*mm))
