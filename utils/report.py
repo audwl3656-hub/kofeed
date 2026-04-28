@@ -1,4 +1,4 @@
-import io
+﻿import io
 from datetime import datetime
 import numpy as np
 from reportlab.lib.pagesizes import A4, landscape as _landscape
@@ -884,7 +884,7 @@ def generate_pdf_summary(
 
     # ━━ 나. 분석결과 요약 (CV 가로 막대 차트) ━━
     cv_data: dict = {}
-    for comp in seen_comps:
+    for comp in regular_comps:
         for s in valid_stat_samples:
             col = f"{comp}_{s}"
             sd = group_stats.get(col, {})
@@ -898,7 +898,7 @@ def generate_pdf_summary(
 
     if cv_data:
         _PALETTE_CV = ["#2563eb","#d97706","#16a34a","#dc2626","#7c3aed","#0891b2","#be185d"]
-        comps_with_data = [c for c in seen_comps if c in cv_data]
+        comps_with_data = [c for c in regular_comps if c in cv_data]
         feeds_with_data = [s for s in valid_stat_samples
                            if any(s in cv_data.get(c, {}) for c in comps_with_data)]
         feed_color = {s: _PALETTE_CV[i % len(_PALETTE_CV)] for i, s in enumerate(feeds_with_data)}
