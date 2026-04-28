@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone, timedelta
@@ -20,6 +20,8 @@ from utils.zscore import (
     zscore_flag, zscore_color,
 )
 from utils.report import generate_pdf_overall, generate_pdf_by_method, generate_pdf_summary
+from utils.excel_report import generate_excel_summary
+from utils.word_report import generate_word_summary
 from utils.email_sender import send_all_reports
 from utils.config import get_history, append_history_rows, delete_history_rows
 from utils.history_dashboard import generate_institution_html_bytes, generate_institution_email_html
@@ -320,18 +322,46 @@ with tab3:
             sample_comp_text=_rpt_comps, cfg=cfg,
         )
 
-        if st.button("📄 보고서 생성", key="gen_summary", type="primary"):
-            with st.spinner("보고서 생성 중..."):
-                st.session_state["summary_pdf"] = generate_pdf_summary(**_pdf_kwargs)
+        _gb1, _gb2, _gb3 = st.columns(3)
+        with _gb1:
+            if st.button("📄 PDF 생성", key="gen_summary_pdf", type="primary", use_container_width=True):
+                with st.spinner("PDF 생성 중..."):
+                    st.session_state["summary_pdf"] = generate_pdf_summary(**_pdf_kwargs)
+        with _gb2:
+            if st.button("📊 Excel 생성", key="gen_summary_xlsx", use_container_width=True):
+                with st.spinner("Excel 생성 중..."):
+                    st.session_state["summary_xlsx"] = generate_excel_summary(**_pdf_kwargs)
+        with _gb3:
+            if st.button("📝 Word 생성", key="gen_summary_docx", use_container_width=True):
+                with st.spinner("Word 생성 중..."):
+                    st.session_state["summary_docx"] = generate_word_summary(**_pdf_kwargs)
 
-        summary_pdf = st.session_state.get("summary_pdf")
-        if summary_pdf:
-            st.download_button(
-                "⬇ PDF 다운로드",
-                summary_pdf, "회원사비교분석_전체요약.pdf", "application/pdf",
-                key="dl_summary",
-            )
-            st.caption("입력 내용을 수정한 뒤 '보고서 생성'을 다시 누르면 즉시 반영됩니다.")
+        _dl1, _dl2, _dl3 = st.columns(3)
+        with _dl1:
+            if st.session_state.get("summary_pdf"):
+                st.download_button(
+                    "⬇ PDF 다운로드", st.session_state["summary_pdf"],
+                    "회원사비교분析_전체요약.pdf", "application/pdf",
+                    key="dl_summary_pdf", use_container_width=True,
+                )
+        with _dl2:
+            if st.session_state.get("summary_xlsx"):
+                st.download_button(
+                    "⬇ Excel 다운로드", st.session_state["summary_xlsx"],
+                    "회원사비교분析_전체요약.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_summary_xlsx", use_container_width=True,
+                )
+        with _dl3:
+            if st.session_state.get("summary_docx"):
+                st.download_button(
+                    "⬇ Word 다운로드", st.session_state["summary_docx"],
+                    "회원사비교분析_전체요약.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key="dl_summary_docx", use_container_width=True,
+                )
+        if any(st.session_state.get(k) for k in ("summary_pdf", "summary_xlsx", "summary_docx")):
+            st.caption("입력 내용을 수정한 뒤 각 버튼을 다시 누르면 즉시 반영됩니다.")
 
         st.divider()
 
