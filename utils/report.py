@@ -749,7 +749,7 @@ def generate_pdf_summary(
 
     row_cursor = len(stat_rows)
 
-    for comp in seen_comps:
+    for comp in regular_comps:
         method_entries = []
         for n in range(1, 10):
             sfx = "" if n == 1 else f"_{n}"
