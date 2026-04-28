@@ -1,4 +1,4 @@
-"""결과보고서 Excel 생성 유틸리티."""
+﻿"""결과보고서 Excel 생성 유틸리티."""
 import io
 import math
 import numpy as np
@@ -108,12 +108,12 @@ def generate_excel_summary(
     ws1 = wb.active
     ws1.title = "개요"
     meta = [
-        ("보고서 제목", "한국사료협회 비교분析 결과"),
+        ("보고서 제목", "한국사료협회 비교분석 결과"),
         ("부제",        subtitle),
         ("생성일시",    generated_at),
         ("참가기관 수", len(df)),
         ("시료 배부",   period_배부),
-        ("분析 및 결과회신", period_회신),
+        ("분석 및 결과회신", period_회신),
         ("결과처리 및 보고서 작성", period_보고서),
         ("시료 주석",   sample_note),
     ]
@@ -122,12 +122,12 @@ def generate_excel_summary(
         _val(ws1, r, 2, v, align="left")
     if sample_comp_text:
         r = len(meta) + 2
-        _val(ws1, r, 1, "사료별 분析항목", bold=True, align="left")
+        _val(ws1, r, 1, "사료별 분석항목", bold=True, align="left")
         for i, (s, txt) in enumerate(sample_comp_text.items()):
             _val(ws1, r + i, 2, f"{s}: {txt}" if txt else s, align="left")
     if summary_text:
         r2 = len(meta) + len(sample_comp_text or {}) + 3
-        _val(ws1, r2, 1, "분析결과 요약", bold=True, align="left")
+        _val(ws1, r2, 1, "분석결과 요약", bold=True, align="left")
         for i, line in enumerate(summary_text.splitlines()):
             _val(ws1, r2 + i, 2, line, align="left")
     ws1.column_dimensions["A"].width = 28

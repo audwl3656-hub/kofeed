@@ -341,14 +341,14 @@ with tab3:
             if st.session_state.get("summary_pdf"):
                 st.download_button(
                     "⬇ PDF 다운로드", st.session_state["summary_pdf"],
-                    "회원사비교분析_전체요약.pdf", "application/pdf",
+                    "회원사비교분석_전체요약.pdf", "application/pdf",
                     key="dl_summary_pdf", use_container_width=True,
                 )
         with _dl2:
             if st.session_state.get("summary_xlsx"):
                 st.download_button(
                     "⬇ Excel 다운로드", st.session_state["summary_xlsx"],
-                    "회원사비교분析_전체요약.xlsx",
+                    "회원사비교분석_전체요약.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="dl_summary_xlsx", use_container_width=True,
                 )
@@ -356,7 +356,7 @@ with tab3:
             if st.session_state.get("summary_docx"):
                 st.download_button(
                     "⬇ Word 다운로드", st.session_state["summary_docx"],
-                    "회원사비교분析_전체요약.docx",
+                    "회원사비교분석_전체요약.docx",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     key="dl_summary_docx", use_container_width=True,
                 )

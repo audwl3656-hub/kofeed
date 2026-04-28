@@ -1,4 +1,4 @@
-"""결과보고서 Word(.docx) 생성 유틸리티."""
+﻿"""결과보고서 Word(.docx) 생성 유틸리티."""
 import io
 import math
 import numpy as np
@@ -150,7 +150,7 @@ def generate_word_summary(
         comp_to_cols.setdefault(comp, []).append(col)
 
     # ── 표지 ──────────────────────────────────────────────
-    _para(doc, "한국사료협회 비교분析 결과", size=22, bold=True,
+    _para(doc, "한국사료협회 비교분석 결과", size=22, bold=True,
           align=WD_ALIGN_PARAGRAPH.CENTER, space_before=60, space_after=8)
     if subtitle:
         _para(doc, subtitle, size=16, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
@@ -160,15 +160,15 @@ def generate_word_summary(
           size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=0)
     doc.add_page_break()
 
-    # ── 1. 비교분析 개요 ──────────────────────────────────
-    _heading(doc, "1. 비교분析 개요")
+    # ── 1. 비교분석 개요 ──────────────────────────────────
+    _heading(doc, "1. 비교분석 개요")
 
     _heading(doc, "가. 기간", level=2)
     _para(doc, f"1) 시료 배부 : {period_배부}", size=11)
-    _para(doc, f"2) 분析 및 결과회신 : {period_회신}", size=11)
+    _para(doc, f"2) 분석 및 결과회신 : {period_회신}", size=11)
     _para(doc, f"3) 결과 통계처리 및 보고서 작성 : {period_보고서}", size=11, space_after=8)
 
-    _heading(doc, "나. 시료 및 분析항목", level=2)
+    _heading(doc, "나. 시료 및 분석항목", level=2)
 
     # 사료별 성분 자동 계산
     _SECTION_GROUPS = {"아미노산", "NIR"}
@@ -204,7 +204,7 @@ def generate_word_summary(
         comp_text = (sample_comp_text or {}).get(s, "").strip() or ", ".join(comps_s)
         ov_rows.append([f"{s}(샘플{i+1})", comp_text])
 
-    _add_table(doc, ["시료", "분析항목"], ov_rows, col_widths_cm=[4, 14])
+    _add_table(doc, ["시료", "분석항목"], ov_rows, col_widths_cm=[4, 14])
     if sample_note:
         _para(doc, f"* {sample_note}", size=9, color=(128, 128, 128), space_after=8)
 
@@ -297,10 +297,10 @@ def generate_word_summary(
             z_rows.append(r_data)
         _add_table(doc, z_hdrs, z_rows)
 
-    # ── 4. 분析결과 요약 ──────────────────────────────────
+    # ── 4. 분석결과 요약 ──────────────────────────────────
     if summary_text:
         doc.add_page_break()
-        _heading(doc, "4. 분析결과 요약")
+        _heading(doc, "4. 분석결과 요약")
         for line in summary_text.splitlines():
             _para(doc, line, size=11, space_after=3)
 
