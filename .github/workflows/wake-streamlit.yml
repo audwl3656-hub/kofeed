@@ -3,10 +3,49 @@ name: wake-streamlit
 on:
   schedule:
     - cron: '0 */5 * * *'   # 5시간마다 실행
+  workflow_dispatch:         # 수동 실행 가능
 
 jobs:
   wake:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping kofeed.streamlit.app
-        run: curl -L --max-time 60 --retry 3 --retry-delay 10 https://kofeed.streamlit.app/
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install playwright
+          npx playwright install chromium --with-deps
+
+      - name: Wake Streamlit app
+        run: |
+          cat > wake.js << 'EOF'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            console.log('앱 접속 중...');
+            await page.goto('https://kofeed.streamlit.app/', {
+              timeout: 90000,
+              waitUntil: 'domcontentloaded',
+            });
+            await page.waitForTimeout(3000);
+            const html = await page.content();
+            if (html.includes('get this app back up')) {
+              console.log('앱 잠든 상태 — 깨우는 중');
+              try {
+                await page.locator('text=Yes, get this app back up!').click({ timeout: 5000 });
+                console.log('버튼 클릭 완료, 60초 대기...');
+                await page.waitForTimeout(60000);
+              } catch (e) {
+                console.log('버튼 클릭 실패:', e.message);
+              }
+            } else {
+              console.log('앱 정상 실행 중');
+            }
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          EOF
+          node wake.js
