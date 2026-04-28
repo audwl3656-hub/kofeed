@@ -803,7 +803,7 @@ def generate_pdf_summary(
 
     # 동적 행 높이: 페이지 빈 공간 채우기
     _n_stat_rows = len(stat_rows)
-    _title_reserve_pts = 72  # h1(38pt) + h2(34pt)
+    _title_reserve_pts = 90  # h1(38pt)+h2(34pt)+여유(18pt) — 표 분할 방지
     _row_h_fill = (fh_land - _title_reserve_pts) / _n_stat_rows if _n_stat_rows else 18
     _STAT_ROW_H = max(22, min(50, _row_h_fill))
     _ALT_A = colors.white
