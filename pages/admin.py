@@ -320,9 +320,11 @@ with tab3:
             sample_comp_text=_rpt_comps, cfg=cfg,
         )
 
-        if st.button("📄 PDF 생성", key="gen_summary_pdf", type="primary", use_container_width=True):
-            with st.spinner("PDF 생성 중..."):
-                st.session_state["summary_pdf"] = generate_pdf_summary(**_pdf_kwargs)
+        _btn_col, _ = st.columns([1, 2])
+        with _btn_col:
+            if st.button("📄 PDF 생성", key="gen_summary_pdf", type="primary", use_container_width=True):
+                with st.spinner("PDF 생성 중..."):
+                    st.session_state["summary_pdf"] = generate_pdf_summary(**_pdf_kwargs)
 
         if st.session_state.get("summary_pdf"):
             st.download_button(
