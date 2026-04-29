@@ -513,7 +513,7 @@ if QUESTIONS:
                 key=f"q_{q['id']}", horizontal=True,
             )
         elif q["type"] == "multicheck":
-            st.markdown(f"**{label}**")
+            st.markdown(f"{label}")
             selected = [
                 opt for opt in q["options"]
                 if st.checkbox(opt, key=f"q_{q['id']}_{opt}")
