@@ -570,20 +570,20 @@ with tab4:
     # 기존 시트에 컬럼 없을 때 기본값 추가
     for _col in ("use_equip", "use_solvent"):
         if _col not in comp_df.columns:
-            comp_df[_col] = True
+            comp_df[_col] = pd.array([True] * len(comp_df), dtype="boolean")
         else:
             raw = comp_df[_col].astype(str).str.strip().str.lower()
-            comp_df[_col] = ~raw.isin(["false", "0", "no"])
+            comp_df[_col] = (~raw.isin(["false", "0", "no"])).astype("boolean")
     if "free_decimal" not in comp_df.columns:
-        comp_df["free_decimal"] = False
+        comp_df["free_decimal"] = pd.array([False] * len(comp_df), dtype="boolean")
     else:
         raw = comp_df["free_decimal"].astype(str).str.strip().str.lower()
-        comp_df["free_decimal"] = raw.isin(["true", "1", "yes"])
+        comp_df["free_decimal"] = raw.isin(["true", "1", "yes"]).astype("boolean")
     if "allow_multi" not in comp_df.columns:
-        comp_df["allow_multi"] = False
+        comp_df["allow_multi"] = pd.array([False] * len(comp_df), dtype="boolean")
     else:
         raw = comp_df["allow_multi"].astype(str).str.strip().str.lower()
-        comp_df["allow_multi"] = raw.isin(["true", "1", "yes"])
+        comp_df["allow_multi"] = raw.isin(["true", "1", "yes"]).astype("boolean")
     if not comp_df.empty:
         comp_df["order"]   = pd.to_numeric(comp_df["order"], errors="coerce").fillna(1).astype("Int64")
         comp_df["enabled"] = comp_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")).astype("boolean")
