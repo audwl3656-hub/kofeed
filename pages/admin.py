@@ -467,7 +467,7 @@ with tab4:
     )
     info_df = cfg_edit[cfg_edit["type"] == "info_field"][CONFIG_COLS].reset_index(drop=True)
     if not info_df.empty:
-        info_df["order"]   = pd.to_numeric(info_df["order"], errors="coerce").fillna(1).astype(int)
+        info_df["order"]   = pd.to_numeric(info_df["order"], errors="coerce").fillna(1).astype("Int64")
         info_df["enabled"] = info_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     edited_info = st.data_editor(
         info_df,
@@ -493,7 +493,7 @@ with tab4:
     st.caption("사료명 추가/삭제/수정. 순서 숫자로 조정.")
     sample_df = cfg_edit[cfg_edit["type"] == "sample"][CONFIG_COLS].reset_index(drop=True)
     if not sample_df.empty:
-        sample_df["order"]   = pd.to_numeric(sample_df["order"], errors="coerce").fillna(1).astype(int)
+        sample_df["order"]   = pd.to_numeric(sample_df["order"], errors="coerce").fillna(1).astype("Int64")
         sample_df["enabled"] = sample_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     edited_samples = st.data_editor(
         sample_df,
@@ -525,7 +525,7 @@ with tab4:
     )
     group_df = cfg_edit[cfg_edit["type"] == "group"][CONFIG_COLS].reset_index(drop=True)
     if not group_df.empty:
-        group_df["order"]   = pd.to_numeric(group_df["order"], errors="coerce").fillna(1).astype(int)
+        group_df["order"]   = pd.to_numeric(group_df["order"], errors="coerce").fillna(1).astype("Int64")
         group_df["enabled"] = group_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     edited_groups_ui = st.data_editor(
         group_df[["name", "order", "enabled"]],
@@ -585,7 +585,7 @@ with tab4:
         raw = comp_df["allow_multi"].astype(str).str.strip().str.lower()
         comp_df["allow_multi"] = raw.isin(["true", "1", "yes"])
     if not comp_df.empty:
-        comp_df["order"]   = pd.to_numeric(comp_df["order"], errors="coerce").fillna(1).astype(int)
+        comp_df["order"]   = pd.to_numeric(comp_df["order"], errors="coerce").fillna(1).astype("Int64")
         comp_df["enabled"] = comp_df["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
 
     # 현재 유효한 섹션명 목록 (선택용)
@@ -642,13 +642,13 @@ with tab4:
     _raw_method = cfg_edit[cfg_edit["type"] == "method_option"][CONFIG_COLS].reset_index(drop=True)
     if _raw_method.empty:
         method_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
-            {"group": str, "name": str, "order": int, "enabled": bool}
+            {"group": str, "name": str, "order": "Int64", "enabled": bool}
         )
     else:
         method_df = pd.DataFrame({
             "group":   _raw_method["group"].astype(str).replace("nan", ""),
             "name":    _raw_method["name"].astype(str).replace("nan", ""),
-            "order":   pd.to_numeric(_raw_method["order"], errors="coerce").fillna(1).astype(int),
+            "order":   pd.to_numeric(_raw_method["order"], errors="coerce").fillna(1).astype("Int64"),
             "enabled": _raw_method["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
         })
     edited_methods = st.data_editor(
@@ -687,13 +687,13 @@ with tab4:
     _raw_solvent = cfg_edit[cfg_edit["type"] == "solvent_option"][CONFIG_COLS].reset_index(drop=True)
     if _raw_solvent.empty:
         solvent_df = pd.DataFrame(columns=["group", "name", "order", "enabled"]).astype(
-            {"group": str, "name": str, "order": int, "enabled": bool}
+            {"group": str, "name": str, "order": "Int64", "enabled": bool}
         )
     else:
         solvent_df = pd.DataFrame({
             "group":   _raw_solvent["group"].astype(str).replace("nan", ""),
             "name":    _raw_solvent["name"].astype(str).replace("nan", ""),
-            "order":   pd.to_numeric(_raw_solvent["order"], errors="coerce").fillna(1).astype(int),
+            "order":   pd.to_numeric(_raw_solvent["order"], errors="coerce").fillna(1).astype("Int64"),
             "enabled": _raw_solvent["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
         })
     edited_solvents = st.data_editor(
@@ -731,7 +731,7 @@ with tab4:
     )
     _raw_q = cfg_edit[cfg_edit["type"] == "question"][CONFIG_COLS].reset_index(drop=True)
     if not _raw_q.empty:
-        _raw_q["order"]   = pd.to_numeric(_raw_q["order"], errors="coerce").fillna(1).astype(int)
+        _raw_q["order"]   = pd.to_numeric(_raw_q["order"], errors="coerce").fillna(1).astype("Int64")
         _raw_q["enabled"] = _raw_q["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes"))
     question_df = _raw_q
     edited_questions = st.data_editor(
@@ -767,14 +767,14 @@ with tab4:
     _raw_part = cfg_edit[cfg_edit["type"] == "participant"][CONFIG_COLS].reset_index(drop=True)
     if _raw_part.empty:
         part_df = pd.DataFrame(columns=["group", "name", "samples", "order", "enabled"]).astype(
-            {"group": str, "name": str, "samples": str, "order": int, "enabled": bool}
+            {"group": str, "name": str, "samples": str, "order": "Int64", "enabled": bool}
         )
     else:
         part_df = pd.DataFrame({
             "group":   _raw_part["group"].astype(str).replace("nan", ""),
             "name":    _raw_part["name"].astype(str).replace("nan", ""),
             "samples": _raw_part["samples"].astype(str).replace("nan", ""),
-            "order":   pd.to_numeric(_raw_part["order"], errors="coerce").fillna(1).astype(int),
+            "order":   pd.to_numeric(_raw_part["order"], errors="coerce").fillna(1).astype("Int64"),
             "enabled": _raw_part["enabled"].map(lambda x: str(x).strip().lower() in ("true", "1", "yes")),
         })
     edited_participants = st.data_editor(
