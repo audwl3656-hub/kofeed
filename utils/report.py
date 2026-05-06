@@ -1727,7 +1727,7 @@ def generate_submission_pdf(
     def _fmt(v) -> str:
         """수치는 소수점 2자리, 빈 값은 빈 문자열로 반환."""
         if v is None or v == "":
-            return ""
+            return "-"
         try:
             return f"{float(v):.2f}"
         except (ValueError, TypeError):
@@ -1745,6 +1745,10 @@ def generate_submission_pdf(
                                    textColor=colors.white)
         def _pc(txt, hdr=False):
             return Paragraph(str(txt), _cell_hdr if hdr else _cell_sty)
+        _cell_sm  = ParagraphStyle("sub_cell_sm", fontName=KO, fontSize=6.5, leading=8.5, alignment=TA_CENTER)
+        def _pc_method(txt):
+            s = str(txt)
+            return Paragraph(s, _cell_sm if len(s) > 14 else _cell_sty)
 
         header = [_pc(c, hdr=True) for c in ["성분", "방법", "기기명", "용매"] + grp_samples]
         tbl_rows = [header]
@@ -1764,9 +1768,9 @@ def generate_submission_pdf(
                 solvent = str(row.get(f"{comp}_용매{sfx}",  "") or "")
                 vals    = [_fmt(row.get(f"{comp}_{s}{sfx}")) for s in grp_samples]
                 # 제출값이 하나도 없는 행은 제외
-                if all(v == "" for v in vals):
+                if all(v == "-" for v in vals):
                     continue
-                tbl_rows.append([_pc(comp), _pc(method), _pc(equip), _pc(solvent)]
+                tbl_rows.append([_pc(comp), _pc_method(method), _pc(equip), _pc(solvent)]
                                  + [_pc(v) for v in vals])
 
         if len(tbl_rows) <= 1:  # 헤더만 있으면 제출 데이터 없는 그룹 → 제외
