@@ -1745,11 +1745,15 @@ def generate_submission_pdf(
                                    textColor=colors.white)
         def _pc(txt, hdr=False):
             return Paragraph(str(txt), _cell_hdr if hdr else _cell_sty)
-        _cell_sm  = ParagraphStyle("sub_cell_sm", fontName=KO, fontSize=6, leading=8, alignment=TA_CENTER)
+        _cell_sm  = ParagraphStyle("sub_cell_sm", fontName=KO, fontSize=6, leading=7, alignment=TA_CENTER)
         def _pc_method(txt):
+            import re as _re_m
             s = str(txt)
-            return Paragraph(s, _cell_sm if len(s) > 14 else _cell_sty)
-
+            # "Method" 앞에서 줄바꿈 (대소문자 무관)
+            s_br = _re_m.sub(r'\s+(Method)\b', r'<br/>Method', s, flags=_re_m.IGNORECASE)
+            has_break = s_br != s
+            sty = _cell_sm if (len(s) > 14 or has_break) else _cell_sty
+            return Paragraph(s_br, sty)
         header = [_pc(c, hdr=True) for c in ["성분", "방법", "기기명", "용매"] + grp_samples]
         tbl_rows = [header]
         for item in items:
@@ -1780,7 +1784,8 @@ def generate_submission_pdf(
         fixed_w    = [28*mm, 28*mm, 25*mm, 20*mm]
         remaining  = 180*mm - sum(fixed_w)
         sample_w   = [remaining / len(grp_samples)] * len(grp_samples) if grp_samples else []
-        t = Table(tbl_rows, colWidths=fixed_w + sample_w, repeatRows=1)
+        _row_heights = [16] + [18] * (len(tbl_rows) - 1)
+        t = Table(tbl_rows, colWidths=fixed_w + sample_w, repeatRows=1, rowHeights=_row_heights)
         t.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, 0), colors.HexColor("#2c3e50")),
             ("FONTNAME",      (0, 0), (-1, -1), KO),
