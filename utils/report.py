@@ -1745,7 +1745,7 @@ def generate_submission_pdf(
                                    textColor=colors.white)
         def _pc(txt, hdr=False):
             return Paragraph(str(txt), _cell_hdr if hdr else _cell_sty)
-        _cell_sm  = ParagraphStyle("sub_cell_sm", fontName=KO, fontSize=6.5, leading=8.5, alignment=TA_CENTER)
+        _cell_sm  = ParagraphStyle("sub_cell_sm", fontName=KO, fontSize=6, leading=8, alignment=TA_CENTER)
         def _pc_method(txt):
             s = str(txt)
             return Paragraph(s, _cell_sm if len(s) > 14 else _cell_sty)
